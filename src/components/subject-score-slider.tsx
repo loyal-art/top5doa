@@ -3,6 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ---------------------------------------------------------------------------
+// Haptic feedback — Web Vibration API with feature detection
+// ---------------------------------------------------------------------------
+
+function canVibrate(): boolean {
+  return typeof navigator !== "undefined" && "vibrate" in navigator;
+}
+
+function vibrate(pattern: number | number[]): void {
+  if (canVibrate()) {
+    navigator.vibrate(pattern);
+  }
+}
+
+/** Maps a score (1–99) to a vibration duration in ms. */
+function scoreToHapticMs(score: number, min: number, max: number): number {
+  const t = (score - min) / (max - min); // 0–1
+  // 4ms at low end → 45ms at high end, quadratic curve for feel
+  return Math.round(4 + 41 * t * t);
+}
+
+/** Distinct celebration burst pattern: [vibrate, pause, …] */
+const CELEBRATION_HAPTIC = [40, 30, 60, 30, 80, 40, 120];
+
+// ---------------------------------------------------------------------------
 // Color interpolation — dull gray → yellow-green → hot red
 // ---------------------------------------------------------------------------
 
@@ -147,6 +171,7 @@ export function SubjectScoreSlider({
   // Trigger celebration when value reaches max
   useEffect(() => {
     if (value === max && prevValue.current !== max) {
+      vibrate(CELEBRATION_HAPTIC);
       setCelebrating(true);
       setParticles(generateParticles(18));
       const timeout = setTimeout(() => {
@@ -160,18 +185,30 @@ export function SubjectScoreSlider({
 
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange(Number(e.target.value));
+      const next = Number(e.target.value);
+      if (next !== prevValue.current) {
+        vibrate(scoreToHapticMs(next, min, max));
+      }
+      onChange(next);
     },
-    [onChange],
+    [onChange, min, max],
   );
 
   const increment = useCallback(() => {
-    if (value < max) onChange(value + 1);
-  }, [value, max, onChange]);
+    if (value < max) {
+      const next = value + 1;
+      vibrate(scoreToHapticMs(next, min, max));
+      onChange(next);
+    }
+  }, [value, max, min, onChange]);
 
   const decrement = useCallback(() => {
-    if (value > min) onChange(value - 1);
-  }, [value, min, onChange]);
+    if (value > min) {
+      const next = value - 1;
+      vibrate(scoreToHapticMs(next, min, max));
+      onChange(next);
+    }
+  }, [value, min, max, onChange]);
 
   // Keyboard: hold arrow for repeat
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
