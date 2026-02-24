@@ -146,7 +146,7 @@ create index idx_user_attr_ranks_user_topic on user_attribute_ranks (user_id, to
 
 -- ============================================================================
 -- USER SUBJECT SCORES
--- A user's 1–10 rating of a subject on a specific attribute
+-- A user's 1–99 rating of a subject on a specific attribute
 -- ============================================================================
 
 create table user_subject_scores (
@@ -155,14 +155,14 @@ create table user_subject_scores (
   topic_id      uuid not null references topics (id) on delete cascade,
   subject_id    uuid not null references subjects (id) on delete cascade,
   attribute_id  uuid not null references attributes (id) on delete cascade,
-  score         integer not null check (score >= 1 and score <= 10),
+  score         integer not null check (score >= 1 and score <= 99),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
 
   unique (user_id, subject_id, attribute_id)
 );
 
-comment on table user_subject_scores is 'Raw per-attribute scores (1–10) that each user gives to each subject.';
+comment on table user_subject_scores is 'Raw per-attribute scores (1–99) that each user gives to each subject.';
 
 create index idx_user_scores_user_topic on user_subject_scores (user_id, topic_id);
 create index idx_user_scores_subject on user_subject_scores (subject_id);
