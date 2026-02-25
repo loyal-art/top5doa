@@ -27,7 +27,7 @@ function scoreToHapticMs(score: number, min: number, max: number): number {
 const CELEBRATION_HAPTIC = [40, 30, 60, 30, 80, 40, 120];
 
 // ---------------------------------------------------------------------------
-// Color interpolation — dull gray → yellow-green → hot red
+// Color interpolation — brand palette: gray → accent → orange → red
 // ---------------------------------------------------------------------------
 
 interface ColorStop {
@@ -38,11 +38,11 @@ interface ColorStop {
 }
 
 const COLOR_STOPS: ColorStop[] = [
-  { t: 0.0, h: 220, s: 8, l: 55 }, // dull gray
-  { t: 0.25, h: 55, s: 55, l: 50 }, // warm yellow
-  { t: 0.5, h: 80, s: 65, l: 42 }, // yellow-green
-  { t: 0.75, h: 25, s: 90, l: 50 }, // orange
-  { t: 1.0, h: 0, s: 85, l: 50 }, // hot red
+  { t: 0.0, h: 220, s: 8, l: 40 },   // dark gray
+  { t: 0.25, h: 68, s: 100, l: 50 },  // brand accent (yellow-green #e8ff00)
+  { t: 0.5, h: 80, s: 65, l: 42 },    // green
+  { t: 0.75, h: 25, s: 90, l: 50 },   // orange
+  { t: 1.0, h: 0, s: 100, l: 62 },    // brand red (#ff3c3c)
 ];
 
 function lerp(a: number, b: number, t: number): number {
@@ -106,12 +106,12 @@ interface Particle {
 }
 
 const CELEBRATION_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#fbbf24",
-  "#f43f5e",
+  "#ff3c3c",   // brand red
+  "#e8ff00",   // brand accent
+  "#a78bfa",   // brand aura
   "#ffffff",
+  "#f97316",
+  "#fbbf24",
 ];
 
 function generateParticles(count: number): Particle[] {
@@ -165,7 +165,7 @@ export function SubjectScoreSlider({
     return `linear-gradient(to right, ${TRACK_GRADIENT.slice(
       "linear-gradient(to right, ".length,
       -1
-    )}) 0% / ${pct}% 100% no-repeat, hsl(220, 6%, 22%)`;
+    )}) 0% / ${pct}% 100% no-repeat, #1a1a1a`;
   }, [pct]);
 
   // Trigger celebration when value reaches max
@@ -261,8 +261,8 @@ export function SubjectScoreSlider({
           onTouchEnd={stopRepeat}
           disabled={value <= min}
           className="flex items-center justify-center w-10 h-10 rounded-lg
-                     bg-neutral-800 border border-neutral-700
-                     text-neutral-300 hover:bg-neutral-700 hover:text-white
+                     bg-brand-bg border border-brand-border
+                     text-neutral-400 hover:border-neutral-500 hover:text-white
                      active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed
                      transition-all duration-100 select-none"
           aria-label="Decrease score"
@@ -296,7 +296,7 @@ export function SubjectScoreSlider({
             `}
             style={{
               color: currentColor,
-              backgroundColor: `hsl(${Math.round(h)}, ${Math.round(s * 0.3)}%, 12%)`,
+              backgroundColor: `hsl(${Math.round(h)}, ${Math.round(s * 0.3)}%, 8%)`,
               border: `2px solid ${currentColor}`,
             }}
           >
@@ -335,8 +335,8 @@ export function SubjectScoreSlider({
           onTouchEnd={stopRepeat}
           disabled={value >= max}
           className="flex items-center justify-center w-10 h-10 rounded-lg
-                     bg-neutral-800 border border-neutral-700
-                     text-neutral-300 hover:bg-neutral-700 hover:text-white
+                     bg-brand-bg border border-brand-border
+                     text-neutral-400 hover:border-neutral-500 hover:text-white
                      active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed
                      transition-all duration-100 select-none"
           aria-label="Increase score"

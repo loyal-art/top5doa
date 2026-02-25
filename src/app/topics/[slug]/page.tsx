@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { TopicVotingFlow } from "./topic-voting-flow";
 
 interface TopicPageProps {
@@ -63,30 +64,57 @@ export default async function TopicPage({ params }: TopicPageProps) {
     .single();
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
+    <main className="min-h-screen">
       {/* Topic Header */}
-      <div className="mb-8">
-        <p className="text-sm font-medium text-neutral-500 uppercase tracking-wider mb-1">
-          {topic.category}
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight">{topic.title}</h1>
-        {topic.description && (
-          <p className="text-neutral-400 mt-2 max-w-2xl">
-            {topic.description}
-          </p>
-        )}
-      </div>
+      <section className="relative border-b border-brand-border overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
 
-      <TopicVotingFlow
-        topic={topic}
-        subjects={subjects ?? []}
-        attributes={attributes ?? []}
-        weights={
-          scoringConfig
-            ? (scoringConfig.weights as number[])
-            : []
-        }
-      />
+        <div className="max-w-6xl mx-auto px-4 py-10 relative">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs font-mono text-neutral-600 mb-4">
+            <Link href="/" className="hover:text-brand-accent transition-colors">
+              Home
+            </Link>
+            <span>/</span>
+            <span className="text-neutral-500 uppercase">{topic.category}</span>
+          </div>
+
+          <h1 className="font-display text-4xl sm:text-5xl tracking-wide text-white">
+            {topic.title.toUpperCase()}
+          </h1>
+          {topic.description && (
+            <p className="text-neutral-400 mt-3 max-w-2xl font-body leading-relaxed">
+              {topic.description}
+            </p>
+          )}
+
+          {/* Stats bar */}
+          <div className="flex items-center gap-4 mt-6">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+              {subjects?.length ?? 0} subjects
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
+              {attrCount} attributes
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Voting Flow */}
+      <section className="max-w-6xl mx-auto px-4 py-8">
+        <TopicVotingFlow
+          topic={topic}
+          subjects={subjects ?? []}
+          attributes={attributes ?? []}
+          weights={
+            scoringConfig
+              ? (scoringConfig.weights as number[])
+              : []
+          }
+        />
+      </section>
     </main>
   );
 }

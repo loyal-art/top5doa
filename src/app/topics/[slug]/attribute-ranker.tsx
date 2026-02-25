@@ -101,21 +101,21 @@ export function AttributeRanker({
               dragIdx === idx
                 ? "opacity-40 scale-95"
                 : overIdx === idx && dragIdx !== null
-                  ? "border-white bg-neutral-800"
-                  : "border-neutral-800 bg-neutral-900 hover:border-neutral-700"
+                  ? "border-brand-accent bg-brand-accent/5"
+                  : "border-brand-border bg-brand-surface hover:border-neutral-600"
             }
           `}
         >
           {/* Rank badge */}
           <span
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg flex-shrink-0 ${
               idx === 0
-                ? "bg-yellow-500/20 text-yellow-400"
+                ? "bg-brand-accent/20 text-brand-accent"
                 : idx === 1
                   ? "bg-neutral-400/20 text-neutral-300"
                   : idx === 2
                     ? "bg-orange-500/20 text-orange-400"
-                    : "bg-neutral-800 text-neutral-500"
+                    : "bg-brand-border text-neutral-600"
             }`}
           >
             {idx + 1}
@@ -123,7 +123,7 @@ export function AttributeRanker({
 
           {/* Drag handle */}
           <svg
-            className="w-5 h-5 text-neutral-600 flex-shrink-0"
+            className="w-5 h-5 text-neutral-700 flex-shrink-0"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -138,16 +138,18 @@ export function AttributeRanker({
 
           {/* Attribute info */}
           <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{attr.name}</p>
+            <p className="font-mono text-sm font-bold text-white uppercase tracking-wider truncate">
+              {attr.name}
+            </p>
             {attr.description && (
-              <p className="text-xs text-neutral-500 truncate">
+              <p className="text-xs text-neutral-600 font-body truncate mt-0.5">
                 {attr.description}
               </p>
             )}
           </div>
 
           {/* Weight display */}
-          <span className="text-sm text-neutral-500 font-mono flex-shrink-0">
+          <span className="text-sm text-brand-accent font-mono font-bold flex-shrink-0">
             {weights[idx] ?? 0}%
           </span>
 
@@ -156,11 +158,11 @@ export function AttributeRanker({
             <button
               onClick={() => moveUp(idx)}
               disabled={idx === 0}
-              className="p-1 rounded hover:bg-neutral-800 disabled:opacity-20 transition-colors"
+              className="p-1 rounded hover:bg-brand-border disabled:opacity-20 transition-colors"
               aria-label={`Move ${attr.name} up`}
             >
               <svg
-                className="w-3.5 h-3.5"
+                className="w-3.5 h-3.5 text-neutral-400"
                 fill="none"
                 viewBox="0 0 14 14"
                 stroke="currentColor"
@@ -176,11 +178,11 @@ export function AttributeRanker({
             <button
               onClick={() => moveDown(idx)}
               disabled={idx === attributes.length - 1}
-              className="p-1 rounded hover:bg-neutral-800 disabled:opacity-20 transition-colors"
+              className="p-1 rounded hover:bg-brand-border disabled:opacity-20 transition-colors"
               aria-label={`Move ${attr.name} down`}
             >
               <svg
-                className="w-3.5 h-3.5"
+                className="w-3.5 h-3.5 text-neutral-400"
                 fill="none"
                 viewBox="0 0 14 14"
                 stroke="currentColor"

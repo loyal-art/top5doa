@@ -48,8 +48,8 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Sign In</h1>
-          <p className="text-neutral-500 text-sm mt-2">
+          <h1 className="font-display text-4xl tracking-wide">SIGN IN</h1>
+          <p className="text-neutral-500 text-sm mt-2 font-body">
             Welcome back to Top5DOA
           </p>
         </div>
@@ -59,7 +59,7 @@ export default function LoginPage() {
           <button
             onClick={() => handleOAuthLogin("google")}
             className="w-full flex items-center justify-center gap-3 px-4 py-3
-                       rounded-lg bg-white text-neutral-900 font-medium
+                       rounded-xl bg-white text-neutral-900 font-mono font-bold text-sm
                        hover:bg-neutral-100 transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -86,7 +86,7 @@ export default function LoginPage() {
           <button
             onClick={() => handleOAuthLogin("facebook")}
             className="w-full flex items-center justify-center gap-3 px-4 py-3
-                       rounded-lg bg-[#1877F2] text-white font-medium
+                       rounded-xl bg-[#1877F2] text-white font-mono font-bold text-sm
                        hover:bg-[#166FE5] transition-colors"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -98,10 +98,10 @@ export default function LoginPage() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-neutral-800" />
+            <div className="w-full border-t border-brand-border" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-neutral-950 px-4 text-neutral-500">or</span>
+            <span className="bg-brand-bg px-4 text-neutral-600 font-mono">or</span>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-neutral-400 mb-1.5"
+              className="block text-xs font-mono text-neutral-500 uppercase tracking-wider mb-1.5"
             >
               Email
             </label>
@@ -120,16 +120,16 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 rounded-lg bg-neutral-900 border border-neutral-800
-                         text-white placeholder-neutral-600 focus:outline-none focus:ring-2
-                         focus:ring-neutral-600 transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-brand-surface border border-brand-border
+                         text-white font-body placeholder-neutral-700 focus:outline-none focus:border-brand-accent/50
+                         focus:ring-1 focus:ring-brand-accent/30 transition-colors"
               placeholder="you@example.com"
             />
           </div>
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-neutral-400 mb-1.5"
+              className="block text-xs font-mono text-neutral-500 uppercase tracking-wider mb-1.5"
             >
               Password
             </label>
@@ -140,31 +140,31 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-4 py-3 rounded-lg bg-neutral-900 border border-neutral-800
-                         text-white placeholder-neutral-600 focus:outline-none focus:ring-2
-                         focus:ring-neutral-600 transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-brand-surface border border-brand-border
+                         text-white font-body placeholder-neutral-700 focus:outline-none focus:border-brand-accent/50
+                         focus:ring-1 focus:ring-brand-accent/30 transition-colors"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm">{error}</p>
+            <p className="text-brand-red text-sm font-mono">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 rounded-lg bg-white text-neutral-900 font-semibold
-                       hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed
+            className="w-full px-4 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold
+                       hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <p className="text-center text-sm text-neutral-500">
+        <p className="text-center text-sm text-neutral-500 font-body">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-white hover:underline">
+          <Link href="/signup" className="text-brand-accent hover:underline font-mono">
             Sign up
           </Link>
         </p>

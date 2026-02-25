@@ -19,6 +19,12 @@ interface TopicVotingFlowProps {
 
 type Step = "rank" | "score" | "results";
 
+const STEP_META: Record<Step, { num: number; label: string }> = {
+  rank: { num: 1, label: "RANK ATTRIBUTES" },
+  score: { num: 2, label: "SCORE SUBJECTS" },
+  results: { num: 3, label: "YOUR TOP 5" },
+};
+
 export function TopicVotingFlow({
   topic,
   subjects,
@@ -29,6 +35,7 @@ export function TopicVotingFlow({
   const [userId, setUserId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("rank");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
@@ -141,6 +148,7 @@ export function TopicVotingFlow({
   async function handleSave() {
     if (!userId) return;
     setSaving(true);
+    setSaved(false);
 
     try {
       // Upsert attribute ranks
@@ -186,6 +194,8 @@ export function TopicVotingFlow({
           { onConflict: "user_id,topic_id,subject_id" },
         );
       }
+
+      setSaved(true);
     } finally {
       setSaving(false);
     }
@@ -204,7 +214,7 @@ export function TopicVotingFlow({
   if (!attributes.length || !subjects.length) {
     return (
       <div className="text-center py-16 text-neutral-500">
-        <p>This topic doesn&apos;t have enough data to vote on yet.</p>
+        <p className="font-body">This topic doesn&apos;t have enough data to vote on yet.</p>
       </div>
     );
   }
@@ -212,39 +222,58 @@ export function TopicVotingFlow({
   return (
     <div className="space-y-8">
       {/* Step Indicator */}
-      <div className="flex items-center gap-2">
-        {(["rank", "score", "results"] as const).map((s, i) => (
-          <button
-            key={s}
-            onClick={() => setStep(s)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              step === s
-                ? "bg-white text-neutral-900"
-                : "bg-neutral-900 text-neutral-400 hover:text-white"
-            }`}
-          >
-            <span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step === s
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-800 text-neutral-500"
-              }`}
+      <div className="flex items-center gap-1 sm:gap-2">
+        {(["rank", "score", "results"] as const).map((s, i) => {
+          const isActive = step === s;
+          const isPast =
+            (s === "rank" && (step === "score" || step === "results")) ||
+            (s === "score" && step === "results");
+
+          return (
+            <button
+              key={s}
+              onClick={() => setStep(s)}
+              className="flex items-center gap-2 flex-1 sm:flex-none"
             >
-              {i + 1}
-            </span>
-            {s === "rank" && "Rank Attributes"}
-            {s === "score" && "Score Subjects"}
-            {s === "results" && "Your Top 5"}
-          </button>
-        ))}
+              <div
+                className={`flex items-center gap-2 px-3 sm:px-5 py-2.5 rounded-xl text-sm font-mono transition-all w-full sm:w-auto justify-center sm:justify-start ${
+                  isActive
+                    ? "bg-brand-accent text-brand-bg font-bold"
+                    : isPast
+                      ? "bg-brand-surface border border-brand-accent/30 text-brand-accent"
+                      : "bg-brand-surface border border-brand-border text-neutral-500"
+                }`}
+              >
+                <span
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                    isActive
+                      ? "bg-brand-bg text-brand-accent"
+                      : isPast
+                        ? "bg-brand-accent/20 text-brand-accent"
+                        : "bg-brand-border text-neutral-600"
+                  }`}
+                >
+                  {isPast ? (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <span className="hidden sm:inline">{STEP_META[s].label}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Step 1: Rank Attributes */}
       {step === "rank" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold">Rank the Attributes</h2>
-            <p className="text-neutral-500 text-sm mt-1">
+            <h2 className="font-display text-3xl tracking-wide">RANK THE ATTRIBUTES</h2>
+            <p className="text-neutral-500 text-sm mt-1 font-body">
               Drag to reorder by importance. #1 carries the most weight.
             </p>
           </div>
@@ -255,11 +284,11 @@ export function TopicVotingFlow({
             onReorder={setRankedAttributeIds}
           />
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <button
               onClick={() => setStep("score")}
-              className="px-6 py-3 rounded-lg bg-white text-neutral-900 font-semibold
-                         hover:bg-neutral-200 transition-colors"
+              className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold
+                         hover:bg-brand-accent/90 transition-colors"
             >
               Next: Score Subjects
             </button>
@@ -270,39 +299,52 @@ export function TopicVotingFlow({
       {/* Step 2: Score Subjects */}
       {step === "score" && currentSubject && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          {/* Subject header card */}
+          <div className="flex items-center justify-between p-5 rounded-2xl bg-brand-surface border border-brand-border">
             <div>
-              <h2 className="text-xl font-bold">
-                Rate: {currentSubject.name}
+              <h2 className="font-display text-3xl tracking-wide">
+                {currentSubject.name.toUpperCase()}
               </h2>
               {currentSubject.era && (
-                <p className="text-neutral-500 text-sm">{currentSubject.era}</p>
+                <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
               )}
-              <p className="text-neutral-600 text-xs mt-1">
+              <p className="text-neutral-600 text-xs font-mono mt-1">
                 Subject {currentSubjectIdx + 1} of {subjects.length}
               </p>
             </div>
-            {currentSubject.photo_url && (
-              <div className="w-16 h-16 rounded-full bg-neutral-800 overflow-hidden flex-shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={currentSubject.photo_url}
-                  alt={currentSubject.name}
-                  className="w-full h-full object-cover"
-                />
+
+            {/* Subject stats */}
+            {currentSubject.stats && (
+              <div className="hidden sm:flex items-center gap-3">
+                {Object.entries(currentSubject.stats as Record<string, number>).slice(0, 4).map(([key, val]) => (
+                  <div key={key} className="text-center px-3 py-2 rounded-lg bg-brand-bg border border-brand-border">
+                    <p className="text-xs font-mono text-neutral-600 uppercase">{key}</p>
+                    <p className="text-sm font-mono font-bold text-white">{val}</p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          <div className="space-y-8">
+          {/* Attribute sliders */}
+          <div className="space-y-6">
             {rankedAttributes.map((attr, idx) => (
-              <div key={attr.id} className="space-y-2">
+              <div key={attr.id} className="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-neutral-400 uppercase tracking-wider">
-                    {attr.name}
+                  <label className="flex items-center gap-2">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold font-mono ${
+                      idx === 0
+                        ? "bg-brand-accent/20 text-brand-accent"
+                        : "bg-brand-border text-neutral-500"
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
+                      {attr.name}
+                    </span>
                   </label>
-                  <span className="text-xs text-neutral-600">
-                    Weight: {weights[idx] ?? 0}%
+                  <span className="text-xs font-mono text-neutral-600">
+                    {weights[idx] ?? 0}% weight
                   </span>
                 </div>
                 <SubjectScoreSlider
@@ -325,12 +367,13 @@ export function TopicVotingFlow({
                   setStep("rank");
                 }
               }}
-              className="px-4 py-2.5 rounded-lg bg-neutral-900 border border-neutral-800
-                         text-neutral-300 hover:bg-neutral-800 transition-colors"
+              className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                         text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
             >
               {currentSubjectIdx > 0 ? "Previous" : "Back to Ranking"}
             </button>
 
+            {/* Dot nav */}
             <div className="flex gap-1.5">
               {subjects.map((_, i) => (
                 <button
@@ -338,8 +381,8 @@ export function TopicVotingFlow({
                   onClick={() => setCurrentSubjectIdx(i)}
                   className={`w-2.5 h-2.5 rounded-full transition-colors ${
                     i === currentSubjectIdx
-                      ? "bg-white"
-                      : "bg-neutral-700 hover:bg-neutral-500"
+                      ? "bg-brand-accent"
+                      : "bg-brand-border hover:bg-neutral-500"
                   }`}
                   aria-label={`Go to subject ${i + 1}`}
                 />
@@ -354,8 +397,8 @@ export function TopicVotingFlow({
                   setStep("results");
                 }
               }}
-              className="px-4 py-2.5 rounded-lg bg-white text-neutral-900 font-semibold
-                         hover:bg-neutral-200 transition-colors"
+              className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                         hover:bg-brand-accent/90 transition-colors"
             >
               {currentSubjectIdx < subjects.length - 1
                 ? "Next Subject"
@@ -369,51 +412,67 @@ export function TopicVotingFlow({
       {step === "results" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold">Your Top 5</h2>
-            <p className="text-neutral-500 text-sm mt-1">
+            <h2 className="font-display text-3xl tracking-wide">YOUR TOP 5</h2>
+            <p className="text-neutral-500 text-sm mt-1 font-body">
               Based on your attribute rankings and scores
             </p>
           </div>
 
           <div className="space-y-3">
-            {results.map((r, idx) => (
-              <div
-                key={r.subject.id}
-                className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
-                  idx < 5
-                    ? "bg-neutral-900 border-neutral-700"
-                    : "bg-neutral-950 border-neutral-800 opacity-60"
-                }`}
-              >
-                <span
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                    idx === 0
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : idx === 1
-                        ? "bg-neutral-400/20 text-neutral-300"
-                        : idx === 2
-                          ? "bg-orange-500/20 text-orange-400"
-                          : "bg-neutral-800 text-neutral-500"
+            {results.map((r, idx) => {
+              const isTop5 = idx < 5;
+              const isGold = idx === 0;
+              const isSilver = idx === 1;
+              const isBronze = idx === 2;
+
+              return (
+                <div
+                  key={r.subject.id}
+                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
+                    isGold
+                      ? "bg-brand-accent/5 border-brand-accent/40"
+                      : isTop5
+                        ? "bg-brand-surface border-brand-border"
+                        : "bg-brand-bg border-brand-border opacity-50"
                   }`}
                 >
-                  {idx + 1}
-                </span>
+                  {/* Rank badge */}
+                  <span
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
+                      isGold
+                        ? "bg-brand-accent/20 text-brand-accent"
+                        : isSilver
+                          ? "bg-neutral-400/20 text-neutral-300"
+                          : isBronze
+                            ? "bg-orange-500/20 text-orange-400"
+                            : "bg-brand-border text-neutral-600"
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{r.subject.name}</p>
-                  {r.subject.era && (
-                    <p className="text-xs text-neutral-500">{r.subject.era}</p>
-                  )}
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-display text-lg tracking-wide truncate ${
+                      isGold ? "text-brand-accent" : "text-white"
+                    }`}>
+                      {r.subject.name.toUpperCase()}
+                    </p>
+                    {r.subject.era && (
+                      <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                    )}
+                  </div>
 
-                <div className="text-right">
-                  <p className="font-mono font-bold text-lg">
-                    {r.score.toFixed(1)}
-                  </p>
-                  <p className="text-xs text-neutral-500">weighted</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`font-mono font-bold text-lg ${
+                      isGold ? "text-brand-accent" : "text-white"
+                    }`}>
+                      {r.score.toFixed(1)}
+                    </p>
+                    <p className="text-xs font-mono text-neutral-600">pts</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between pt-4">
@@ -422,8 +481,8 @@ export function TopicVotingFlow({
                 setCurrentSubjectIdx(0);
                 setStep("score");
               }}
-              className="px-4 py-2.5 rounded-lg bg-neutral-900 border border-neutral-800
-                         text-neutral-300 hover:bg-neutral-800 transition-colors"
+              className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                         text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
             >
               Edit Scores
             </button>
@@ -432,16 +491,19 @@ export function TopicVotingFlow({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-3 rounded-lg bg-white text-neutral-900 font-semibold
-                           hover:bg-neutral-200 disabled:opacity-50 transition-colors"
+                className={`px-8 py-3.5 rounded-xl font-mono font-bold text-sm transition-all ${
+                  saved
+                    ? "bg-green-500/20 border border-green-500/40 text-green-400"
+                    : "bg-brand-accent text-brand-bg hover:bg-brand-accent/90 disabled:opacity-50"
+                }`}
               >
-                {saving ? "Saving..." : "Lock In My List"}
+                {saving ? "Saving..." : saved ? "Locked In" : "Lock In My List"}
               </button>
             ) : (
               <a
                 href="/login"
-                className="px-6 py-3 rounded-lg bg-white text-neutral-900 font-semibold
-                           hover:bg-neutral-200 transition-colors inline-block"
+                className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                           hover:bg-brand-accent/90 transition-colors inline-block"
               >
                 Sign In to Save
               </a>
