@@ -419,60 +419,180 @@ export function TopicVotingFlow({
           </div>
 
           <div className="space-y-3">
-            {results.map((r, idx) => {
-              const isTop5 = idx < 5;
-              const isGold = idx === 0;
-              const isSilver = idx === 1;
-              const isBronze = idx === 2;
+            {/* Position #1 — always visible */}
+            {results[0] && (
+              <div className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40">
+                <span className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 bg-brand-accent/20 text-brand-accent">
+                  1
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-lg tracking-wide truncate text-brand-accent">
+                    {results[0].subject.name.toUpperCase()}
+                  </p>
+                  {results[0].subject.era && (
+                    <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
+                  )}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-mono font-bold text-lg text-brand-accent">
+                    {results[0].score.toFixed(1)}
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600">pts</p>
+                </div>
+              </div>
+            )}
 
-              return (
-                <div
-                  key={r.subject.id}
-                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                    isGold
-                      ? "bg-brand-accent/5 border-brand-accent/40"
-                      : isTop5
-                        ? "bg-brand-surface border-brand-border"
-                        : "bg-brand-bg border-brand-border opacity-50"
-                  }`}
-                >
-                  {/* Rank badge */}
-                  <span
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
-                      isGold
-                        ? "bg-brand-accent/20 text-brand-accent"
-                        : isSilver
-                          ? "bg-neutral-400/20 text-neutral-300"
-                          : isBronze
-                            ? "bg-orange-500/20 text-orange-400"
-                            : "bg-brand-border text-neutral-600"
-                    }`}
-                  >
-                    {idx + 1}
-                  </span>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-display text-lg tracking-wide truncate ${
-                      isGold ? "text-brand-accent" : "text-white"
-                    }`}>
-                      {r.subject.name.toUpperCase()}
-                    </p>
-                    {r.subject.era && (
-                      <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                    )}
-                  </div>
-
-                  <div className="text-right flex-shrink-0">
-                    <p className={`font-mono font-bold text-lg ${
-                      isGold ? "text-brand-accent" : "text-white"
-                    }`}>
-                      {r.score.toFixed(1)}
-                    </p>
-                    <p className="text-xs font-mono text-neutral-600">pts</p>
+            {/* Positions 2–5: blurred for unauthenticated users */}
+            {results.slice(1, 5).length > 0 && (
+              <div className="relative">
+                <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
+                  <div className="space-y-3">
+                    {results.slice(1, 5).map((r, relIdx) => {
+                      const idx = relIdx + 1;
+                      const isSilver = idx === 1;
+                      const isBronze = idx === 2;
+                      return (
+                        <div
+                          key={r.subject.id}
+                          className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-surface border-brand-border"
+                        >
+                          <span
+                            className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
+                              isSilver
+                                ? "bg-neutral-400/20 text-neutral-300"
+                                : isBronze
+                                  ? "bg-orange-500/20 text-orange-400"
+                                  : "bg-brand-border text-neutral-600"
+                            }`}
+                          >
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-display text-lg tracking-wide truncate text-white">
+                              {r.subject.name.toUpperCase()}
+                            </p>
+                            {r.subject.era && (
+                              <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-mono font-bold text-lg text-white">
+                              {r.score.toFixed(1)}
+                            </p>
+                            <p className="text-xs font-mono text-neutral-600">pts</p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
+                {!userId && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                    <p className="font-display text-lg tracking-wide text-white text-center px-4">
+                      Sign in to see your full Top 5
+                    </p>
+                    <a
+                      href="/signup"
+                      className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                    >
+                      Sign Up
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Positions 6+: de-emphasized */}
+            {results.slice(5).map((r, relIdx) => (
+              <div
+                key={r.subject.id}
+                className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-bg border-brand-border opacity-50"
+              >
+                <span className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 bg-brand-border text-neutral-600">
+                  {relIdx + 6}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-lg tracking-wide truncate text-white">
+                    {r.subject.name.toUpperCase()}
+                  </p>
+                  {r.subject.era && (
+                    <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                  )}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-mono font-bold text-lg text-white">
+                    {r.score.toFixed(1)}
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600">pts</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Global Rankings Section */}
+          <div className="space-y-3 pt-2">
+            <div>
+              <h3 className="font-display text-xl tracking-wide">HOW THE WORLD RANKED IT</h3>
+              <p className="text-neutral-500 text-sm mt-1 font-body">
+                Community consensus based on all votes
+              </p>
+            </div>
+            <div className="relative">
+              <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
+                <div className="space-y-3">
+                  {results.slice(0, 5).map((r, idx) => {
+                    const isGold = idx === 0;
+                    const isSilver = idx === 1;
+                    const isBronze = idx === 2;
+                    return (
+                      <div
+                        key={r.subject.id}
+                        className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
+                          isGold
+                            ? "bg-brand-accent/5 border-brand-accent/40"
+                            : "bg-brand-surface border-brand-border"
+                        }`}
+                      >
+                        <span
+                          className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
+                            isGold
+                              ? "bg-brand-accent/20 text-brand-accent"
+                              : isSilver
+                                ? "bg-neutral-400/20 text-neutral-300"
+                                : isBronze
+                                  ? "bg-orange-500/20 text-orange-400"
+                                  : "bg-brand-border text-neutral-600"
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-display text-lg tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
+                            {r.subject.name.toUpperCase()}
+                          </p>
+                          {r.subject.era && (
+                            <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {!userId && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                  <p className="font-display text-lg tracking-wide text-white text-center px-4">
+                    Sign in to see how the world ranked it
+                  </p>
+                  <a
+                    href="/signup"
+                    className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                  >
+                    Sign Up
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-4">
