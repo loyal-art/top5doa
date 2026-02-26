@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { TopicVotingFlow } from "./topic-voting-flow";
 
@@ -28,6 +28,17 @@ export async function generateMetadata({ params }: TopicPageProps) {
 export default async function TopicPage({ params }: TopicPageProps) {
   const { slug } = await params;
   const supabase = await createClient();
+
+  // Require authentication to access the voting flow
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(
+      "/signup?message=Create+a+free+account+to+cast+your+verdict.",
+    );
+  }
 
   // Fetch topic
   const { data: topic } = await supabase

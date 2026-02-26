@@ -151,21 +151,24 @@ export function TopicVotingFlow({
     setSaved(false);
 
     try {
-      // Upsert attribute ranks
+      // Delete then insert attribute ranks to avoid unique constraint violations
+      // on rank_position when the user re-orders attributes between saves.
+      await supabase
+        .from("user_attribute_ranks")
+        .delete()
+        .eq("user_id", userId)
+        .eq("topic_id", topic.id);
+
       const rankRows = rankedAttributeIds.map((attrId, idx) => ({
         user_id: userId,
         topic_id: topic.id,
         attribute_id: attrId,
         rank_position: idx + 1,
       }));
+      await supabase.from("user_attribute_ranks").insert(rankRows);
 
-      for (const row of rankRows) {
-        await supabase.from("user_attribute_ranks").upsert(row, {
-          onConflict: "user_id,topic_id,attribute_id",
-        });
-      }
-
-      // Upsert subject scores
+      // Upsert subject scores — safe to upsert individually since the only
+      // unique key is (user_id, subject_id, attribute_id) with no rank position.
       for (const subjectId of Object.keys(scores)) {
         for (const attrId of Object.keys(scores[subjectId])) {
           await supabase.from("user_subject_scores").upsert(
@@ -181,19 +184,22 @@ export function TopicVotingFlow({
         }
       }
 
-      // Upsert user list (cached results)
-      for (let i = 0; i < results.length; i++) {
-        await supabase.from("user_lists").upsert(
-          {
-            user_id: userId,
-            topic_id: topic.id,
-            subject_id: results[i].subject.id,
-            calculated_score: results[i].score,
-            rank_position: i + 1,
-          },
-          { onConflict: "user_id,topic_id,subject_id" },
-        );
-      }
+      // Delete then insert user list for the same reason as attribute ranks:
+      // re-saves with different orderings would violate UNIQUE(user_id, topic_id, rank_position).
+      await supabase
+        .from("user_lists")
+        .delete()
+        .eq("user_id", userId)
+        .eq("topic_id", topic.id);
+
+      const listRows = results.map((r, i) => ({
+        user_id: userId,
+        topic_id: topic.id,
+        subject_id: r.subject.id,
+        calculated_score: r.score,
+        rank_position: i + 1,
+      }));
+      await supabase.from("user_lists").insert(listRows);
 
       setSaved(true);
     } finally {
