@@ -1,0 +1,120 @@
+import { createClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { TopicVotingFlow } from "./topic-voting-flow";
+
+interface TopicPageProps {
+  params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: TopicPageProps) {
+  const { slug } = await params;
+  const supabase = await createClient();
+  const { data: topic } = await supabase
+    .from("topics")
+    .select("title, description")
+    .eq("slug", slug)
+    .eq("status", "active")
+    .single();
+
+  if (!topic) return { title: "Topic Not Found | Top5DOA" };
+
+  return {
+    title: `${topic.title} | Top5DOA`,
+    description: topic.description,
+  };
+}
+
+export default async function TopicPage({ params }: TopicPageProps) {
+  const { slug } = await params;
+  const supabase = await createClient();
+
+  // Fetch topic
+  const { data: topic } = await supabase
+    .from("topics")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "active")
+    .single();
+
+  if (!topic) notFound();
+
+  // Fetch subjects for this topic
+  const { data: subjects } = await supabase
+    .from("subjects")
+    .select("*")
+    .eq("topic_id", topic.id)
+    .order("name");
+
+  // Fetch active attributes for this topic
+  const { data: attributes } = await supabase
+    .from("attributes")
+    .select("*")
+    .eq("topic_id", topic.id)
+    .in("status", ["active", "approved"])
+    .order("created_at");
+
+  // Fetch scoring config for this attribute count
+  const attrCount = attributes?.length ?? 0;
+  const { data: scoringConfig } = await supabase
+    .from("scoring_configs")
+    .select("*")
+    .eq("attribute_count", attrCount)
+    .eq("active", true)
+    .single();
+
+  return (
+    <main className="min-h-screen">
+      {/* Topic Header */}
+      <section className="relative border-b border-brand-border overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto px-4 py-10 relative">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs font-mono text-neutral-600 mb-4">
+            <Link href="/" className="hover:text-brand-accent transition-colors">
+              Home
+            </Link>
+            <span>/</span>
+            <span className="text-neutral-500 uppercase">{topic.category}</span>
+          </div>
+
+          <h1 className="font-display text-4xl sm:text-5xl tracking-wide text-white">
+            {topic.title.toUpperCase()}
+          </h1>
+          {topic.description && (
+            <p className="text-neutral-400 mt-3 max-w-2xl font-body leading-relaxed">
+              {topic.description}
+            </p>
+          )}
+
+          {/* Stats bar */}
+          <div className="flex items-center gap-4 mt-6">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+              {subjects?.length ?? 0} subjects
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
+              {attrCount} attributes
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Voting Flow */}
+      <section className="max-w-6xl mx-auto px-4 py-8">
+        <TopicVotingFlow
+          topic={topic}
+          subjects={subjects ?? []}
+          attributes={attributes ?? []}
+          weights={
+            scoringConfig
+              ? (scoringConfig.weights as number[])
+              : []
+          }
+        />
+      </section>
+    </main>
+  );
+}
