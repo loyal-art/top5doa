@@ -15,7 +15,6 @@ interface TopicVotingFlowProps {
   subjects: Subject[];
   attributes: Attribute[];
   weights: number[];
-  globalRankings: { subject: Subject; score: number }[];
 }
 
 type Step = "rank" | "score" | "results";
@@ -31,7 +30,6 @@ export function TopicVotingFlow({
   subjects,
   attributes,
   weights,
-  globalRankings,
 }: TopicVotingFlowProps) {
   const supabase = createClient();
   const [userId, setUserId] = useState<string | null>(null);
@@ -39,6 +37,12 @@ export function TopicVotingFlow({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
+
+  // Global community rankings — null = not yet fetched / loading
+  const [globalRankings, setGlobalRankings] = useState<
+    { subject: Subject; score: number }[] | null
+  >(null);
+  const [globalLoading, setGlobalLoading] = useState(false);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -109,6 +113,32 @@ export function TopicVotingFlow({
 
     loadExistingData();
   }, [userId, topic.id, supabase, attributes]);
+
+  // Fetch community global rankings from the security-definer RPC.
+  // Runs whenever the user reaches the results step, and again after saving.
+  const fetchGlobalRankings = useCallback(async () => {
+    setGlobalLoading(true);
+    const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s]));
+    const { data, error } = await supabase.rpc("get_global_rankings", {
+      p_topic_id: topic.id,
+    });
+    if (error) {
+      console.error("[global rankings] RPC error:", error);
+      setGlobalRankings([]);
+    } else {
+      const ranked = (data ?? [])
+        .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
+        .filter((r): r is { subject: Subject; score: number } => r.subject != null);
+      setGlobalRankings(ranked);
+    }
+    setGlobalLoading(false);
+  }, [supabase, topic.id, subjects]);
+
+  useEffect(() => {
+    if (step === "results") {
+      fetchGlobalRankings();
+    }
+  }, [step, fetchGlobalRankings]);
 
   // Compute ranked attribute objects in order
   const rankedAttributes = useMemo(
@@ -204,6 +234,8 @@ export function TopicVotingFlow({
       await supabase.from("user_lists").insert(listRows);
 
       setSaved(true);
+      // Refetch so the community tally reflects this user's new vote
+      fetchGlobalRankings();
     } finally {
       setSaving(false);
     }
@@ -419,238 +451,336 @@ export function TopicVotingFlow({
       {/* Step 3: Results */}
       {step === "results" && (
         <div className="space-y-6">
-          <div>
-            <h2 className="font-display text-3xl tracking-wide">YOUR TOP 5</h2>
-            <p className="text-neutral-500 text-sm mt-1 font-body">
-              Based on your attribute rankings and scores
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {/* Position #1 — always visible */}
-            {results[0] && (
-              <div className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40">
-                <span className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 bg-brand-accent/20 text-brand-accent">
-                  1
+          {saved ? (
+            /* ── Post-save: two-column locked-in view ── */
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-display text-3xl tracking-wide">LIST LOCKED IN</h2>
+                  <p className="text-neutral-500 text-sm mt-1 font-body">
+                    Your vote has been counted
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  LOCKED
                 </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display text-lg tracking-wide truncate text-brand-accent">
-                    {results[0].subject.name.toUpperCase()}
-                  </p>
-                  {results[0].subject.era && (
-                    <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
-                  )}
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-mono font-bold text-lg text-brand-accent">
-                    {results[0].score.toFixed(1)}
-                  </p>
-                  <p className="text-xs font-mono text-neutral-600">pts</p>
-                </div>
               </div>
-            )}
 
-            {/* Positions 2–5: blurred for unauthenticated users */}
-            {results.slice(1, 5).length > 0 && (
-              <div className="relative">
-                <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
-                  <div className="space-y-3">
-                    {results.slice(1, 5).map((r, relIdx) => {
-                      const idx = relIdx + 1;
+              {/* Two-column grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left: personal list */}
+                <div className="space-y-3">
+                  <h3 className="font-display text-lg tracking-wide text-neutral-300">YOUR LIST</h3>
+                  {results.slice(0, 5).map((r, idx) => {
+                    const isGold = idx === 0;
+                    const isSilver = idx === 1;
+                    const isBronze = idx === 2;
+                    return (
+                      <div
+                        key={r.subject.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                          isGold ? "bg-brand-accent/5 border-brand-accent/40" : "bg-brand-surface border-brand-border"
+                        }`}
+                      >
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
+                          isGold ? "bg-brand-accent/20 text-brand-accent"
+                          : isSilver ? "bg-neutral-400/20 text-neutral-300"
+                          : isBronze ? "bg-orange-500/20 text-orange-400"
+                          : "bg-brand-border text-neutral-600"
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-display text-sm tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
+                            {r.subject.name.toUpperCase()}
+                          </p>
+                          {r.subject.era && (
+                            <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                          )}
+                        </div>
+                        <p className={`font-mono font-bold text-sm flex-shrink-0 ${isGold ? "text-brand-accent" : "text-neutral-400"}`}>
+                          {r.score.toFixed(1)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right: community tally */}
+                <div className="space-y-3">
+                  <h3 className="font-display text-lg tracking-wide text-neutral-300">HOW THE WORLD RANKED IT</h3>
+                  {globalLoading || globalRankings === null ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-14 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+                      ))}
+                    </div>
+                  ) : globalRankings.length === 0 ? (
+                    <p className="text-neutral-500 text-sm font-mono py-6 text-center">
+                      No community votes yet.<br />You&apos;re among the first!
+                    </p>
+                  ) : (
+                    globalRankings.slice(0, 5).map((r, idx) => {
+                      const isGold = idx === 0;
                       const isSilver = idx === 1;
                       const isBronze = idx === 2;
                       return (
                         <div
                           key={r.subject.id}
-                          className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-surface border-brand-border"
+                          className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                            isGold ? "bg-brand-accent/5 border-brand-accent/40" : "bg-brand-surface border-brand-border"
+                          }`}
                         >
-                          <span
-                            className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
-                              isSilver
-                                ? "bg-neutral-400/20 text-neutral-300"
-                                : isBronze
-                                  ? "bg-orange-500/20 text-orange-400"
-                                  : "bg-brand-border text-neutral-600"
-                            }`}
-                          >
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
+                            isGold ? "bg-brand-accent/20 text-brand-accent"
+                            : isSilver ? "bg-neutral-400/20 text-neutral-300"
+                            : isBronze ? "bg-orange-500/20 text-orange-400"
+                            : "bg-brand-border text-neutral-600"
+                          }`}>
                             {idx + 1}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="font-display text-lg tracking-wide truncate text-white">
+                            <p className={`font-display text-sm tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
                               {r.subject.name.toUpperCase()}
                             </p>
                             {r.subject.era && (
                               <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
                             )}
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-mono font-bold text-lg text-white">
-                              {r.score.toFixed(1)}
-                            </p>
-                            <p className="text-xs font-mono text-neutral-600">pts</p>
-                          </div>
+                          <p className={`font-mono font-bold text-sm flex-shrink-0 ${isGold ? "text-brand-accent" : "text-neutral-400"}`}>
+                            {r.score.toFixed(1)}
+                          </p>
                         </div>
                       );
-                    })}
-                  </div>
+                    })
+                  )}
                 </div>
-                {!userId && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
-                    <p className="font-display text-lg tracking-wide text-white text-center px-4">
-                      Sign in to see your full Top 5
-                    </p>
-                    <a
-                      href="/signup"
-                      className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
-                    >
-                      Sign Up
-                    </a>
+              </div>
+
+              {/* Edit Vote button */}
+              <div className="flex justify-start pt-2">
+                <button
+                  onClick={() => {
+                    setSaved(false);
+                    setCurrentSubjectIdx(0);
+                    setStep("rank");
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                             text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                >
+                  Edit Vote
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── Pre-save: single-column preview ── */
+            <>
+              <div>
+                <h2 className="font-display text-3xl tracking-wide">YOUR TOP 5</h2>
+                <p className="text-neutral-500 text-sm mt-1 font-body">
+                  Based on your attribute rankings and scores
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Position #1 — always visible */}
+                {results[0] && (
+                  <div className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40">
+                    <span className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 bg-brand-accent/20 text-brand-accent">
+                      1
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-lg tracking-wide truncate text-brand-accent">
+                        {results[0].subject.name.toUpperCase()}
+                      </p>
+                      {results[0].subject.era && (
+                        <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-mono font-bold text-lg text-brand-accent">
+                        {results[0].score.toFixed(1)}
+                      </p>
+                      <p className="text-xs font-mono text-neutral-600">pts</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Positions 2–5: blurred for unauthenticated users */}
+                {results.slice(1, 5).length > 0 && (
+                  <div className="relative">
+                    <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
+                      <div className="space-y-3">
+                        {results.slice(1, 5).map((r, relIdx) => {
+                          const idx = relIdx + 1;
+                          const isSilver = idx === 1;
+                          const isBronze = idx === 2;
+                          return (
+                            <div
+                              key={r.subject.id}
+                              className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-surface border-brand-border"
+                            >
+                              <span className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
+                                isSilver ? "bg-neutral-400/20 text-neutral-300"
+                                : isBronze ? "bg-orange-500/20 text-orange-400"
+                                : "bg-brand-border text-neutral-600"
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-display text-lg tracking-wide truncate text-white">
+                                  {r.subject.name.toUpperCase()}
+                                </p>
+                                {r.subject.era && (
+                                  <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-mono font-bold text-lg text-white">
+                                  {r.score.toFixed(1)}
+                                </p>
+                                <p className="text-xs font-mono text-neutral-600">pts</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {!userId && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                        <p className="font-display text-lg tracking-wide text-white text-center px-4">
+                          Sign in to see your full Top 5
+                        </p>
+                        <a
+                          href="/signup"
+                          className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                        >
+                          Sign Up
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Positions 6+: de-emphasized */}
-            {results.slice(5).map((r, relIdx) => (
-              <div
-                key={r.subject.id}
-                className="flex items-center gap-4 p-4 rounded-xl border transition-all bg-brand-bg border-brand-border opacity-50"
-              >
-                <span className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 bg-brand-border text-neutral-600">
-                  {relIdx + 6}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display text-lg tracking-wide truncate text-white">
-                    {r.subject.name.toUpperCase()}
+              {/* Global Rankings Section */}
+              <div className="space-y-3 pt-2">
+                <div>
+                  <h3 className="font-display text-xl tracking-wide">HOW THE WORLD RANKED IT</h3>
+                  <p className="text-neutral-500 text-sm mt-1 font-body">
+                    Community consensus based on all votes
                   </p>
-                  {r.subject.era && (
-                    <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                  )}
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-mono font-bold text-lg text-white">
-                    {r.score.toFixed(1)}
-                  </p>
-                  <p className="text-xs font-mono text-neutral-600">pts</p>
+                <div className="relative">
+                  {globalLoading || globalRankings === null ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-16 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
+                        {globalRankings.length === 0 ? (
+                          <p className="text-neutral-500 text-sm font-mono py-6 text-center">
+                            No community votes yet — be the first to lock in your list.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {globalRankings.slice(0, 5).map((r, idx) => {
+                              const isGold = idx === 0;
+                              const isSilver = idx === 1;
+                              const isBronze = idx === 2;
+                              return (
+                                <div
+                                  key={r.subject.id}
+                                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
+                                    isGold ? "bg-brand-accent/5 border-brand-accent/40" : "bg-brand-surface border-brand-border"
+                                  }`}
+                                >
+                                  <span className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
+                                    isGold ? "bg-brand-accent/20 text-brand-accent"
+                                    : isSilver ? "bg-neutral-400/20 text-neutral-300"
+                                    : isBronze ? "bg-orange-500/20 text-orange-400"
+                                    : "bg-brand-border text-neutral-600"
+                                  }`}>
+                                    {idx + 1}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-display text-lg tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
+                                      {r.subject.name.toUpperCase()}
+                                    </p>
+                                    {r.subject.era && (
+                                      <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                                    )}
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <p className={`font-mono font-bold text-lg ${isGold ? "text-brand-accent" : "text-white"}`}>
+                                      {r.score.toFixed(1)}
+                                    </p>
+                                    <p className="text-xs font-mono text-neutral-600">avg pts</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {!userId && globalRankings.length > 0 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                          <p className="font-display text-lg tracking-wide text-white text-center px-4">
+                            Sign in to see how the world ranked it
+                          </p>
+                          <a
+                            href="/signup"
+                            className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                          >
+                            Sign Up
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
 
-          {/* Global Rankings Section */}
-          <div className="space-y-3 pt-2">
-            <div>
-              <h3 className="font-display text-xl tracking-wide">HOW THE WORLD RANKED IT</h3>
-              <p className="text-neutral-500 text-sm mt-1 font-body">
-                Community consensus based on all votes
-              </p>
-            </div>
-            <div className="relative">
-              {globalRankings.length === 0 ? (
-                <p className="text-neutral-500 text-sm font-mono py-4 text-center">
-                  No votes yet — be the first to lock in your list.
-                </p>
-              ) : (
-                <>
-                  <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
-                    <div className="space-y-3">
-                      {globalRankings.slice(0, 5).map((r, idx) => {
-                        const isGold = idx === 0;
-                        const isSilver = idx === 1;
-                        const isBronze = idx === 2;
-                        return (
-                          <div
-                            key={r.subject.id}
-                            className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                              isGold
-                                ? "bg-brand-accent/5 border-brand-accent/40"
-                                : "bg-brand-surface border-brand-border"
-                            }`}
-                          >
-                            <span
-                              className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
-                                isGold
-                                  ? "bg-brand-accent/20 text-brand-accent"
-                                  : isSilver
-                                    ? "bg-neutral-400/20 text-neutral-300"
-                                    : isBronze
-                                      ? "bg-orange-500/20 text-orange-400"
-                                      : "bg-brand-border text-neutral-600"
-                              }`}
-                            >
-                              {idx + 1}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-display text-lg tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
-                                {r.subject.name.toUpperCase()}
-                              </p>
-                              {r.subject.era && (
-                                <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                              )}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className={`font-mono font-bold text-lg ${isGold ? "text-brand-accent" : "text-white"}`}>
-                                {r.score.toFixed(1)}
-                              </p>
-                              <p className="text-xs font-mono text-neutral-600">avg pts</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {!userId && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
-                      <p className="font-display text-lg tracking-wide text-white text-center px-4">
-                        Sign in to see how the world ranked it
-                      </p>
-                      <a
-                        href="/signup"
-                        className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
-                      >
-                        Sign Up
-                      </a>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+              <div className="flex items-center justify-between pt-4">
+                <button
+                  onClick={() => {
+                    setCurrentSubjectIdx(0);
+                    setStep("score");
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                             text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                >
+                  Edit Scores
+                </button>
 
-          <div className="flex items-center justify-between pt-4">
-            <button
-              onClick={() => {
-                setCurrentSubjectIdx(0);
-                setStep("score");
-              }}
-              className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
-                         text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
-            >
-              Edit Scores
-            </button>
-
-            {userId ? (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className={`px-8 py-3.5 rounded-xl font-mono font-bold text-sm transition-all ${
-                  saved
-                    ? "bg-green-500/20 border border-green-500/40 text-green-400"
-                    : "bg-brand-accent text-brand-bg hover:bg-brand-accent/90 disabled:opacity-50"
-                }`}
-              >
-                {saving ? "Saving..." : saved ? "Locked In" : "Lock In My List"}
-              </button>
-            ) : (
-              <a
-                href="/login"
-                className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
-                           hover:bg-brand-accent/90 transition-colors inline-block"
-              >
-                Sign In to Save
-              </a>
-            )}
-          </div>
+                {userId ? (
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                               hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+                  >
+                    {saving ? "Saving..." : "Lock In My List"}
+                  </button>
+                ) : (
+                  <a
+                    href="/login"
+                    className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                               hover:bg-brand-accent/90 transition-colors inline-block"
+                  >
+                    Sign In to Save
+                  </a>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
