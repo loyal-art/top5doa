@@ -13,30 +13,36 @@ export type Database = {
         Row: {
           id: string;
           display_name: string;
+          username: string;
           avatar_url: string | null;
           tier: "free" | "premium";
           aura_points: number;
           is_admin: boolean;
+          is_public: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           display_name: string;
+          username?: string;
           avatar_url?: string | null;
           tier?: "free" | "premium";
           aura_points?: number;
           is_admin?: boolean;
+          is_public?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           display_name?: string;
+          username?: string;
           avatar_url?: string | null;
           tier?: "free" | "premium";
           aura_points?: number;
           is_admin?: boolean;
+          is_public?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -425,6 +431,25 @@ export type Database = {
           topic_id?: string;
           unlock_type?: "result_position" | "additional_subject";
           reference_id?: string | null;
+        };
+        Relationships: [];
+      };
+      follows: {
+        Row: {
+          id: string;
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: {
+          follower_id?: string;
+          following_id?: string;
         };
         Relationships: [];
       };
