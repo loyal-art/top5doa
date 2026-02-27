@@ -63,6 +63,16 @@ export default async function TopicPage({ params }: TopicPageProps) {
     .eq("active", true)
     .single();
 
+  // Fetch community global rankings via security-definer RPC
+  const { data: globalRankingsData } = await supabase.rpc("get_global_rankings", {
+    p_topic_id: topic.id,
+  });
+
+  const subjectMap = Object.fromEntries((subjects ?? []).map((s) => [s.id, s]));
+  const globalRankings = (globalRankingsData ?? [])
+    .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
+    .filter((r) => r.subject != null);
+
   return (
     <main className="min-h-screen">
       {/* Topic Header */}
@@ -113,6 +123,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
               ? (scoringConfig.weights as number[])
               : []
           }
+          globalRankings={globalRankings}
         />
       </section>
     </main>

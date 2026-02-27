@@ -459,6 +459,10 @@ export type Database = {
         Args: { points: number };
         Returns: string;
       };
+      get_global_rankings: {
+        Args: { p_topic_id: string };
+        Returns: { subject_id: string; avg_score: number }[];
+      };
     };
     Enums: {
       user_tier: "free" | "premium";
