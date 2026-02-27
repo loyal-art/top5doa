@@ -15,6 +15,7 @@ interface TopicVotingFlowProps {
   subjects: Subject[];
   attributes: Attribute[];
   weights: number[];
+  globalRankings?: { subject: Subject; score: number }[];
 }
 
 type Step = "rank" | "score" | "results";
@@ -30,6 +31,7 @@ export function TopicVotingFlow({
   subjects,
   attributes,
   weights,
+  globalRankings: initialGlobalRankings,
 }: TopicVotingFlowProps) {
   const supabase = createClient();
   const [userId, setUserId] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export function TopicVotingFlow({
   // Global community rankings — null = not yet fetched / loading
   const [globalRankings, setGlobalRankings] = useState<
     { subject: Subject; score: number }[] | null
-  >(null);
+  >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
