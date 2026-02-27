@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 export function Header() {
   const [user, setUser] = useState<User | null>(null);
-  const supabase = createClient();
+  const [username, setUsername] = useState<string | null>(null);
+  // Stable client reference — createClient() returns a new object every call,
+  // so keeping it in a ref prevents it from being a changing useEffect dep.
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -23,9 +27,21 @@ export function Header() {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
+  // Fetch the username whenever the logged-in user changes.
+  useEffect(() => {
+    if (!user) { setUsername(null); return; }
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => setUsername(data?.username ?? null));
+  }, [user, supabase]);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     setUser(null);
+    setUsername(null);
     window.location.href = "/";
   }
 
@@ -44,9 +60,14 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm font-mono text-neutral-500 hidden sm:inline">
-                {user.email}
-              </span>
+              {username && (
+                <Link
+                  href={`/profile/${username}`}
+                  className="text-sm font-mono text-neutral-400 hover:text-brand-accent transition-colors"
+                >
+                  @{username}
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
