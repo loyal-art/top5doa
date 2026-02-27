@@ -75,28 +75,40 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   let votedTopics: VotedTopic[] = [];
 
   if (canSeeFullProfile) {
-    // PostgREST infers the FK joins from user_lists → topics and → subjects.
+    // Fetch the user's #1 pick row per topic from user_lists.
+    // Avoid PostgREST FK-join syntax (topics(...) / subjects(...)) because
+    // database.ts declares Relationships:[] for all tables — the Supabase
+    // TypeScript client cannot infer those joins and the build fails with
+    // "could not find the relation between user_lists and topics".
+    // Instead use three flat queries and combine in application code.
     const { data: listRows } = await supabase
       .from("user_lists")
-      .select("topic_id, topics(title, slug), subjects(name, era)")
+      .select("topic_id, subject_id")
       .eq("user_id", profile.id)
       .eq("rank_position", 1)
       .order("created_at", { ascending: false });
 
-    if (listRows) {
+    if (listRows && listRows.length > 0) {
+      const topicIds   = listRows.map((r) => r.topic_id);
+      const subjectIds = listRows.map((r) => r.subject_id);
+
+      const [{ data: topicRows }, { data: subjectRows }] = await Promise.all([
+        supabase.from("topics").select("id, title, slug").in("id", topicIds),
+        supabase.from("subjects").select("id, name, era").in("id", subjectIds),
+      ]);
+
+      const topicMap   = Object.fromEntries((topicRows   ?? []).map((t) => [t.id, t]));
+      const subjectMap = Object.fromEntries((subjectRows ?? []).map((s) => [s.id, s]));
+
       votedTopics = listRows
-        .filter((r) => r.topics && r.subjects)
-        .map((r) => {
-          const topic = r.topics as { title: string; slug: string };
-          const subject = r.subjects as { name: string; era: string | null };
-          return {
-            topic_id: r.topic_id,
-            topic_title: topic.title,
-            topic_slug: topic.slug,
-            top_pick_name: subject.name,
-            top_pick_era: subject.era,
-          };
-        });
+        .filter((r) => topicMap[r.topic_id] && subjectMap[r.subject_id])
+        .map((r) => ({
+          topic_id:      r.topic_id,
+          topic_title:   topicMap[r.topic_id].title,
+          topic_slug:    topicMap[r.topic_id].slug,
+          top_pick_name: subjectMap[r.subject_id].name,
+          top_pick_era:  subjectMap[r.subject_id].era,
+        }));
     }
   }
 
