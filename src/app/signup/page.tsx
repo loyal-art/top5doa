@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function SignupPage() {
+function SignupForm() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const message = searchParams.get("message");
   const supabase = createClient();
 
   async function handleSignup(e: React.FormEvent) {
@@ -56,7 +58,7 @@ export default function SignupPage() {
         <div className="text-center">
           <h1 className="font-display text-4xl tracking-wide">CREATE ACCOUNT</h1>
           <p className="text-neutral-500 text-sm mt-2 font-body">
-            Join the debate on Top5DOA
+            {message ?? "Join the debate on Top5DOA"}
           </p>
         </div>
 
@@ -195,5 +197,13 @@ export default function SignupPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }
