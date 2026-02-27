@@ -52,6 +52,7 @@ export function TopicVotingFlow({
     { subject: Subject; score: number }[] | null
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -84,6 +85,14 @@ export function TopicVotingFlow({
     if (!userId) return;
 
     async function loadExistingData() {
+      // Fetch display name for the "[Name]'s List" label on the locked-in screen
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId!)
+        .single();
+      setDisplayName(profile?.display_name ?? null);
+
       // Load existing attribute ranks
       const { data: existingRanks } = await supabase
         .from("user_attribute_ranks")
@@ -145,12 +154,6 @@ export function TopicVotingFlow({
     }
     setGlobalLoading(false);
   }, [supabase, topic.id, subjects]);
-
-  useEffect(() => {
-    if (step === "results") {
-      fetchGlobalRankings();
-    }
-  }, [step, fetchGlobalRankings]);
 
   // Compute ranked attribute objects in order
   const rankedAttributes = useMemo(
@@ -486,7 +489,9 @@ export function TopicVotingFlow({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left: personal list */}
                 <div className="space-y-3">
-                  <h3 className="font-display text-lg tracking-wide text-neutral-300">YOUR LIST</h3>
+                  <h3 className="font-display text-lg tracking-wide text-neutral-300">
+                    {displayName ? `${displayName}'s List` : "YOUR LIST"}
+                  </h3>
                   {results.slice(0, 5).map((r, idx) => {
                     const isGold = idx === 0;
                     const isSilver = idx === 1;
@@ -677,87 +682,6 @@ export function TopicVotingFlow({
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Global Rankings Section */}
-              <div className="space-y-3 pt-2">
-                <div>
-                  <h3 className="font-display text-xl tracking-wide">HOW THE WORLD RANKED IT</h3>
-                  <p className="text-neutral-500 text-sm mt-1 font-body">
-                    Community consensus based on all votes
-                  </p>
-                </div>
-                <div className="relative">
-                  {globalLoading || globalRankings === null ? (
-                    <div className="space-y-3">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-16 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
-                        {globalRankings.length === 0 ? (
-                          <p className="text-neutral-500 text-sm font-mono py-6 text-center">
-                            No community votes yet — be the first to lock in your list.
-                          </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {globalRankings.slice(0, 5).map((r, idx) => {
-                              const isGold = idx === 0;
-                              const isSilver = idx === 1;
-                              const isBronze = idx === 2;
-                              return (
-                                <div
-                                  key={r.subject.id}
-                                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                                    isGold ? "bg-brand-accent/5 border-brand-accent/40" : "bg-brand-surface border-brand-border"
-                                  }`}
-                                >
-                                  <span className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-xl flex-shrink-0 ${
-                                    isGold ? "bg-brand-accent/20 text-brand-accent"
-                                    : isSilver ? "bg-neutral-400/20 text-neutral-300"
-                                    : isBronze ? "bg-orange-500/20 text-orange-400"
-                                    : "bg-brand-border text-neutral-600"
-                                  }`}>
-                                    {idx + 1}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`font-display text-lg tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
-                                      {r.subject.name.toUpperCase()}
-                                    </p>
-                                    {r.subject.era && (
-                                      <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                                    )}
-                                  </div>
-                                  <div className="text-right flex-shrink-0">
-                                    <p className={`font-mono font-bold text-lg ${isGold ? "text-brand-accent" : "text-white"}`}>
-                                      {r.score.toFixed(1)}
-                                    </p>
-                                    <p className="text-xs font-mono text-neutral-600">avg pts</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      {!userId && globalRankings.length > 0 && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
-                          <p className="font-display text-lg tracking-wide text-white text-center px-4">
-                            Sign in to see how the world ranked it
-                          </p>
-                          <a
-                            href="/signup"
-                            className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
-                          >
-                            Sign Up
-                          </a>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
               </div>
 
               <div className="flex items-center justify-between pt-4">
