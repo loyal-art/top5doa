@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SubjectScoreSlider } from "@/components/subject-score-slider";
 import { AttributeRanker } from "./attribute-ranker";
@@ -33,7 +33,14 @@ export function TopicVotingFlow({
   weights,
   globalRankings: initialGlobalRankings,
 }: TopicVotingFlowProps) {
-  const supabase = createClient();
+  // Memoize the Supabase client so its reference stays stable across renders.
+  // createBrowserClient returns a new object on every call; if it were called
+  // directly in the component body, `supabase` would be a different reference
+  // each render, causing fetchGlobalRankings (which lists it as a dep) to be
+  // recreated every render, which in turn would make the useEffect fire on
+  // every render while step === "results" — an infinite re-fetch loop.
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const [userId, setUserId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("rank");
   const [saving, setSaving] = useState(false);
@@ -125,8 +132,11 @@ export function TopicVotingFlow({
       p_topic_id: topic.id,
     });
     if (error) {
+      // Do NOT set globalRankings to [] on error — that would incorrectly
+      // display "No community votes yet" when the real problem is a network
+      // or database error.  Leave the previous state intact so the UI stays
+      // consistent, and surface the error to the console for debugging.
       console.error("[global rankings] RPC error:", error);
-      setGlobalRankings([]);
     } else {
       const ranked = (data ?? [])
         .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
@@ -237,7 +247,7 @@ export function TopicVotingFlow({
 
       setSaved(true);
       // Refetch so the community tally reflects this user's new vote
-      fetchGlobalRankings();
+      await fetchGlobalRankings();
     } finally {
       setSaving(false);
     }
