@@ -37,7 +37,18 @@ export function Header() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Keep the header link in sync when the user renames their username
+    // on the profile page (profile-client dispatches this custom event).
+    function handleUsernameUpdate(e: Event) {
+      const newUsername = (e as CustomEvent<{ username: string }>).detail.username;
+      setUsername(newUsername);
+    }
+    window.addEventListener("profile-username-updated", handleUsernameUpdate);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("profile-username-updated", handleUsernameUpdate);
+    };
   }, [supabase]);
 
   async function handleSignOut() {

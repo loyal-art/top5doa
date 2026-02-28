@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic } from "./page";
+
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 // ── Aura tier — mirrors the get_aura_tier() SQL function ───────────────────
 function getAuraTier(points: number): { label: string; classes: string } {
@@ -48,12 +51,20 @@ export function ProfileClient({
   votedTopics,
 }: ProfileClientProps) {
   const supabase = createClient();
+  const router = useRouter();
 
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [isPublic, setIsPublic] = useState(profile.is_public);
   const [followCount, setFollowCount] = useState(followerCount);
   const [followLoading, setFollowLoading] = useState(false);
   const [privacyLoading, setPrivacyLoading] = useState(false);
+
+  // Username editing (own profile only)
+  const [currentUsername, setCurrentUsername] = useState(profile.username);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(profile.username);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSaving, setUsernameSaving] = useState(false);
 
   // Recompute visibility live so the toggle instantly reveals/hides topics
   // on the owner's own view.
@@ -104,6 +115,50 @@ export function ProfileClient({
     setPrivacyLoading(false);
   }
 
+  // ── Username edit ────────────────────────────────────────────────────────
+  function openUsernameEdit() {
+    setUsernameInput(currentUsername);
+    setUsernameError(null);
+    setEditingUsername(true);
+  }
+
+  function cancelUsernameEdit() {
+    setEditingUsername(false);
+    setUsernameError(null);
+  }
+
+  async function handleUsernameSave() {
+    const trimmed = usernameInput.trim();
+    if (!USERNAME_RE.test(trimmed)) {
+      setUsernameError("3–20 chars: lowercase letters, numbers, underscores only");
+      return;
+    }
+    if (trimmed === currentUsername) {
+      setEditingUsername(false);
+      return;
+    }
+    setUsernameSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username: trimmed })
+      .eq("id", profile.id);
+    setUsernameSaving(false);
+    if (error) {
+      setUsernameError(
+        error.code === "23505" ? "That username is already taken" : "Failed to save. Try again."
+      );
+      return;
+    }
+    setCurrentUsername(trimmed);
+    setEditingUsername(false);
+    // Tell the header to update its displayed username without a full reload
+    window.dispatchEvent(
+      new CustomEvent("profile-username-updated", { detail: { username: trimmed } })
+    );
+    // Navigate to the new URL slug
+    router.push(`/profile/${trimmed}`);
+  }
+
   return (
     <main className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
@@ -127,7 +182,79 @@ export function ProfileClient({
               <h1 className="font-display text-3xl tracking-wide truncate">
                 {profile.display_name.toUpperCase()}
               </h1>
-              <p className="text-neutral-500 font-mono text-sm mt-0.5">@{profile.username}</p>
+              {/* @username — editable when viewing own profile */}
+              {isOwn ? (
+                <div className="mt-0.5">
+                  {editingUsername ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-neutral-500 font-mono text-sm">@</span>
+                      <input
+                        value={usernameInput}
+                        onChange={(e) => {
+                          setUsernameInput(e.target.value.toLowerCase());
+                          setUsernameError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUsernameSave();
+                          if (e.key === "Escape") cancelUsernameEdit();
+                        }}
+                        maxLength={20}
+                        autoFocus
+                        className="font-mono text-sm bg-brand-surface border border-brand-border
+                                   rounded px-2 py-0.5 text-white focus:outline-none
+                                   focus:border-brand-accent w-36"
+                      />
+                      <button
+                        onClick={handleUsernameSave}
+                        disabled={usernameSaving}
+                        className="text-xs font-mono px-2.5 py-1 rounded bg-brand-accent
+                                   text-brand-bg font-bold hover:bg-brand-accent/90
+                                   transition-colors disabled:opacity-50"
+                      >
+                        {usernameSaving ? "…" : "Save"}
+                      </button>
+                      <button
+                        onClick={cancelUsernameEdit}
+                        className="text-xs font-mono text-neutral-500 hover:text-neutral-300
+                                   transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={openUsernameEdit}
+                      className="flex items-center gap-1.5 group"
+                    >
+                      <span className="text-neutral-500 font-mono text-sm">
+                        @{currentUsername}
+                      </span>
+                      {/* pencil icon */}
+                      <svg
+                        className="w-3 h-3 text-neutral-700 group-hover:text-brand-accent
+                                   transition-colors flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582
+                             16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0
+                             011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                  {usernameError && (
+                    <p className="text-red-400 font-mono text-xs mt-1">{usernameError}</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-neutral-500 font-mono text-sm mt-0.5">@{profile.username}</p>
+              )}
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono
