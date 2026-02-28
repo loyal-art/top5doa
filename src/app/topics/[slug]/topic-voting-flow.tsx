@@ -620,6 +620,9 @@ export function TopicVotingFlow({
                   <p className="text-neutral-500 text-sm mt-1 font-body">
                     Your vote has been counted
                   </p>
+                  <p className="text-xs italic text-neutral-600 mt-1 font-body">
+                    Scores reflect ranking within this topic only.
+                  </p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -744,6 +747,9 @@ export function TopicVotingFlow({
                 <h2 className="font-display text-3xl tracking-wide">YOUR TOP 5</h2>
                 <p className="text-neutral-500 text-sm mt-1 font-body">
                   Based on your attribute rankings and scores
+                </p>
+                <p className="text-xs italic text-neutral-600 mt-1 font-body">
+                  Scores reflect ranking within this topic only.
                 </p>
               </div>
 
