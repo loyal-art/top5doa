@@ -5,16 +5,49 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
+function CheckIcon({ met }: { met: boolean }) {
+  return (
+    <svg
+      className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${met ? "text-green-400" : "text-neutral-600"}`}
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+      {met && (
+        <path
+          d="M5 8l2 2 4-4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 function SignupForm() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const supabase = createClient();
+
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const passwordsMatch = password.length > 0 && confirmPassword === password;
+  const allChecksMet = Object.values(checks).every(Boolean) && passwordsMatch;
+
+  const showChecklist = password.length > 0;
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -166,12 +199,64 @@ function SignupForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
               className="w-full px-4 py-3 rounded-xl bg-brand-surface border border-brand-border
                          text-white font-body placeholder-neutral-700 focus:outline-none focus:border-brand-accent/50
                          focus:ring-1 focus:ring-brand-accent/30 transition-colors"
               placeholder="••••••••"
             />
+          </div>
+
+          {/* Live password requirements checklist */}
+          {showChecklist && (
+            <div className="rounded-xl bg-brand-surface border border-brand-border px-4 py-3 space-y-2">
+              <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider mb-2">
+                Password requirements
+              </p>
+              {[
+                { met: checks.length, label: "At least 8 characters" },
+                { met: checks.uppercase, label: "One uppercase letter" },
+                { met: checks.number, label: "One number" },
+                { met: checks.special, label: "One special character" },
+              ].map(({ met, label }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <CheckIcon met={met} />
+                  <span
+                    className={`text-xs font-mono transition-colors ${met ? "text-green-400" : "text-neutral-500"}`}
+                  >
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="confirm-password"
+              className="block text-xs font-mono text-neutral-500 uppercase tracking-wider mb-1.5"
+            >
+              Confirm Password
+            </label>
+            <input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className={`w-full px-4 py-3 rounded-xl bg-brand-surface border font-body
+                         text-white placeholder-neutral-700 focus:outline-none focus:ring-1 transition-colors
+                         ${
+                           confirmPassword.length > 0 && !passwordsMatch
+                             ? "border-brand-red/60 focus:border-brand-red/60 focus:ring-brand-red/30"
+                             : confirmPassword.length > 0 && passwordsMatch
+                               ? "border-green-500/60 focus:border-green-500/60 focus:ring-green-500/30"
+                               : "border-brand-border focus:border-brand-accent/50 focus:ring-brand-accent/30"
+                         }`}
+              placeholder="••••••••"
+            />
+            {confirmPassword.length > 0 && !passwordsMatch && (
+              <p className="mt-1.5 text-xs font-mono text-brand-red">Passwords do not match</p>
+            )}
           </div>
 
           {error && (
@@ -180,7 +265,7 @@ function SignupForm() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !allChecksMet}
             className="w-full px-4 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold
                        hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors"
