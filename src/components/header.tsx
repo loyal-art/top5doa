@@ -7,17 +7,34 @@ import type { User } from "@supabase/supabase-js";
 
 export function Header() {
   const [user, setUser] = useState<User | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const supabase = createClient();
+
+  async function fetchUsername(userId: string) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", userId)
+      .single();
+    setUsername(data?.username ?? null);
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      if (user) fetchUsername(user.id);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchUsername(currentUser.id);
+      } else {
+        setUsername(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -44,9 +61,14 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm font-mono text-neutral-500 hidden sm:inline">
-                {user.email}
-              </span>
+              {username && (
+                <Link
+                  href={`/profile/${username}`}
+                  className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors hidden sm:inline"
+                >
+                  @{username}
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
