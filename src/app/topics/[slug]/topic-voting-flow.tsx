@@ -19,6 +19,7 @@ interface TopicVotingFlowProps {
 }
 
 type Step = "rank" | "score" | "results";
+type VoteMode = "by-subject" | "by-attribute";
 
 const STEP_META: Record<Step, { num: number; label: string }> = {
   rank: { num: 1, label: "RANK ATTRIBUTES" },
@@ -46,6 +47,8 @@ export function TopicVotingFlow({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
+  const [voteMode, setVoteMode] = useState<VoteMode>("by-subject");
+  const [currentAttrIdx, setCurrentAttrIdx] = useState(0);
 
   // Global community rankings — null = not yet fetched / loading
   const [globalRankings, setGlobalRankings] = useState<
@@ -165,6 +168,7 @@ export function TopicVotingFlow({
   );
 
   const currentSubject = subjects[currentSubjectIdx];
+  const currentAttr = rankedAttributes[currentAttrIdx];
 
   // Calculate weighted score for a single subject
   const calculateSubjectScore = useCallback(
@@ -352,114 +356,254 @@ export function TopicVotingFlow({
       )}
 
       {/* Step 2: Score Subjects */}
-      {step === "score" && currentSubject && (
+      {step === "score" && (
         <div className="space-y-6">
-          {/* Subject header card */}
-          <div className="flex items-center justify-between p-5 rounded-2xl bg-brand-surface border border-brand-border">
-            <div>
-              <h2 className="font-display text-3xl tracking-wide">
-                {currentSubject.name.toUpperCase()}
-              </h2>
-              {currentSubject.era && (
-                <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
-              )}
-              <p className="text-neutral-600 text-xs font-mono mt-1">
-                Subject {currentSubjectIdx + 1} of {subjects.length}
-              </p>
+          {/* Mode toggle */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider hidden sm:inline">
+              Mode:
+            </span>
+            <div className="flex items-center p-1 rounded-xl bg-brand-surface border border-brand-border gap-1">
+              <button
+                onClick={() => setVoteMode("by-subject")}
+                className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-colors ${
+                  voteMode === "by-subject"
+                    ? "bg-brand-accent text-brand-bg"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                BY SUBJECT
+              </button>
+              <button
+                onClick={() => setVoteMode("by-attribute")}
+                className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-colors ${
+                  voteMode === "by-attribute"
+                    ? "bg-brand-accent text-brand-bg"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                BY ATTRIBUTE
+              </button>
             </div>
+            <span className="text-xs font-mono text-neutral-600 hidden sm:inline">
+              {voteMode === "by-subject"
+                ? "Score all attributes for one subject at a time"
+                : "Compare all subjects side-by-side for one attribute"}
+            </span>
+          </div>
 
-            {/* Subject stats */}
-            {currentSubject.stats && (
-              <div className="hidden sm:flex items-center gap-3">
-                {Object.entries(currentSubject.stats as Record<string, number>).slice(0, 4).map(([key, val]) => (
-                  <div key={key} className="text-center px-3 py-2 rounded-lg bg-brand-bg border border-brand-border">
-                    <p className="text-xs font-mono text-neutral-600 uppercase">{key}</p>
-                    <p className="text-sm font-mono font-bold text-white">{val}</p>
+          {/* ── BY SUBJECT mode ── */}
+          {voteMode === "by-subject" && currentSubject && (
+            <>
+              {/* Subject header card */}
+              <div className="flex items-center justify-between p-5 rounded-2xl bg-brand-surface border border-brand-border">
+                <div>
+                  <h2 className="font-display text-3xl tracking-wide">
+                    {currentSubject.name.toUpperCase()}
+                  </h2>
+                  {currentSubject.era && (
+                    <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
+                  )}
+                  <p className="text-neutral-600 text-xs font-mono mt-1">
+                    Subject {currentSubjectIdx + 1} of {subjects.length}
+                  </p>
+                </div>
+
+                {/* Subject stats */}
+                {currentSubject.stats && (
+                  <div className="hidden sm:flex items-center gap-3">
+                    {Object.entries(currentSubject.stats as Record<string, number>).slice(0, 4).map(([key, val]) => (
+                      <div key={key} className="text-center px-3 py-2 rounded-lg bg-brand-bg border border-brand-border">
+                        <p className="text-xs font-mono text-neutral-600 uppercase">{key}</p>
+                        <p className="text-sm font-mono font-bold text-white">{val}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Attribute sliders */}
+              <div className="space-y-6">
+                {rankedAttributes.map((attr, idx) => (
+                  <div key={attr.id} className="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold font-mono ${
+                          idx === 0
+                            ? "bg-brand-accent/20 text-brand-accent"
+                            : "bg-brand-border text-neutral-500"
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <span className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
+                          {attr.name}
+                        </span>
+                      </label>
+                      <span className="text-xs font-mono text-neutral-600">
+                        {weights[idx] ?? 0}% weight
+                      </span>
+                    </div>
+                    <SubjectScoreSlider
+                      value={scores[currentSubject.id]?.[attr.id] ?? 50}
+                      onChange={(v) => updateScore(currentSubject.id, attr.id, v)}
+                    />
                   </div>
                 ))}
               </div>
-            )}
-          </div>
 
-          {/* Attribute sliders */}
-          <div className="space-y-6">
-            {rankedAttributes.map((attr, idx) => (
-              <div key={attr.id} className="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold font-mono ${
-                      idx === 0
+              {/* Subject Navigation */}
+              <div className="flex items-center justify-between pt-4">
+                <button
+                  onClick={() => {
+                    if (currentSubjectIdx > 0) {
+                      setCurrentSubjectIdx(currentSubjectIdx - 1);
+                    } else {
+                      setStep("rank");
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                             text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                >
+                  {currentSubjectIdx > 0 ? "Previous" : "Back to Ranking"}
+                </button>
+
+                {/* Dot nav */}
+                <div className="flex gap-1.5">
+                  {subjects.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentSubjectIdx(i)}
+                      className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                        i === currentSubjectIdx
+                          ? "bg-brand-accent"
+                          : "bg-brand-border hover:bg-neutral-500"
+                      }`}
+                      aria-label={`Go to subject ${i + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (currentSubjectIdx < subjects.length - 1) {
+                      setCurrentSubjectIdx(currentSubjectIdx + 1);
+                    } else {
+                      setStep("results");
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                             hover:bg-brand-accent/90 transition-colors"
+                >
+                  {currentSubjectIdx < subjects.length - 1 ? "Next Subject" : "See Results"}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ── BY ATTRIBUTE mode ── */}
+          {voteMode === "by-attribute" && currentAttr && (
+            <>
+              {/* Attribute header card */}
+              <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold font-mono flex-shrink-0 ${
+                      currentAttrIdx === 0
                         ? "bg-brand-accent/20 text-brand-accent"
                         : "bg-brand-border text-neutral-500"
                     }`}>
-                      {idx + 1}
+                      {currentAttrIdx + 1}
                     </span>
-                    <span className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
-                      {attr.name}
-                    </span>
-                  </label>
-                  <span className="text-xs font-mono text-neutral-600">
-                    {weights[idx] ?? 0}% weight
-                  </span>
+                    <div>
+                      <h2 className="font-display text-3xl tracking-wide">
+                        {currentAttr.name.toUpperCase()}
+                      </h2>
+                      {currentAttr.description && (
+                        <p className="text-neutral-500 text-sm font-body mt-1">{currentAttr.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-mono text-neutral-600">
+                      Attribute {currentAttrIdx + 1} of {rankedAttributes.length}
+                    </p>
+                    <p className="text-sm font-mono font-bold text-brand-accent mt-0.5">
+                      {weights[currentAttrIdx] ?? 0}% weight
+                    </p>
+                  </div>
                 </div>
-                <SubjectScoreSlider
-                  value={scores[currentSubject.id]?.[attr.id] ?? 50}
-                  onChange={(v) =>
-                    updateScore(currentSubject.id, attr.id, v)
-                  }
-                />
               </div>
-            ))}
-          </div>
 
-          {/* Subject Navigation */}
-          <div className="flex items-center justify-between pt-4">
-            <button
-              onClick={() => {
-                if (currentSubjectIdx > 0) {
-                  setCurrentSubjectIdx(currentSubjectIdx - 1);
-                } else {
-                  setStep("rank");
-                }
-              }}
-              className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
-                         text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
-            >
-              {currentSubjectIdx > 0 ? "Previous" : "Back to Ranking"}
-            </button>
+              {/* All subjects as sliders for this attribute */}
+              <div className="space-y-4">
+                {subjects.map((subject) => (
+                  <div key={subject.id} className="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
+                          {subject.name}
+                        </p>
+                        {subject.era && (
+                          <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
+                        )}
+                      </div>
+                    </div>
+                    <SubjectScoreSlider
+                      value={scores[subject.id]?.[currentAttr.id] ?? 50}
+                      onChange={(v) => updateScore(subject.id, currentAttr.id, v)}
+                    />
+                  </div>
+                ))}
+              </div>
 
-            {/* Dot nav */}
-            <div className="flex gap-1.5">
-              {subjects.map((_, i) => (
+              {/* Attribute Navigation */}
+              <div className="flex items-center justify-between pt-4">
                 <button
-                  key={i}
-                  onClick={() => setCurrentSubjectIdx(i)}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    i === currentSubjectIdx
-                      ? "bg-brand-accent"
-                      : "bg-brand-border hover:bg-neutral-500"
-                  }`}
-                  aria-label={`Go to subject ${i + 1}`}
-                />
-              ))}
-            </div>
+                  onClick={() => {
+                    if (currentAttrIdx > 0) {
+                      setCurrentAttrIdx(currentAttrIdx - 1);
+                    } else {
+                      setStep("rank");
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                             text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                >
+                  {currentAttrIdx > 0 ? "Previous" : "Back to Ranking"}
+                </button>
 
-            <button
-              onClick={() => {
-                if (currentSubjectIdx < subjects.length - 1) {
-                  setCurrentSubjectIdx(currentSubjectIdx + 1);
-                } else {
-                  setStep("results");
-                }
-              }}
-              className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
-                         hover:bg-brand-accent/90 transition-colors"
-            >
-              {currentSubjectIdx < subjects.length - 1
-                ? "Next Subject"
-                : "See Results"}
-            </button>
-          </div>
+                {/* Dot nav for attributes */}
+                <div className="flex gap-1.5">
+                  {rankedAttributes.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentAttrIdx(i)}
+                      className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                        i === currentAttrIdx
+                          ? "bg-brand-accent"
+                          : "bg-brand-border hover:bg-neutral-500"
+                      }`}
+                      aria-label={`Go to attribute ${i + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (currentAttrIdx < rankedAttributes.length - 1) {
+                      setCurrentAttrIdx(currentAttrIdx + 1);
+                    } else {
+                      setStep("results");
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
+                             hover:bg-brand-accent/90 transition-colors"
+                >
+                  {currentAttrIdx < rankedAttributes.length - 1 ? "Next Attribute" : "See Results"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
