@@ -61,14 +61,12 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              {username && (
-                <Link
-                  href={`/profile/${username}`}
-                  className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors hidden sm:inline"
-                >
-                  @{username}
-                </Link>
-              )}
+              <Link
+                href={username ? `/profile/${username}` : "/profile"}
+                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+              >
+                {username ? `@${username}` : "Profile"}
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
