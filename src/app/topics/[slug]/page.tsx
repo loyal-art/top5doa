@@ -97,6 +97,9 @@ export default async function TopicPage({ params }: TopicPageProps) {
               {topic.description}
             </p>
           )}
+          <p className="text-xs italic text-neutral-600 mt-1.5 font-body">
+            Scores reflect ranking within this topic only.
+          </p>
 
           {/* Stats bar */}
           <div className="flex items-center gap-4 mt-6">
