@@ -684,7 +684,7 @@ export function TopicVotingFlow({
                   <h3 className="font-display text-lg tracking-wide text-neutral-300">
                     {displayName ? `${displayName}'s List` : "YOUR LIST"}
                   </h3>
-                  {results.slice(0, 5).map((r, idx) => {
+                  {(isPremium ? results : results.slice(0, 5)).map((r, idx) => {
                     const isGold = idx === 0;
                     const isSilver = idx === 1;
                     const isBronze = idx === 2;
@@ -760,12 +760,12 @@ export function TopicVotingFlow({
                         );
                       })()}
 
-                      {/* Global positions 2–5: blurred for free users */}
-                      {globalRankings.slice(1, 5).length > 0 && (
+                      {/* Global positions 2+: blurred for free users, fully visible for premium */}
+                      {globalRankings.slice(1, isPremium ? undefined : 5).length > 0 && (
                         <div className="relative">
                           <div className={!isPremium ? "blur-sm pointer-events-none select-none" : ""}>
                             <div className="space-y-3">
-                              {globalRankings.slice(1, 5).map((r, relIdx) => {
+                              {globalRankings.slice(1, isPremium ? undefined : 5).map((r, relIdx) => {
                                 const idx = relIdx + 1;
                                 const isSilver = idx === 1;
                                 const isBronze = idx === 2;
