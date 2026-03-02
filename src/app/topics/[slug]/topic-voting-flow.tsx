@@ -130,6 +130,7 @@ export function TopicVotingFlow({
           .limit(1),
       ]);
 
+      console.log("[profile] raw result:", profile);
       setDisplayName(profile?.display_name ?? null);
       setIsPremium(
         profile?.is_premium === true &&
