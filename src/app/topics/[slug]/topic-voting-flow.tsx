@@ -43,6 +43,7 @@ export function TopicVotingFlow({
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [userId, setUserId] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
   const [step, setStep] = useState<Step>("rank");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -81,20 +82,54 @@ export function TopicVotingFlow({
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUserId(user?.id ?? null);
+      // No user — nothing to load, stop initializing immediately
+      if (!user) setInitializing(false);
     });
   }, [supabase]);
+
+  // Fetch community global rankings from the security-definer RPC.
+  // Runs whenever the user reaches the results step, and again after saving.
+  const fetchGlobalRankings = useCallback(async () => {
+    setGlobalLoading(true);
+    const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s]));
+    const { data, error } = await supabase.rpc("get_global_rankings", {
+      p_topic_id: topic.id,
+    });
+    if (error) {
+      // Do NOT set globalRankings to [] on error — that would incorrectly
+      // display "No community votes yet" when the real problem is a network
+      // or database error.  Leave the previous state intact so the UI stays
+      // consistent, and surface the error to the console for debugging.
+      console.error("[global rankings] RPC error:", error);
+    } else {
+      const ranked = (data ?? [])
+        .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
+        .filter((r): r is { subject: Subject; score: number } => r.subject != null);
+      setGlobalRankings(ranked);
+    }
+    setGlobalLoading(false);
+  }, [supabase, topic.id, subjects]);
 
   // Load existing user data if logged in
   useEffect(() => {
     if (!userId) return;
 
     async function loadExistingData() {
-      // Fetch display name for the "[Name]'s List" label on the locked-in screen
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, is_premium, premium_expires_at")
-        .eq("id", userId!)
-        .single();
+      // Fetch profile + check for an already-locked list in parallel
+      const [{ data: profile }, { data: lockedList }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name, is_premium, premium_expires_at")
+          .eq("id", userId!)
+          .single(),
+        supabase
+          .from("user_lists")
+          .select("subject_id")
+          .eq("user_id", userId!)
+          .eq("topic_id", topic.id)
+          .limit(1),
+      ]);
+
       setDisplayName(profile?.display_name ?? null);
       setIsPremium(
         profile?.is_premium === true &&
@@ -136,33 +171,19 @@ export function TopicVotingFlow({
           return updated;
         });
       }
+
+      // If the user already has a locked list, skip straight to the results screen
+      if (lockedList && lockedList.length > 0) {
+        setStep("results");
+        setSaved(true);
+        fetchGlobalRankings();
+      }
+
+      setInitializing(false);
     }
 
     loadExistingData();
-  }, [userId, topic.id, supabase, attributes]);
-
-  // Fetch community global rankings from the security-definer RPC.
-  // Runs whenever the user reaches the results step, and again after saving.
-  const fetchGlobalRankings = useCallback(async () => {
-    setGlobalLoading(true);
-    const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s]));
-    const { data, error } = await supabase.rpc("get_global_rankings", {
-      p_topic_id: topic.id,
-    });
-    if (error) {
-      // Do NOT set globalRankings to [] on error — that would incorrectly
-      // display "No community votes yet" when the real problem is a network
-      // or database error.  Leave the previous state intact so the UI stays
-      // consistent, and surface the error to the console for debugging.
-      console.error("[global rankings] RPC error:", error);
-    } else {
-      const ranked = (data ?? [])
-        .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
-        .filter((r): r is { subject: Subject; score: number } => r.subject != null);
-      setGlobalRankings(ranked);
-    }
-    setGlobalLoading(false);
-  }, [supabase, topic.id, subjects]);
+  }, [userId, topic.id, supabase, attributes, fetchGlobalRankings]);
 
   // Compute ranked attribute objects in order
   const rankedAttributes = useMemo(
@@ -280,6 +301,23 @@ export function TopicVotingFlow({
     return (
       <div className="text-center py-16 text-neutral-500">
         <p className="font-body">This topic doesn&apos;t have enough data to vote on yet.</p>
+      </div>
+    );
+  }
+
+  if (initializing) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center gap-2">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-10 flex-1 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-14 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
