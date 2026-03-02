@@ -56,6 +56,7 @@ export function TopicVotingFlow({
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -91,10 +92,15 @@ export function TopicVotingFlow({
       // Fetch display name for the "[Name]'s List" label on the locked-in screen
       const { data: profile } = await supabase
         .from("profiles")
-        .select("display_name")
+        .select("display_name, is_premium, premium_expires_at")
         .eq("id", userId!)
         .single();
       setDisplayName(profile?.display_name ?? null);
+      setIsPremium(
+        profile?.is_premium === true &&
+          profile?.premium_expires_at != null &&
+          new Date(profile.premium_expires_at) > new Date()
+      );
 
       // Load existing attribute ranks
       const { data: existingRanks } = await supabase
@@ -688,39 +694,86 @@ export function TopicVotingFlow({
                       No community votes yet.<br />You&apos;re among the first!
                     </p>
                   ) : (
-                    globalRankings.slice(0, 5).map((r, idx) => {
-                      const isGold = idx === 0;
-                      const isSilver = idx === 1;
-                      const isBronze = idx === 2;
-                      return (
-                        <div
-                          key={r.subject.id}
-                          className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                            isGold ? "bg-brand-accent/5 border-brand-accent/40" : "bg-brand-surface border-brand-border"
-                          }`}
-                        >
-                          <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
-                            isGold ? "bg-brand-accent/20 text-brand-accent"
-                            : isSilver ? "bg-neutral-400/20 text-neutral-300"
-                            : isBronze ? "bg-orange-500/20 text-orange-400"
-                            : "bg-brand-border text-neutral-600"
-                          }`}>
-                            {idx + 1}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-display text-sm tracking-wide truncate ${isGold ? "text-brand-accent" : "text-white"}`}>
-                              {r.subject.name.toUpperCase()}
+                    <>
+                      {/* Global #1 — always visible */}
+                      {globalRankings[0] && (() => {
+                        const r = globalRankings[0];
+                        return (
+                          <div
+                            key={r.subject.id}
+                            className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40"
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 bg-brand-accent/20 text-brand-accent">
+                              1
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-display text-sm tracking-wide truncate text-brand-accent">
+                                {r.subject.name.toUpperCase()}
+                              </p>
+                              {r.subject.era && (
+                                <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                              )}
+                            </div>
+                            <p className="font-mono font-bold text-sm flex-shrink-0 text-brand-accent">
+                              {r.score.toFixed(1)}
                             </p>
-                            {r.subject.era && (
-                              <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                            )}
                           </div>
-                          <p className={`font-mono font-bold text-sm flex-shrink-0 ${isGold ? "text-brand-accent" : "text-neutral-400"}`}>
-                            {r.score.toFixed(1)}
-                          </p>
+                        );
+                      })()}
+
+                      {/* Global positions 2–5: blurred for free users */}
+                      {globalRankings.slice(1, 5).length > 0 && (
+                        <div className="relative">
+                          <div className={!isPremium ? "blur-sm pointer-events-none select-none" : ""}>
+                            <div className="space-y-3">
+                              {globalRankings.slice(1, 5).map((r, relIdx) => {
+                                const idx = relIdx + 1;
+                                const isSilver = idx === 1;
+                                const isBronze = idx === 2;
+                                return (
+                                  <div
+                                    key={r.subject.id}
+                                    className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-surface border-brand-border"
+                                  >
+                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
+                                      isSilver ? "bg-neutral-400/20 text-neutral-300"
+                                      : isBronze ? "bg-orange-500/20 text-orange-400"
+                                      : "bg-brand-border text-neutral-600"
+                                    }`}>
+                                      {idx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-display text-sm tracking-wide truncate text-white">
+                                        {r.subject.name.toUpperCase()}
+                                      </p>
+                                      {r.subject.era && (
+                                        <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                                      )}
+                                    </div>
+                                    <p className="font-mono font-bold text-sm flex-shrink-0 text-neutral-400">
+                                      {r.score.toFixed(1)}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {!isPremium && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                              <p className="font-display text-base tracking-wide text-white text-center px-4">
+                                Upgrade to see the full rankings
+                              </p>
+                              <a
+                                href="/signup"
+                                className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                              >
+                                Unlock Full Rankings
+                              </a>
+                            </div>
+                          )}
                         </div>
-                      );
-                    })
+                      )}
+                    </>
                   )}
                 </div>
               </div>
