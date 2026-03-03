@@ -209,6 +209,33 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
               placeholder="1984–2003"
             />
           </div>
+          <div>
+            <label className={labelClass}>Photo Link (optional)</label>
+            <input
+              name="link_photo"
+              type="url"
+              className={inputClass}
+              placeholder="https://..."
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Music Link (optional)</label>
+            <input
+              name="link_music"
+              type="url"
+              className={inputClass}
+              placeholder="https://..."
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Video Link (optional)</label>
+            <input
+              name="link_video"
+              type="url"
+              className={inputClass}
+              placeholder="https://..."
+            />
+          </div>
           <StatusMessage message={message} />
           <button
             type="submit"

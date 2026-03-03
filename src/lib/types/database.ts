@@ -98,6 +98,9 @@ export type Database = {
           era: string | null;
           stats: Json | null;
           photo_url: string | null;
+          link_photo: string | null;
+          link_music: string | null;
+          link_video: string | null;
           created_at: string;
         };
         Insert: {
@@ -107,6 +110,9 @@ export type Database = {
           era?: string | null;
           stats?: Json | null;
           photo_url?: string | null;
+          link_photo?: string | null;
+          link_music?: string | null;
+          link_video?: string | null;
           created_at?: string;
         };
         Update: {
@@ -115,6 +121,9 @@ export type Database = {
           era?: string | null;
           stats?: Json | null;
           photo_url?: string | null;
+          link_photo?: string | null;
+          link_music?: string | null;
+          link_video?: string | null;
         };
         Relationships: [];
       };
