@@ -77,6 +77,63 @@ function formatCount(n: number): string {
   return String(n);
 }
 
+// ─── Coming Soon Card ─────────────────────────────────────────────────────────
+
+function ComingSoonCard({
+  topic,
+  alertHref,
+}: {
+  topic: Topic;
+  alertHref: string;
+}) {
+  const accentColor = categoryColor(topic.category);
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden"
+      style={{ background: "#080808", border: "2px dashed #e8ff00" }}
+    >
+      {/* Subtle glow */}
+      <div
+        className="absolute top-0 left-0 w-48 h-24 rounded-full blur-[60px] opacity-10 pointer-events-none"
+        style={{ backgroundColor: "#e8ff00" }}
+      />
+
+      <div className="relative flex items-center gap-4 p-5">
+        {/* Left: badges + title */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-[#e8ff00]/10 border border-[#e8ff00]/40 text-xs font-mono text-[#e8ff00] tracking-[0.15em]">
+              COMING SOON
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider opacity-50"
+              style={{ color: accentColor }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: accentColor }}
+              />
+              {topic.category}
+            </span>
+          </div>
+          <h3 className="font-display text-xl sm:text-2xl tracking-wide text-neutral-500 leading-tight">
+            {topic.title.toUpperCase()}
+          </h3>
+        </div>
+
+        {/* Right: GET NOTIFIED */}
+        <Link
+          href={alertHref}
+          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e8ff00]/40 text-[#e8ff00]/60 font-mono text-xs tracking-widest hover:bg-[#e8ff00]/10 hover:border-[#e8ff00] hover:text-[#e8ff00] transition-all duration-200"
+        >
+          GET NOTIFIED
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hero Feed Banner ─────────────────────────────────────────────────────────
 
 function HeroBanner({
@@ -316,6 +373,25 @@ export default async function Home({
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
+  // Coming Soon topics
+  const { data: comingSoonData } = await supabase
+    .from("topics")
+    .select("id, title, slug, category, description, cover_image_url")
+    .eq("status", "coming_soon")
+    .order("created_at", { ascending: false });
+  const comingSoonTopics: Topic[] = comingSoonData ?? [];
+
+  // Current user's username for the alert preferences link
+  let currentUsername: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single();
+    currentUsername = profile?.username ?? null;
+  }
+
   const feedTopics: Topic[] = topics ?? [];
   const topicIds = feedTopics.map((t) => t.id);
 
@@ -515,6 +591,31 @@ export default async function Home({
 
           {/* ── MAIN FEED ── */}
           <section className="min-w-0">
+
+            {/* Coming Soon section */}
+            {comingSoonTopics.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <h2 className="font-display text-xs tracking-[0.2em] text-neutral-500 flex-shrink-0">
+                    COMING SOON
+                  </h2>
+                  <div className="flex-1 h-px bg-brand-border" />
+                </div>
+                <div className="flex flex-col gap-3">
+                  {comingSoonTopics.map((topic) => (
+                    <ComingSoonCard
+                      key={topic.id}
+                      topic={topic}
+                      alertHref={
+                        currentUsername
+                          ? `/profile/${currentUsername}#alerts`
+                          : "/login"
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Sort Buttons */}
             <div className="flex items-center gap-2 mb-5">

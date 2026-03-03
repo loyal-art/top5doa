@@ -61,7 +61,7 @@ export type Database = {
           category: string;
           description: string | null;
           cover_image_url: string | null;
-          status: "draft" | "pending" | "active" | "archived";
+          status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           created_at: string;
           updated_at: string;
@@ -73,7 +73,7 @@ export type Database = {
           category: string;
           description?: string | null;
           cover_image_url?: string | null;
-          status?: "draft" | "pending" | "active" | "archived";
+          status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           created_at?: string;
           updated_at?: string;
@@ -84,7 +84,7 @@ export type Database = {
           category?: string;
           description?: string | null;
           cover_image_url?: string | null;
-          status?: "draft" | "pending" | "active" | "archived";
+          status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
           updated_at?: string;
         };
@@ -560,7 +560,7 @@ export type Database = {
     };
     Enums: {
       user_tier: "free" | "premium";
-      topic_status: "draft" | "pending" | "active" | "archived";
+      topic_status: "draft" | "coming_soon" | "active" | "archived";
       attribute_status: "active" | "suggested" | "voting" | "approved" | "rejected";
       vote_type: "cosign" | "nah";
       aura_source_type:
