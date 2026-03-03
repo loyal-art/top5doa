@@ -41,7 +41,7 @@ export async function createTopic(
       slug,
       category,
       description,
-      status: status as "draft" | "pending" | "active" | "archived",
+      status: status as "draft" | "coming_soon" | "active" | "archived",
       creator_id: userId,
     })
     .select("id")

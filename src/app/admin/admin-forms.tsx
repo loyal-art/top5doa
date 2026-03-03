@@ -130,7 +130,7 @@ function CreateTopicForm() {
           <select name="status" className={inputClass}>
             <option value="active">Active</option>
             <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
+            <option value="coming_soon">Coming Soon</option>
           </select>
         </div>
         <StatusMessage message={message} />
