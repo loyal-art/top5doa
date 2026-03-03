@@ -440,6 +440,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_category_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          category: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          category?: string;
+        };
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          message: string;
+          topic_id: string | null;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          message: string;
+          topic_id?: string | null;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          type?: string;
+          title?: string;
+          message?: string;
+          topic_id?: string | null;
+          read?: boolean;
+        };
+        Relationships: [];
+      };
       follows: {
         Row: {
           id: string;
@@ -493,6 +543,10 @@ export type Database = {
       get_global_rankings: {
         Args: { p_topic_id: string };
         Returns: { subject_id: string; avg_score: number }[];
+      };
+      notify_new_topic: {
+        Args: { p_topic_id: string; p_category: string; p_title: string };
+        Returns: undefined;
       };
     };
     Enums: {

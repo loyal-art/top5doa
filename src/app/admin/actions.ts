@@ -34,16 +34,30 @@ export async function createTopic(
   const description = (formData.get("description") as string) || null;
   const status = (formData.get("status") as string) || "active";
 
-  const { error } = await supabase.from("topics").insert({
-    title,
-    slug,
-    category,
-    description,
-    status: status as "draft" | "pending" | "active" | "archived",
-    creator_id: userId,
-  });
+  const { data: newTopic, error } = await supabase
+    .from("topics")
+    .insert({
+      title,
+      slug,
+      category,
+      description,
+      status: status as "draft" | "pending" | "active" | "archived",
+      creator_id: userId,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  // Fan-out notifications to premium users who subscribed to this category.
+  // Non-blocking — topic creation succeeds even if the RPC fails.
+  if (newTopic) {
+    await supabase.rpc("notify_new_topic", {
+      p_topic_id: newTopic.id,
+      p_category: category,
+      p_title: title,
+    });
+  }
 
   revalidatePath("/admin");
   revalidatePath("/");

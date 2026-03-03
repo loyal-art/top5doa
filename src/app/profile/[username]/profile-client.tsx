@@ -8,6 +8,11 @@ import type { VotedTopic } from "./page";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
+const ALERT_CATEGORIES = [
+  "Music", "Sports", "Fashion", "Film",
+  "TV", "Food", "Gaming", "Culture",
+] as const;
+
 // ── Aura tier — mirrors the get_aura_tier() SQL function ───────────────────
 function getAuraTier(points: number): { label: string; classes: string } {
   if (points >= 9500)
@@ -32,6 +37,7 @@ interface ProfileClientProps {
     tier: "free" | "premium";
     aura_points: number;
     is_public: boolean;
+    is_premium: boolean;
   };
   followerCount: number;
   isOwn: boolean;
@@ -39,6 +45,7 @@ interface ProfileClientProps {
   canSeeFullProfile: boolean;
   viewerId: string | null;
   votedTopics: VotedTopic[];
+  savedCategories: string[];
 }
 
 export function ProfileClient({
@@ -49,6 +56,7 @@ export function ProfileClient({
   canSeeFullProfile: initialCanSeeFullProfile,
   viewerId,
   votedTopics,
+  savedCategories,
 }: ProfileClientProps) {
   const supabase = createClient();
   const router = useRouter();
@@ -65,6 +73,12 @@ export function ProfileClient({
   const [usernameInput, setUsernameInput] = useState(profile.username);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
+
+  // Category alert preferences (own premium profile only)
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set(savedCategories)
+  );
+  const [categoryLoading, setCategoryLoading] = useState<string | null>(null);
 
   // Recompute visibility live so the toggle instantly reveals/hides topics
   // on the owner's own view.
@@ -157,6 +171,35 @@ export function ProfileClient({
     );
     // Navigate to the new URL slug
     router.push(`/profile/${trimmed}`);
+  }
+
+  // ── Category alert preference toggle ─────────────────────────────────────
+  async function handleCategoryToggle(cat: string) {
+    if (categoryLoading) return;
+    setCategoryLoading(cat);
+    const isActive = selectedCategories.has(cat);
+    if (isActive) {
+      const { error } = await supabase
+        .from("user_category_preferences")
+        .delete()
+        .eq("user_id", profile.id)
+        .eq("category", cat);
+      if (!error) {
+        setSelectedCategories((prev) => {
+          const next = new Set(prev);
+          next.delete(cat);
+          return next;
+        });
+      }
+    } else {
+      const { error } = await supabase
+        .from("user_category_preferences")
+        .insert({ user_id: profile.id, category: cat });
+      if (!error) {
+        setSelectedCategories((prev) => new Set([...prev, cat]));
+      }
+    }
+    setCategoryLoading(null);
   }
 
   return (
@@ -440,6 +483,40 @@ export function ProfileClient({
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {/* ── Alert preferences (own premium profile only) ──────────── */}
+        {isOwn && profile.is_premium && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl tracking-wide">ALERT PREFERENCES</h2>
+              <p className="text-neutral-500 text-sm font-mono mt-1">
+                Get notified when new topics drop in your selected categories.
+              </p>
+            </div>
+            <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border">
+              <div className="flex flex-wrap gap-2">
+                {ALERT_CATEGORIES.map((cat) => {
+                  const active = selectedCategories.has(cat);
+                  const loading = categoryLoading === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => handleCategoryToggle(cat)}
+                      disabled={!!categoryLoading}
+                      className={`px-4 py-2 rounded-xl font-mono text-sm border transition-all
+                                 disabled:opacity-60
+                                 ${active
+                                   ? "bg-brand-accent/15 border-brand-accent/50 text-brand-accent"
+                                   : "bg-brand-bg border-brand-border text-neutral-500 hover:border-neutral-500 hover:text-neutral-300"
+                                 }`}
+                    >
+                      {loading ? "…" : cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

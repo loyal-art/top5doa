@@ -33,7 +33,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // ── Profile lookup ──────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, username, avatar_url, tier, aura_points, is_public")
+    .select("id, display_name, username, avatar_url, tier, aura_points, is_public, is_premium")
     .eq("username", username)
     .single();
 
@@ -67,6 +67,16 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // ── Visibility gate ─────────────────────────────────────────────────────
   // Full profile visible when: public, own profile, or an approved follower.
   const canSeeFullProfile = profile.is_public || isOwn || isFollowing;
+
+  // ── Category preferences (own profile only) ─────────────────────────────
+  let savedCategories: string[] = [];
+  if (isOwn) {
+    const { data: prefRows } = await supabase
+      .from("user_category_preferences")
+      .select("category")
+      .eq("user_id", profile.id);
+    savedCategories = (prefRows ?? []).map((r) => r.category);
+  }
 
   // ── Voted topics with #1 pick ────────────────────────────────────────────
   // user_lists RLS now permits reads for public profiles (anon) and followed
@@ -121,6 +131,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       canSeeFullProfile={canSeeFullProfile}
       viewerId={viewerId}
       votedTopics={votedTopics}
+      savedCategories={savedCategories}
     />
   );
 }
