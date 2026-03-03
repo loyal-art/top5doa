@@ -29,6 +29,7 @@ function relativeTime(dateStr: string): string {
 export function Header() {
   const [user, setUser] = useState<User | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -39,10 +40,11 @@ export function Header() {
   async function fetchUsername(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("username")
+      .select("username, is_admin")
       .eq("id", userId)
       .single();
     setUsername(data?.username ?? null);
+    setIsAdmin(data?.is_admin === true);
   }
 
   async function fetchNotifications(userId: string) {
@@ -92,6 +94,7 @@ export function Header() {
         fetchNotifications(currentUser.id);
       } else {
         setUsername(null);
+        setIsAdmin(false);
         setNotifications([]);
       }
     });
@@ -276,6 +279,16 @@ export function Header() {
                   </div>
                 )}
               </div>
+
+              {/* Admin link */}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="text-sm font-mono text-brand-accent hover:text-brand-accent/80 transition-colors"
+                >
+                  ADMIN
+                </Link>
+              )}
 
               {/* Profile link */}
               <Link
