@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Topic = {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  description: string | null;
+  cover_image_url: string | null;
+};
+
+type GlobalRanking = { subject_id: string; avg_score: number };
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const NAV_TABS = [
@@ -39,43 +52,242 @@ const SIDEBAR_CATEGORIES = [
   { label: "Culture", emoji: "🌐" },
 ];
 
-const TRENDING_NOW = [
-  { label: "Greatest NBA Player", votes: "2.4k" },
-  { label: "Best Hip-Hop Album", votes: "1.8k" },
-  { label: "Top NFL QB Ever", votes: "3.1k" },
-  { label: "GOAT Footballer", votes: "4.2k" },
-  { label: "Best Video Game", votes: "987" },
-];
-
-const CATEGORY_ICONS: Record<string, string> = {
-  Sports: "trophy",
-  Music: "mic",
-  Film: "film",
-  Gaming: "gamepad",
+// Category accent colors — keyed on lowercase category name
+const CATEGORY_COLOR: Record<string, string> = {
+  nfl: "#4ade80",
+  nba: "#60a5fa",
+  mlb: "#f97316",
+  music: "#a78bfa",
+  movies: "#f472b6",
+  gaming: "#34d399",
+  combat: "#ef4444",
+  culture: "#fbbf24",
+  sports: "#60a5fa",
+  film: "#f472b6",
 };
 
-// ─── Category Icon ─────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function CategoryIcon({ category }: { category: string }) {
-  const icon = CATEGORY_ICONS[category];
-  if (icon === "trophy") {
-    return (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m-4.5-9.5L7 4h10l-.5 7.5M7 4H4l1 7h2M17 4h3l-1 7h-2" />
-      </svg>
-    );
-  }
-  if (icon === "mic") {
-    return (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zm7 11a7 7 0 01-14 0m7 7v3m-4 0h8" />
-      </svg>
-    );
-  }
+function categoryColor(cat: string): string {
+  return CATEGORY_COLOR[cat.toLowerCase()] ?? "#e8ff00";
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+// ─── Hero Feed Banner ─────────────────────────────────────────────────────────
+
+function HeroBanner({
+  topic,
+  voterCount,
+  attributeCount,
+}: {
+  topic: Topic;
+  voterCount: number;
+  attributeCount: number;
+}) {
+  const accentColor = categoryColor(topic.category);
+
   return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
+    <div className="relative rounded-2xl overflow-hidden border border-brand-border mb-5">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-surface via-brand-surface to-brand-bg" />
+      {/* Accent glow */}
+      <div
+        className="absolute top-0 left-0 w-72 h-40 rounded-full blur-[80px] opacity-20 pointer-events-none"
+        style={{ backgroundColor: "#e8ff00" }}
+      />
+      <div
+        className="absolute bottom-0 right-0 w-48 h-32 rounded-full blur-[60px] opacity-10 pointer-events-none"
+        style={{ backgroundColor: accentColor }}
+      />
+
+      <div className="relative p-6 sm:p-8">
+        {/* Label + Category */}
+        <div className="flex items-center gap-3 mb-4">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+            ★ FEATURED DEBATE
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider" style={{ color: accentColor }}>
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+            {topic.category}
+          </span>
+        </div>
+
+        {/* Title */}
+        <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-white leading-[0.9] mb-3">
+          {topic.title.toUpperCase()}
+        </h2>
+
+        {/* Description */}
+        {topic.description && (
+          <p className="text-sm font-body text-neutral-400 leading-relaxed max-w-xl mb-5 line-clamp-2">
+            {topic.description}
+          </p>
+        )}
+
+        {/* Stats + CTA */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+              {formatCount(voterCount)} voters
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
+              {attributeCount} attributes
+            </span>
+          </div>
+
+          <Link
+            href={`/topics/${topic.slug}`}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 ml-auto"
+          >
+            MAKE YOUR LIST
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Topic Card ───────────────────────────────────────────────────────────────
+
+function TopicCard({
+  topic,
+  attributes,
+  voterCount,
+  hasVoted,
+  top3,
+}: {
+  topic: Topic;
+  attributes: { id: string; name: string }[];
+  voterCount: number;
+  hasVoted: boolean;
+  top3: { name: string; score: number }[];
+}) {
+  const accentColor = categoryColor(topic.category);
+  const MAX_CHIPS = 3;
+  const visibleAttrs = attributes.slice(0, MAX_CHIPS);
+  const overflowCount = attributes.length - MAX_CHIPS;
+
+  return (
+    <Link
+      href={`/topics/${topic.slug}`}
+      className="group relative flex rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 transition-all duration-300 overflow-hidden"
+    >
+      {/* Hover glow overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/0 group-hover:from-brand-accent/[0.04] to-transparent transition-all duration-300 pointer-events-none" />
+
+      {/* ── Left: main content ── */}
+      <div className="relative flex-1 p-5 flex flex-col gap-3 min-w-0">
+
+        {/* Top row: category + status badge */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider"
+            style={{ color: accentColor }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: accentColor }}
+            />
+            {topic.category}
+          </span>
+
+          {hasVoted ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-aura/10 border border-brand-aura/30 text-xs font-mono text-brand-aura">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              YOU VOTED
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-xs font-mono text-brand-accent">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+              LIVE
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300 leading-tight">
+          {topic.title.toUpperCase()}
+        </h3>
+
+        {/* Attribute chips */}
+        {visibleAttrs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {visibleAttrs.map((attr) => (
+              <span
+                key={attr.id}
+                className="px-2 py-0.5 rounded-md bg-brand-bg border border-brand-border text-xs font-mono text-neutral-500 tracking-wide"
+              >
+                {attr.name}
+              </span>
+            ))}
+            {overflowCount > 0 && (
+              <span className="px-2 py-0.5 rounded-md bg-brand-bg border border-brand-border text-xs font-mono text-neutral-600">
+                +{overflowCount}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Footer: voter count */}
+        <div className="flex items-center gap-3 mt-auto pt-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {formatCount(voterCount)} voters
+          </span>
+        </div>
+      </div>
+
+      {/* ── Right: Global Top 3 ── */}
+      <div className="relative flex-shrink-0 w-44 border-l border-brand-border bg-brand-bg/40 p-4 flex flex-col">
+        <p className="font-display text-[10px] tracking-[0.2em] text-neutral-600 mb-3">
+          GLOBAL TOP 3
+        </p>
+
+        {top3.length > 0 ? (
+          <ol className="flex flex-col gap-2 flex-1">
+            {top3.map((entry, i) => (
+              <li key={i} className="flex items-center gap-2 min-w-0">
+                <span
+                  className="font-display text-base leading-none flex-shrink-0 w-4"
+                  style={{
+                    color: i === 0 ? "#e8ff00" : i === 1 ? "#a78bfa" : "#6b7280",
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span className="text-xs font-body text-neutral-300 truncate flex-1">
+                  {entry.name}
+                </span>
+                <span className="text-[10px] font-mono text-neutral-600 flex-shrink-0">
+                  {entry.score}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-xs font-mono text-neutral-700 mt-1">No votes yet</p>
+        )}
+
+        <div className="mt-auto pt-3">
+          <span className="text-[10px] font-mono text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            Enter debate →
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -92,16 +304,107 @@ export default async function Home({
 
   const supabase = await createClient();
 
+  // Auth user (for YOU VOTED status)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Active topics
   const { data: topics } = await supabase
     .from("topics")
     .select("id, title, slug, category, description, cover_image_url")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
+  const feedTopics: Topic[] = topics ?? [];
+  const topicIds = feedTopics.map((t) => t.id);
+
+  // ── Parallel data fetches ──────────────────────────────────────────────────
+  let subjectMap: Record<string, string> = {};
+  let attributesByTopic: Record<string, { id: string; name: string }[]> = {};
+  let voterCounts: Record<string, number> = {};
+  let votedTopicIds: Set<string> = new Set();
+  let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
+
+  if (topicIds.length > 0) {
+    const [subjectsRes, attrsRes, votersRes, rankingsList] = await Promise.all([
+      supabase
+        .from("subjects")
+        .select("id, topic_id, name")
+        .in("topic_id", topicIds),
+      supabase
+        .from("attributes")
+        .select("id, topic_id, name")
+        .in("topic_id", topicIds)
+        .eq("status", "active"),
+      supabase
+        .from("user_lists")
+        .select("topic_id, user_id")
+        .in("topic_id", topicIds),
+      Promise.all(
+        feedTopics.map(async (t: Topic) => {
+          const { data } = await supabase.rpc("get_global_rankings", {
+            p_topic_id: t.id,
+          });
+          return { topicId: t.id, rankings: (data ?? []) as GlobalRanking[] };
+        })
+      ),
+    ]);
+
+    // Subject id → name map
+    (subjectsRes.data ?? []).forEach((s: { id: string; topic_id: string; name: string }) => {
+      subjectMap[s.id] = s.name;
+    });
+
+    // Attributes grouped by topic
+    (attrsRes.data ?? []).forEach((a: { id: string; topic_id: string; name: string }) => {
+      if (!attributesByTopic[a.topic_id]) attributesByTopic[a.topic_id] = [];
+      attributesByTopic[a.topic_id].push({ id: a.id, name: a.name });
+    });
+
+    // Voter counts — distinct user_id per topic
+    const voterSets: Record<string, Set<string>> = {};
+    (votersRes.data ?? []).forEach(({ topic_id, user_id }: { topic_id: string; user_id: string }) => {
+      if (!voterSets[topic_id]) voterSets[topic_id] = new Set();
+      voterSets[topic_id].add(user_id);
+    });
+    Object.entries(voterSets).forEach(([tid, s]) => {
+      voterCounts[tid] = s.size;
+    });
+
+    // Global top 3 per topic
+    rankingsList.forEach(({ topicId, rankings }: { topicId: string; rankings: GlobalRanking[] }) => {
+      globalTop3ByTopic[topicId] = rankings
+        .slice(0, 3)
+        .map((r: GlobalRanking) => ({
+          name: subjectMap[r.subject_id] ?? "—",
+          score: Math.round(r.avg_score),
+        }));
+    });
+
+    // Current user's voted topics
+    if (user) {
+      const { data: myLists } = await supabase
+        .from("user_lists")
+        .select("topic_id")
+        .eq("user_id", user.id)
+        .in("topic_id", topicIds);
+      (myLists ?? []).forEach((r: { topic_id: string }) => votedTopicIds.add(r.topic_id));
+    }
+  }
+
+  // Trending: topics sorted by voter count descending
+  const trendingTopics = [...feedTopics]
+    .sort((a, b) => (voterCounts[b.id] ?? 0) - (voterCounts[a.id] ?? 0))
+    .slice(0, 5);
+
+  // Hero banner topic = most recent
+  const heroBannerTopic = feedTopics[0] ?? null;
+
   return (
     <main className="min-h-screen">
 
-      {/* ── Hero ── */}
+      {/* ── Site Hero ── */}
       <section className="relative overflow-hidden border-b border-brand-border">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-brand-accent/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[300px] h-[200px] bg-brand-aura/5 rounded-full blur-[100px] pointer-events-none" />
@@ -121,7 +424,7 @@ export default async function Home({
             <div className="flex items-center gap-3 mt-8">
               <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                {topics?.length ?? 0} active debates
+                {feedTopics.length} active debates
               </span>
             </div>
           </div>
@@ -235,43 +538,27 @@ export default async function Home({
               })}
             </div>
 
-            {/* Topic Cards */}
-            {topics && topics.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {topics.map((topic) => (
-                  <Link
+            {feedTopics.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {/* Hero feed banner — most recent topic */}
+                {heroBannerTopic && (
+                  <HeroBanner
+                    topic={heroBannerTopic}
+                    voterCount={voterCounts[heroBannerTopic.id] ?? 0}
+                    attributeCount={(attributesByTopic[heroBannerTopic.id] ?? []).length}
+                  />
+                )}
+
+                {/* Topic cards */}
+                {feedTopics.map((topic) => (
+                  <TopicCard
                     key={topic.id}
-                    href={`/topics/${topic.slug}`}
-                    className="group relative block rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/0 to-brand-accent/0 group-hover:from-brand-accent/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
-
-                    <div className="relative p-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono text-neutral-400 uppercase tracking-wider">
-                          <CategoryIcon category={topic.category} />
-                          {topic.category}
-                        </span>
-                      </div>
-
-                      <h3 className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300">
-                        {topic.title.toUpperCase()}
-                      </h3>
-
-                      {topic.description && (
-                        <p className="text-sm text-neutral-500 mt-3 line-clamp-2 font-body leading-relaxed">
-                          {topic.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-2 mt-5 text-sm font-mono text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <span>Enter debate</span>
-                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
+                    topic={topic}
+                    attributes={attributesByTopic[topic.id] ?? []}
+                    voterCount={voterCounts[topic.id] ?? 0}
+                    hasVoted={votedTopicIds.has(topic.id)}
+                    top3={globalTop3ByTopic[topic.id] ?? []}
+                  />
                 ))}
               </div>
             ) : (
@@ -285,27 +572,37 @@ export default async function Home({
           {/* ── RIGHT SIDEBAR ── */}
           <aside className="hidden lg:flex flex-col gap-4 sticky top-[113px]">
 
-            {/* Trending Now */}
+            {/* Trending Now — real data, sorted by voter count */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
               <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
                 TRENDING NOW
               </h3>
-              <ol className="flex flex-col gap-0.5">
-                {TRENDING_NOW.map((item, i) => (
-                  <li
-                    key={item.label}
-                    className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150 cursor-pointer"
-                  >
-                    <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-body text-neutral-300 truncate">{item.label}</p>
-                      <p className="text-xs font-mono text-neutral-600 mt-0.5">{item.votes} votes</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              {trendingTopics.length > 0 ? (
+                <ol className="flex flex-col gap-0.5">
+                  {trendingTopics.map((topic, i) => (
+                    <li key={topic.id}>
+                      <Link
+                        href={`/topics/${topic.slug}`}
+                        className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150"
+                      >
+                        <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-body text-neutral-300 truncate">
+                            {topic.title}
+                          </p>
+                          <p className="text-xs font-mono text-neutral-600 mt-0.5">
+                            {formatCount(voterCounts[topic.id] ?? 0)} voters
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs font-mono text-neutral-700 px-2">No debates yet</p>
+              )}
             </div>
 
             {/* Submit Topic CTA — Premium only */}
