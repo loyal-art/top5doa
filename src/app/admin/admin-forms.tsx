@@ -110,6 +110,10 @@ function CreateTopicForm() {
             <option value="Music">Music</option>
             <option value="Film">Film</option>
             <option value="Gaming">Gaming</option>
+            <option value="Fashion">Fashion</option>
+            <option value="TV">TV</option>
+            <option value="Food">Food</option>
+            <option value="Culture">Culture</option>
           </select>
         </div>
         <div>
