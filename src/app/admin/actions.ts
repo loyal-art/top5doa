@@ -73,11 +73,17 @@ export async function addSubject(
   const topic_id = formData.get("topic_id") as string;
   const name = formData.get("name") as string;
   const era = (formData.get("era") as string) || null;
+  const link_photo = (formData.get("link_photo") as string) || null;
+  const link_music = (formData.get("link_music") as string) || null;
+  const link_video = (formData.get("link_video") as string) || null;
 
   const { error } = await supabase.from("subjects").insert({
     topic_id,
     name,
     era,
+    link_photo,
+    link_music,
+    link_video,
   });
 
   if (error) return { error: error.message };

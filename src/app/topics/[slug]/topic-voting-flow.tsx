@@ -40,6 +40,57 @@ function CameraLink({ topicTitle, subjectName }: { topicTitle: string; subjectNa
   );
 }
 
+function SubjectLinks({ subject, topicTitle }: { subject: Subject; topicTitle: string }) {
+  return (
+    <>
+      <CameraLink topicTitle={topicTitle} subjectName={subject.name} />
+      {subject.link_photo && (
+        <a
+          href={subject.link_photo}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="View photo"
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+        </a>
+      )}
+      {subject.link_music && (
+        <a
+          href={subject.link_music}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Listen to music"
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+          </svg>
+        </a>
+      )}
+      {subject.link_video && (
+        <a
+          href={subject.link_video}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Watch video"
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+          </svg>
+        </a>
+      )}
+    </>
+  );
+}
+
 type Step = "rank" | "score" | "results";
 type VoteMode = "by-subject" | "by-attribute";
 
@@ -469,7 +520,7 @@ export function TopicVotingFlow({
                     <h2 className="font-display text-3xl tracking-wide">
                       {currentSubject.name.toUpperCase()}
                     </h2>
-                    <CameraLink topicTitle={topic.title} subjectName={currentSubject.name} />
+                    <SubjectLinks subject={currentSubject} topicTitle={topic.title} />
                   </div>
                   {currentSubject.era && (
                     <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
@@ -614,7 +665,7 @@ export function TopicVotingFlow({
                           <p className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
                             {subject.name}
                           </p>
-                          <CameraLink topicTitle={topic.title} subjectName={subject.name} />
+                          <SubjectLinks subject={subject} topicTitle={topic.title} />
                         </div>
                         {subject.era && (
                           <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
@@ -736,7 +787,7 @@ export function TopicVotingFlow({
                             <p className={`font-display text-sm tracking-wide truncate flex-1 min-w-0 ${isGold ? "text-brand-accent" : "text-white"}`}>
                               {r.subject.name.toUpperCase()}
                             </p>
-                            <CameraLink topicTitle={topic.title} subjectName={r.subject.name} />
+                            <SubjectLinks subject={r.subject} topicTitle={topic.title} />
                           </div>
                           {r.subject.era && (
                             <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -781,7 +832,7 @@ export function TopicVotingFlow({
                                 <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                                   {r.subject.name.toUpperCase()}
                                 </p>
-                                <CameraLink topicTitle={topic.title} subjectName={r.subject.name} />
+                                <SubjectLinks subject={r.subject} topicTitle={topic.title} />
                               </div>
                               {r.subject.era && (
                                 <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -820,7 +871,7 @@ export function TopicVotingFlow({
                                         <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-white">
                                           {r.subject.name.toUpperCase()}
                                         </p>
-                                        <CameraLink topicTitle={topic.title} subjectName={r.subject.name} />
+                                        <SubjectLinks subject={r.subject} topicTitle={topic.title} />
                                       </div>
                                       {r.subject.era && (
                                         <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -894,7 +945,7 @@ export function TopicVotingFlow({
                         <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                           {results[0].subject.name.toUpperCase()}
                         </p>
-                        <CameraLink topicTitle={topic.title} subjectName={results[0].subject.name} />
+                        <SubjectLinks subject={results[0].subject} topicTitle={topic.title} />
                       </div>
                       {results[0].subject.era && (
                         <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
@@ -935,7 +986,7 @@ export function TopicVotingFlow({
                                   <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-white">
                                     {r.subject.name.toUpperCase()}
                                   </p>
-                                  <CameraLink topicTitle={topic.title} subjectName={r.subject.name} />
+                                  <SubjectLinks subject={r.subject} topicTitle={topic.title} />
                                 </div>
                                 {r.subject.era && (
                                   <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
