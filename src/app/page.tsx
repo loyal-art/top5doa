@@ -1,133 +1,138 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { HomeClient } from "./home-client";
 
-const CATEGORY_ICONS: Record<string, string> = {
-  Sports: "trophy",
-  Music: "mic",
-  Film: "film",
-  Gaming: "gamepad",
+export type TopicStat = {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  description: string | null;
+  created_at: string;
+  voterCount: number;
+  attributes: string[];
+  globalTop3: { rank: number; name: string; era: string | null }[];
+  userVoted: boolean;
 };
-
-function CategoryIcon({ category }: { category: string }) {
-  const icon = CATEGORY_ICONS[category];
-  if (icon === "trophy") {
-    return (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m-4.5-9.5L7 4h10l-.5 7.5M7 4H4l1 7h2M17 4h3l-1 7h-2" />
-      </svg>
-    );
-  }
-  if (icon === "mic") {
-    return (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zm7 11a7 7 0 01-14 0m7 7v3m-4 0h8" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  );
-}
 
 export default async function Home() {
   const supabase = await createClient();
 
-  const { data: topics } = await supabase
+  // ── Active topics ──────────────────────────────────────────────────────────
+  const { data: topicRows } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url")
+    .select("id, title, slug, category, description, created_at")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
-  return (
-    <main className="min-h-screen">
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-brand-border">
-        {/* Glow effects */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-brand-accent/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-[300px] h-[200px] bg-brand-aura/5 rounded-full blur-[100px] pointer-events-none" />
+  const topics = topicRows ?? [];
+  const topicIds = topics.map((t) => t.id);
 
-        <div className="max-w-6xl mx-auto px-4 py-20 sm:py-28 relative">
-          <div className="max-w-2xl">
-            <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
-              DEBATE THE
-              <br />
-              <span className="text-brand-accent">GREATEST</span>
-              <br />
-              OF ALL TIME
-            </h1>
-            <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
-              Rank what matters. Score the legends. See how your top 5 stacks
-              up against the world.
-            </p>
-            <div className="flex items-center gap-3 mt-8">
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                {topics?.length ?? 0} active debates
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+  if (topicIds.length === 0) {
+    return <HomeClient topics={[]} isPremium={false} />;
+  }
 
-      {/* Topic Feed */}
-      <section className="max-w-6xl mx-auto px-4 py-12">
-        <h2 className="font-display text-3xl tracking-wide text-neutral-300 mb-8">
-          ACTIVE DEBATES
-        </h2>
+  // ── Rank-1 rows (one per user per topic = each user's locked #1 pick) ────
+  const { data: listRows } = await supabase
+    .from("user_lists")
+    .select("user_id, topic_id, subject_id")
+    .in("topic_id", topicIds)
+    .eq("rank_position", 1);
 
-        {topics && topics.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {topics.map((topic) => (
-              <Link
-                key={topic.id}
-                href={`/topics/${topic.slug}`}
-                className="group relative block rounded-2xl border border-brand-border bg-brand-surface
-                           hover:border-brand-accent/40 transition-all duration-300 overflow-hidden"
-              >
-                {/* Hover glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/0 to-brand-accent/0 group-hover:from-brand-accent/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
+  // Voter counts + subject vote tallies per topic
+  const voterSets: Record<string, Set<string>> = {};
+  const subjectVotes: Record<string, Record<string, number>> = {};
+  for (const row of listRows ?? []) {
+    if (!voterSets[row.topic_id]) voterSets[row.topic_id] = new Set();
+    voterSets[row.topic_id].add(row.user_id);
+    if (!subjectVotes[row.topic_id]) subjectVotes[row.topic_id] = {};
+    subjectVotes[row.topic_id][row.subject_id] =
+      (subjectVotes[row.topic_id][row.subject_id] ?? 0) + 1;
+  }
 
-                <div className="relative p-6 sm:p-8">
-                  {/* Category tag */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono text-neutral-400 uppercase tracking-wider">
-                      <CategoryIcon category={topic.category} />
-                      {topic.category}
-                    </span>
-                  </div>
+  // Collect subject IDs needed for the top-3 labels
+  const neededSubjectIds = new Set<string>();
+  for (const topicId of topicIds) {
+    Object.entries(subjectVotes[topicId] ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .forEach(([id]) => neededSubjectIds.add(id));
+  }
 
-                  {/* Title */}
-                  <h3 className="font-display text-2xl sm:text-3xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300">
-                    {topic.title.toUpperCase()}
-                  </h3>
-
-                  {/* Description */}
-                  {topic.description && (
-                    <p className="text-sm text-neutral-500 mt-3 line-clamp-2 font-body leading-relaxed">
-                      {topic.description}
-                    </p>
-                  )}
-
-                  {/* CTA */}
-                  <div className="flex items-center gap-2 mt-6 text-sm font-mono text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <span>Enter debate</span>
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20 rounded-2xl border border-brand-border bg-brand-surface">
-            <p className="font-display text-2xl text-neutral-600">NO ACTIVE DEBATES YET</p>
-            <p className="text-sm text-neutral-600 mt-2 font-body">Check back soon — debates are coming.</p>
-          </div>
-        )}
-      </section>
-    </main>
+  const { data: subjectRows } =
+    neededSubjectIds.size > 0
+      ? await supabase
+          .from("subjects")
+          .select("id, name, era")
+          .in("id", [...neededSubjectIds])
+      : { data: [] };
+  const subjectMap = Object.fromEntries(
+    (subjectRows ?? []).map((s) => [s.id, s])
   );
+
+  // ── Attributes (up to 4 per topic) ────────────────────────────────────────
+  const { data: attrRows } = await supabase
+    .from("attributes")
+    .select("topic_id, name")
+    .in("topic_id", topicIds)
+    .eq("status", "active");
+
+  const attrsByTopic: Record<string, string[]> = {};
+  for (const row of attrRows ?? []) {
+    if (!attrsByTopic[row.topic_id]) attrsByTopic[row.topic_id] = [];
+    if (attrsByTopic[row.topic_id].length < 4)
+      attrsByTopic[row.topic_id].push(row.name);
+  }
+
+  // ── Current viewer ─────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const viewerId = user?.id ?? null;
+
+  let userVotedIds = new Set<string>();
+  let isPremium = false;
+
+  if (viewerId) {
+    const [{ data: myLists }, { data: profile }] = await Promise.all([
+      supabase
+        .from("user_lists")
+        .select("topic_id")
+        .eq("user_id", viewerId)
+        .eq("rank_position", 1),
+      supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", viewerId)
+        .single(),
+    ]);
+    userVotedIds = new Set((myLists ?? []).map((r) => r.topic_id));
+    isPremium = profile?.is_premium ?? false;
+  }
+
+  // ── Build final topic data ─────────────────────────────────────────────────
+  const topicsWithStats: TopicStat[] = topics.map((t) => {
+    const votes = subjectVotes[t.id] ?? {};
+    const globalTop3 = Object.entries(votes)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([subId], idx) => ({
+        rank: idx + 1,
+        name: subjectMap[subId]?.name ?? "Unknown",
+        era: subjectMap[subId]?.era ?? null,
+      }));
+    return {
+      id: t.id,
+      title: t.title,
+      slug: t.slug,
+      category: t.category,
+      description: t.description,
+      created_at: t.created_at,
+      voterCount: voterSets[t.id]?.size ?? 0,
+      attributes: attrsByTopic[t.id] ?? [],
+      globalTop3,
+      userVoted: userVotedIds.has(t.id),
+    };
+  });
+
+  return <HomeClient topics={topicsWithStats} isPremium={isPremium} />;
 }
