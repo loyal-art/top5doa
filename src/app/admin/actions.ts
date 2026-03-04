@@ -164,3 +164,79 @@ export async function addAttribute(
   revalidatePath("/admin");
   return { error: null };
 }
+
+export async function getSubjectsForTopic(topic_id: string): Promise<{
+  data: Array<{
+    id: string;
+    name: string;
+    era: string | null;
+    link_photo: string | null;
+    link_music: string | null;
+    link_video: string | null;
+  }> | null;
+  error: string | null;
+}> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { data: null, error: authError ?? "Auth failed" };
+
+  const { data, error } = await supabase
+    .from("subjects")
+    .select("id, name, era, link_photo, link_music, link_video")
+    .eq("topic_id", topic_id)
+    .order("name");
+
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+export async function getAttributesForTopic(topic_id: string): Promise<{
+  data: Array<{ id: string; name: string; description: string | null }> | null;
+  error: string | null;
+}> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { data: null, error: authError ?? "Auth failed" };
+
+  const { data, error } = await supabase
+    .from("attributes")
+    .select("id, name, description")
+    .eq("topic_id", topic_id)
+    .order("name");
+
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+export async function updateSubject(
+  id: string,
+  updates: {
+    name: string;
+    era: string | null;
+    link_photo: string | null;
+    link_music: string | null;
+    link_video: string | null;
+  }
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const { error } = await supabase.from("subjects").update(updates).eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function updateAttribute(
+  id: string,
+  updates: { name: string; description: string | null }
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const { error } = await supabase.from("attributes").update(updates).eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin");
+  return { error: null };
+}

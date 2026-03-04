@@ -8,12 +8,31 @@ import {
   addAttribute,
   addSubjectsBulk,
   addAttributesBulk,
+  getSubjectsForTopic,
+  getAttributesForTopic,
+  updateSubject,
+  updateAttribute,
 } from "./actions";
 
 interface Topic {
   id: string;
   title: string;
 }
+
+type SubjectRow = {
+  id: string;
+  name: string;
+  era: string | null;
+  link_photo: string | null;
+  link_music: string | null;
+  link_video: string | null;
+};
+
+type AttributeRow = {
+  id: string;
+  name: string;
+  description: string | null;
+};
 
 function slugify(text: string): string {
   return text
@@ -467,12 +486,433 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
   );
 }
 
+function EditSubjectForm({
+  subject,
+  onSave,
+  onCancel,
+}: {
+  subject: SubjectRow;
+  onSave: (updated: SubjectRow) => void;
+  onCancel: () => void;
+}) {
+  const [fields, setFields] = useState({
+    name: subject.name,
+    era: subject.era ?? "",
+    link_photo: subject.link_photo ?? "",
+    link_music: subject.link_music ?? "",
+    link_video: subject.link_video ?? "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    const result = await updateSubject(subject.id, {
+      name: fields.name,
+      era: fields.era || null,
+      link_photo: fields.link_photo || null,
+      link_music: fields.link_music || null,
+      link_video: fields.link_video || null,
+    });
+
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+      setLoading(false);
+    } else {
+      onSave({
+        ...subject,
+        name: fields.name,
+        era: fields.era || null,
+        link_photo: fields.link_photo || null,
+        link_music: fields.link_music || null,
+        link_video: fields.link_video || null,
+      });
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Name</label>
+          <input
+            type="text"
+            required
+            value={fields.name}
+            onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Era</label>
+          <input
+            type="text"
+            value={fields.era}
+            onChange={(e) => setFields((f) => ({ ...f, era: e.target.value }))}
+            className={inputClass}
+            placeholder="1984–2003"
+          />
+        </div>
+      </div>
+      <div>
+        <label className={labelClass}>Photo Link</label>
+        <input
+          type="url"
+          value={fields.link_photo}
+          onChange={(e) => setFields((f) => ({ ...f, link_photo: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Music Link</label>
+        <input
+          type="url"
+          value={fields.link_music}
+          onChange={(e) => setFields((f) => ({ ...f, link_music: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Video Link</label>
+        <input
+          type="url"
+          value={fields.link_video}
+          onChange={(e) => setFields((f) => ({ ...f, link_video: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <StatusMessage message={message} />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function EditAttributeForm({
+  attribute,
+  onSave,
+  onCancel,
+}: {
+  attribute: AttributeRow;
+  onSave: (updated: AttributeRow) => void;
+  onCancel: () => void;
+}) {
+  const [fields, setFields] = useState({
+    name: attribute.name,
+    description: attribute.description ?? "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    const result = await updateAttribute(attribute.id, {
+      name: fields.name,
+      description: fields.description || null,
+    });
+
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+      setLoading(false);
+    } else {
+      onSave({
+        ...attribute,
+        name: fields.name,
+        description: fields.description || null,
+      });
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
+      <div>
+        <label className={labelClass}>Name</label>
+        <input
+          type="text"
+          required
+          value={fields.name}
+          onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Description</label>
+        <input
+          type="text"
+          value={fields.description}
+          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+          className={inputClass}
+          placeholder="Ability to score points efficiently"
+        />
+      </div>
+      <StatusMessage message={message} />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ManageSubjectsSection({ topics }: { topics: Topic[] }) {
+  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  async function loadSubjects(topicId: string) {
+    setLoadingList(true);
+    setListError(null);
+    setEditingId(null);
+    const result = await getSubjectsForTopic(topicId);
+    if (result.error) {
+      setListError(result.error);
+    } else {
+      setSubjects(result.data ?? []);
+    }
+    setLoadingList(false);
+  }
+
+  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setSelectedTopicId(id);
+    setSubjects([]);
+    setEditingId(null);
+    if (id) loadSubjects(id);
+  }
+
+  return (
+    <section className="border border-brand-border rounded-2xl p-6">
+      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE SUBJECTS</h2>
+      {topics.length === 0 ? (
+        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
+      ) : (
+        <div className="space-y-4 max-w-2xl">
+          <div>
+            <label className={labelClass}>Topic</label>
+            <select
+              value={selectedTopicId}
+              onChange={handleTopicChange}
+              className={inputClass}
+            >
+              <option value="">Select a topic...</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loadingList && (
+            <p className="text-sm font-mono text-neutral-500">Loading...</p>
+          )}
+          {listError && (
+            <p className="text-sm font-mono text-brand-red">{listError}</p>
+          )}
+
+          {!loadingList && selectedTopicId && subjects.length === 0 && !listError && (
+            <p className="text-sm font-mono text-neutral-500">No subjects found for this topic.</p>
+          )}
+
+          {subjects.length > 0 && (
+            <ul className="space-y-2">
+              {subjects.map((subject) => (
+                <li key={subject.id} className="rounded-xl border border-brand-border p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <span className="font-body text-white">{subject.name}</span>
+                      {subject.era && (
+                        <span className="ml-2 text-xs font-mono text-neutral-500">{subject.era}</span>
+                      )}
+                    </div>
+                    {editingId !== subject.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(subject.id)}
+                        className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  {editingId === subject.id && (
+                    <EditSubjectForm
+                      subject={subject}
+                      onSave={(updated) => {
+                        setSubjects((prev) =>
+                          prev.map((s) => (s.id === updated.id ? updated : s))
+                        );
+                        setEditingId(null);
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ManageAttributesSection({ topics }: { topics: Topic[] }) {
+  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [attributes, setAttributes] = useState<AttributeRow[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  async function loadAttributes(topicId: string) {
+    setLoadingList(true);
+    setListError(null);
+    setEditingId(null);
+    const result = await getAttributesForTopic(topicId);
+    if (result.error) {
+      setListError(result.error);
+    } else {
+      setAttributes(result.data ?? []);
+    }
+    setLoadingList(false);
+  }
+
+  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setSelectedTopicId(id);
+    setAttributes([]);
+    setEditingId(null);
+    if (id) loadAttributes(id);
+  }
+
+  return (
+    <section className="border border-brand-border rounded-2xl p-6">
+      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE ATTRIBUTES</h2>
+      {topics.length === 0 ? (
+        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
+      ) : (
+        <div className="space-y-4 max-w-2xl">
+          <div>
+            <label className={labelClass}>Topic</label>
+            <select
+              value={selectedTopicId}
+              onChange={handleTopicChange}
+              className={inputClass}
+            >
+              <option value="">Select a topic...</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loadingList && (
+            <p className="text-sm font-mono text-neutral-500">Loading...</p>
+          )}
+          {listError && (
+            <p className="text-sm font-mono text-brand-red">{listError}</p>
+          )}
+
+          {!loadingList && selectedTopicId && attributes.length === 0 && !listError && (
+            <p className="text-sm font-mono text-neutral-500">No attributes found for this topic.</p>
+          )}
+
+          {attributes.length > 0 && (
+            <ul className="space-y-2">
+              {attributes.map((attribute) => (
+                <li key={attribute.id} className="rounded-xl border border-brand-border p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <span className="font-body text-white">{attribute.name}</span>
+                      {attribute.description && (
+                        <span className="ml-2 text-xs font-mono text-neutral-500">{attribute.description}</span>
+                      )}
+                    </div>
+                    {editingId !== attribute.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(attribute.id)}
+                        className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  {editingId === attribute.id && (
+                    <EditAttributeForm
+                      attribute={attribute}
+                      onSave={(updated) => {
+                        setAttributes((prev) =>
+                          prev.map((a) => (a.id === updated.id ? updated : a))
+                        );
+                        setEditingId(null);
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AdminForms({ topics }: { topics: Topic[] }) {
   return (
     <div className="space-y-10">
       <CreateTopicForm />
       <AddSubjectForm topics={topics} />
       <AddAttributeForm topics={topics} />
+      <ManageSubjectsSection topics={topics} />
+      <ManageAttributesSection topics={topics} />
     </div>
   );
 }
