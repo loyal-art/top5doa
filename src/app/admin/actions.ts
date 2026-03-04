@@ -133,7 +133,7 @@ export async function addAttributesBulk(
 
   if (names.length === 0) return { error: "No names provided" };
 
-  const rows = names.map((name) => ({ topic_id, name, status: "active" }));
+  const rows = names.map((name) => ({ topic_id, name, status: "active" as const }));
 
   const { error } = await supabase.from("attributes").insert(rows);
   if (error) return { error: error.message };
