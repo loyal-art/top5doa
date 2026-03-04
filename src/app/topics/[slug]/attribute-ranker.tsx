@@ -142,7 +142,7 @@ export function AttributeRanker({
               {attr.name}
             </p>
             {attr.description && (
-              <p className="text-xs text-neutral-600 font-body truncate mt-0.5">
+              <p className="text-sm text-neutral-400 font-body truncate mt-0.5">
                 {attr.description}
               </p>
             )}
