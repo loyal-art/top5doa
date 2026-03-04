@@ -157,7 +157,7 @@ export default async function SharedListPage({ params }: PageProps) {
               const rank = RANK_COLORS[i] ?? RANK_COLORS[4];
               // subjects is a joined object from the select
               const subjectName =
-                (entry.subjects as { name: string } | null)?.name ?? "Unknown";
+                (entry.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
 
               return (
                 <div
