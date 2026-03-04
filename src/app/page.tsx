@@ -181,7 +181,7 @@ function HeroBanner({
 
         {/* Description */}
         {topic.description && (
-          <p className="text-sm font-body text-neutral-400 leading-relaxed max-w-xl mb-5 line-clamp-2">
+          <p className="text-sm font-body text-neutral-400 leading-relaxed max-w-xl mb-5 line-clamp-2 break-words">
             {topic.description}
           </p>
         )}
