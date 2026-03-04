@@ -169,6 +169,7 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
   data: Array<{
     id: string;
     name: string;
+    description: string | null;
     era: string | null;
     link_photo: string | null;
     link_music: string | null;
@@ -181,7 +182,7 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
 
   const { data, error } = await supabase
     .from("subjects")
-    .select("id, name, era, link_photo, link_music, link_video")
+    .select("id, name, description, era, link_photo, link_music, link_video")
     .eq("topic_id", topic_id)
     .order("name");
 
@@ -210,6 +211,7 @@ export async function updateSubject(
   id: string,
   updates: {
     name: string;
+    description: string | null;
     era: string | null;
     link_photo: string | null;
     link_music: string | null;

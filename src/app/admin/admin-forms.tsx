@@ -22,6 +22,7 @@ interface Topic {
 type SubjectRow = {
   id: string;
   name: string;
+  description: string | null;
   era: string | null;
   link_photo: string | null;
   link_music: string | null;
@@ -497,6 +498,7 @@ function EditSubjectForm({
 }) {
   const [fields, setFields] = useState({
     name: subject.name,
+    description: subject.description ?? "",
     era: subject.era ?? "",
     link_photo: subject.link_photo ?? "",
     link_music: subject.link_music ?? "",
@@ -515,6 +517,7 @@ function EditSubjectForm({
 
     const result = await updateSubject(subject.id, {
       name: fields.name,
+      description: fields.description || null,
       era: fields.era || null,
       link_photo: fields.link_photo || null,
       link_music: fields.link_music || null,
@@ -528,6 +531,7 @@ function EditSubjectForm({
       onSave({
         ...subject,
         name: fields.name,
+        description: fields.description || null,
         era: fields.era || null,
         link_photo: fields.link_photo || null,
         link_music: fields.link_music || null,
@@ -559,6 +563,16 @@ function EditSubjectForm({
             placeholder="1984–2003"
           />
         </div>
+      </div>
+      <div>
+        <label className={labelClass}>Description</label>
+        <textarea
+          rows={2}
+          value={fields.description}
+          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+          className={`${inputClass} resize-none`}
+          placeholder="Short description..."
+        />
       </div>
       <div>
         <label className={labelClass}>Photo Link</label>
