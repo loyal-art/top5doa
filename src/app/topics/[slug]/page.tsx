@@ -94,7 +94,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
             {topic.title.toUpperCase()}
           </h1>
           {topic.description && (
-            <p className="text-neutral-400 mt-3 max-w-2xl font-body leading-relaxed">
+            <p className="text-neutral-400 mt-3 max-w-2xl font-body leading-relaxed break-words">
               {topic.description}
             </p>
           )}

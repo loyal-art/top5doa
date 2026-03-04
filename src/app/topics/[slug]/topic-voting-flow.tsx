@@ -640,7 +640,7 @@ export function TopicVotingFlow({
                         {currentAttr.name.toUpperCase()}
                       </h2>
                       {currentAttr.description && (
-                        <p className="text-neutral-500 text-sm font-body mt-1">{currentAttr.description}</p>
+                        <p className="text-neutral-500 text-sm font-body mt-1 break-words">{currentAttr.description}</p>
                       )}
                     </div>
                   </div>
