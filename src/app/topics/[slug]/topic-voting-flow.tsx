@@ -120,6 +120,8 @@ export function TopicVotingFlow({
   const [userId, setUserId] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [step, setStep] = useState<Step>("rank");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
@@ -190,6 +192,7 @@ export function TopicVotingFlow({
     if (!userId) return;
 
     async function loadExistingData() {
+      console.log("[loadExistingData] starting for topic:", topic.id, "user:", userId);
       // Fetch profile + check for an already-locked list in parallel
       const [{ data: profile }, { data: lockedList }] = await Promise.all([
         supabase
@@ -206,6 +209,7 @@ export function TopicVotingFlow({
       ]);
 
       console.log("[profile] raw result:", profile);
+      console.log("[lockedList] result:", lockedList);
       setDisplayName(profile?.display_name ?? null);
       setIsPremium(
         profile?.is_premium === true &&
@@ -214,12 +218,14 @@ export function TopicVotingFlow({
       );
 
       // Load existing attribute ranks
-      const { data: existingRanks } = await supabase
+      const { data: existingRanks, error: ranksError } = await supabase
         .from("user_attribute_ranks")
         .select("attribute_id, rank_position")
         .eq("user_id", userId!)
         .eq("topic_id", topic.id)
         .order("rank_position");
+
+      console.log("[loadExistingData] existingRanks:", existingRanks, "error:", ranksError);
 
       if (existingRanks && existingRanks.length > 0) {
         const ranked = existingRanks.map((r) => r.attribute_id);
@@ -227,15 +233,23 @@ export function TopicVotingFlow({
         const remaining = attributes
           .map((a) => a.id)
           .filter((id) => !ranked.includes(id));
+        console.log("[loadExistingData] restoring rankedAttributeIds:", [...ranked, ...remaining]);
         setRankedAttributeIds([...ranked, ...remaining]);
+      } else {
+        console.log("[loadExistingData] no existing ranks found — using default order");
       }
 
       // Load existing scores
-      const { data: existingScores } = await supabase
+      const { data: existingScores, error: scoresError } = await supabase
         .from("user_subject_scores")
         .select("subject_id, attribute_id, score")
         .eq("user_id", userId!)
         .eq("topic_id", topic.id);
+
+      console.log("[loadExistingData] existingScores count:", existingScores?.length ?? 0, "error:", scoresError);
+      if (existingScores && existingScores.length > 0) {
+        console.log("[loadExistingData] sample scores:", existingScores.slice(0, 3));
+      }
 
       if (existingScores && existingScores.length > 0) {
         setScores((prev) => {
@@ -250,11 +264,13 @@ export function TopicVotingFlow({
 
       // If the user already has a locked list, skip straight to the results screen
       if (lockedList && lockedList.length > 0) {
+        console.log("[loadExistingData] locked list found — skipping to results");
         setStep("results");
         setSaved(true);
         fetchGlobalRankings();
       }
 
+      console.log("[loadExistingData] done — calling setInitializing(false)");
       setInitializing(false);
     }
 
@@ -265,7 +281,9 @@ export function TopicVotingFlow({
   // doesn't trigger a spurious write-back to the database.
   useEffect(() => {
     if (!initializing && userId) {
+      console.log("[autoSave] initialization complete — scheduling autoSaveReadyRef = true");
       const timer = setTimeout(() => {
+        console.log("[autoSave] autoSaveReadyRef is now TRUE — auto-save enabled");
         autoSaveReadyRef.current = true;
       }, 0);
       return () => clearTimeout(timer);
@@ -274,15 +292,19 @@ export function TopicVotingFlow({
 
   // Debounced auto-save: attribute rankings
   useEffect(() => {
+    console.log("[autoSave:ranks] effect ran — userId:", userId, "autoSaveReady:", autoSaveReadyRef.current, "ids:", rankedAttributeIds);
     if (!userId || !autoSaveReadyRef.current) return;
+    setAutoSaveStatus("saving");
     const timer = setTimeout(async () => {
-      await supabase
+      console.log("[autoSave:ranks] debounce fired — saving", rankedAttributeIds.length, "ranks");
+      const { error: delError } = await supabase
         .from("user_attribute_ranks")
         .delete()
         .eq("user_id", userId)
         .eq("topic_id", topic.id);
+      console.log("[autoSave:ranks] delete result — error:", delError);
       if (rankedAttributeIds.length > 0) {
-        await supabase.from("user_attribute_ranks").insert(
+        const { error: insertError } = await supabase.from("user_attribute_ranks").insert(
           rankedAttributeIds.map((attrId, idx) => ({
             user_id: userId,
             topic_id: topic.id,
@@ -290,14 +312,20 @@ export function TopicVotingFlow({
             rank_position: idx + 1,
           })),
         );
+        console.log("[autoSave:ranks] insert result — error:", insertError);
       }
+      setAutoSaveStatus("saved");
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setAutoSaveStatus("idle"), 2000);
     }, 500);
     return () => clearTimeout(timer);
   }, [rankedAttributeIds, userId, supabase, topic.id]);
 
   // Debounced auto-save: subject scores
   useEffect(() => {
+    console.log("[autoSave:scores] effect ran — userId:", userId, "autoSaveReady:", autoSaveReadyRef.current);
     if (!userId || !autoSaveReadyRef.current) return;
+    setAutoSaveStatus("saving");
     const timer = setTimeout(async () => {
       const rows: { user_id: string; topic_id: string; subject_id: string; attribute_id: string; score: number }[] = [];
       for (const subjectId of Object.keys(scores)) {
@@ -311,11 +339,16 @@ export function TopicVotingFlow({
           });
         }
       }
+      console.log("[autoSave:scores] debounce fired — upserting", rows.length, "score rows");
       if (rows.length > 0) {
-        await supabase
+        const { error } = await supabase
           .from("user_subject_scores")
           .upsert(rows, { onConflict: "user_id,subject_id,attribute_id" });
+        console.log("[autoSave:scores] upsert result — error:", error);
       }
+      setAutoSaveStatus("saved");
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setAutoSaveStatus("idle"), 2000);
     }, 500);
     return () => clearTimeout(timer);
   }, [scores, userId, supabase, topic.id]);
@@ -505,6 +538,17 @@ export function TopicVotingFlow({
           );
         })}
       </div>
+
+      {/* Auto-save indicator */}
+      {userId && autoSaveStatus !== "idle" && (
+        <div className="flex justify-end -mt-4">
+          <span className="text-xs font-mono text-neutral-600">
+            {autoSaveStatus === "saving"
+              ? "Saving..."
+              : "✓ Progress saved — pick up where you left off anytime"}
+          </span>
+        </div>
+      )}
 
       {/* Step 1: Rank Attributes */}
       {step === "rank" && (
