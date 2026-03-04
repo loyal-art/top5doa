@@ -242,3 +242,45 @@ export async function updateAttribute(
   revalidatePath("/admin");
   return { error: null };
 }
+
+export async function getTopics(): Promise<{
+  data: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    category: string;
+    status: string;
+  }> | null;
+  error: string | null;
+}> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { data: null, error: authError ?? "Auth failed" };
+
+  const { data, error } = await supabase
+    .from("topics")
+    .select("id, title, description, category, status")
+    .order("title");
+
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+export async function updateTopic(
+  id: string,
+  updates: {
+    title: string;
+    description: string | null;
+    category: string;
+    status: "draft" | "coming_soon" | "active" | "archived";
+  }
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const { error } = await supabase.from("topics").update(updates).eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
