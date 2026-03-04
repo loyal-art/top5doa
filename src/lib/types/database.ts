@@ -95,6 +95,7 @@ export type Database = {
           id: string;
           topic_id: string;
           name: string;
+          description: string | null;
           era: string | null;
           stats: Json | null;
           photo_url: string | null;
@@ -107,6 +108,7 @@ export type Database = {
           id?: string;
           topic_id: string;
           name: string;
+          description?: string | null;
           era?: string | null;
           stats?: Json | null;
           photo_url?: string | null;
@@ -118,6 +120,7 @@ export type Database = {
         Update: {
           topic_id?: string;
           name?: string;
+          description?: string | null;
           era?: string | null;
           stats?: Json | null;
           photo_url?: string | null;
