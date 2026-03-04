@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopicVotingFlow } from "./topic-voting-flow";
+import { ShareButton } from "@/components/share-button";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
@@ -111,6 +112,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
               {attrCount} attributes
             </span>
+            <ShareButton title={topic.title} path={`/topics/${slug}`} />
           </div>
         </div>
       </section>

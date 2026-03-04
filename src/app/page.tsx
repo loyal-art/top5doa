@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ShareButton } from "@/components/share-button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ function TopicCard({
           </div>
         )}
 
-        {/* Footer: voter count */}
+        {/* Footer: voter count + share */}
         <div className="flex items-center gap-3 mt-auto pt-1">
           <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -304,6 +305,7 @@ function TopicCard({
             </svg>
             {formatCount(voterCount)} voters
           </span>
+          <ShareButton title={topic.title} path={`/topics/${topic.slug}`} />
         </div>
       </div>
 
