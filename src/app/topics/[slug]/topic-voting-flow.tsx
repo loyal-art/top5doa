@@ -115,6 +115,8 @@ export function TopicVotingFlow({
   // every render while step === "results" — an infinite re-fetch loop.
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
+  // Prevents auto-save from firing during initial state restore
+  const autoSaveReadyRef = useRef(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [step, setStep] = useState<Step>("rank");
@@ -258,6 +260,65 @@ export function TopicVotingFlow({
 
     loadExistingData();
   }, [userId, topic.id, supabase, attributes, fetchGlobalRankings]);
+
+  // Enable auto-save one tick after initialization so the initial state restore
+  // doesn't trigger a spurious write-back to the database.
+  useEffect(() => {
+    if (!initializing && userId) {
+      const timer = setTimeout(() => {
+        autoSaveReadyRef.current = true;
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [initializing, userId]);
+
+  // Debounced auto-save: attribute rankings
+  useEffect(() => {
+    if (!userId || !autoSaveReadyRef.current) return;
+    const timer = setTimeout(async () => {
+      await supabase
+        .from("user_attribute_ranks")
+        .delete()
+        .eq("user_id", userId)
+        .eq("topic_id", topic.id);
+      if (rankedAttributeIds.length > 0) {
+        await supabase.from("user_attribute_ranks").insert(
+          rankedAttributeIds.map((attrId, idx) => ({
+            user_id: userId,
+            topic_id: topic.id,
+            attribute_id: attrId,
+            rank_position: idx + 1,
+          })),
+        );
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [rankedAttributeIds, userId, supabase, topic.id]);
+
+  // Debounced auto-save: subject scores
+  useEffect(() => {
+    if (!userId || !autoSaveReadyRef.current) return;
+    const timer = setTimeout(async () => {
+      const rows: { user_id: string; topic_id: string; subject_id: string; attribute_id: string; score: number }[] = [];
+      for (const subjectId of Object.keys(scores)) {
+        for (const attrId of Object.keys(scores[subjectId])) {
+          rows.push({
+            user_id: userId,
+            topic_id: topic.id,
+            subject_id: subjectId,
+            attribute_id: attrId,
+            score: scores[subjectId][attrId],
+          });
+        }
+      }
+      if (rows.length > 0) {
+        await supabase
+          .from("user_subject_scores")
+          .upsert(rows, { onConflict: "user_id,subject_id,attribute_id" });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [scores, userId, supabase, topic.id]);
 
   // Compute ranked attribute objects in order
   const rankedAttributes = useMemo(
