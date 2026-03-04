@@ -92,6 +92,56 @@ export async function addSubject(
   return { error: null };
 }
 
+export async function addSubjectsBulk(
+  formData: FormData
+): Promise<{ error: string | null; count?: number }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const topic_id = formData.get("topic_id") as string;
+  const raw = formData.get("names") as string;
+
+  const names = raw
+    .split("\n")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+
+  if (names.length === 0) return { error: "No names provided" };
+
+  const rows = names.map((name) => ({ topic_id, name }));
+
+  const { error } = await supabase.from("subjects").insert(rows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  return { error: null, count: names.length };
+}
+
+export async function addAttributesBulk(
+  formData: FormData
+): Promise<{ error: string | null; count?: number }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const topic_id = formData.get("topic_id") as string;
+  const raw = formData.get("names") as string;
+
+  const names = raw
+    .split("\n")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+
+  if (names.length === 0) return { error: "No names provided" };
+
+  const rows = names.map((name) => ({ topic_id, name, status: "active" as const }));
+
+  const { error } = await supabase.from("attributes").insert(rows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  return { error: null, count: names.length };
+}
+
 export async function addAttribute(
   formData: FormData
 ): Promise<{ error: string | null }> {

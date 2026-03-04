@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createTopic, addSubject, addAttribute } from "./actions";
+import {
+  createTopic,
+  addSubject,
+  addAttribute,
+  addSubjectsBulk,
+  addAttributesBulk,
+} from "./actions";
 
 interface Topic {
   id: string;
@@ -152,6 +158,11 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -170,6 +181,26 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
     setLoading(false);
   }
 
+  async function handleBulkSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBulkLoading(true);
+    setBulkMessage(null);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await addSubjectsBulk(formData);
+
+    if (result.error) {
+      setBulkMessage({ type: "error", text: result.error });
+    } else {
+      setBulkMessage({
+        type: "success",
+        text: `Added ${result.count} subject${result.count === 1 ? "" : "s"}!`,
+      });
+      (e.target as HTMLFormElement).reset();
+    }
+    setBulkLoading(false);
+  }
+
   return (
     <section className="border border-brand-border rounded-2xl p-6">
       <h2 className="font-display text-2xl tracking-wide mb-6">ADD SUBJECT</h2>
@@ -178,73 +209,115 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
           No topics yet. Create a topic first.
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
-          <div>
-            <label className={labelClass}>Topic</label>
-            <select name="topic_id" required className={inputClass}>
-              <option value="">Select a topic...</option>
-              {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.title}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+            <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+              Single Entry
+            </p>
+            <div>
+              <label className={labelClass}>Topic</label>
+              <select name="topic_id" required className={inputClass}>
+                <option value="">Select a topic...</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Name</label>
+              <input
+                name="name"
+                type="text"
+                required
+                className={inputClass}
+                placeholder="Michael Jordan"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Era (optional)</label>
+              <input
+                name="era"
+                type="text"
+                className={inputClass}
+                placeholder="1984–2003"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Photo Link (optional)</label>
+              <input
+                name="link_photo"
+                type="url"
+                className={inputClass}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Music Link (optional)</label>
+              <input
+                name="link_music"
+                type="url"
+                className={inputClass}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Video Link (optional)</label>
+              <input
+                name="link_video"
+                type="url"
+                className={inputClass}
+                placeholder="https://..."
+              />
+            </div>
+            <StatusMessage message={message} />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? "Adding..." : "Add Subject"}
+            </button>
+          </form>
+
+          <div className="border-t border-brand-border/50 pt-8">
+            <form onSubmit={handleBulkSubmit} className="space-y-4 max-w-lg">
+              <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                Bulk Entry
+              </p>
+              <div>
+                <label className={labelClass}>Topic</label>
+                <select name="topic_id" required className={inputClass}>
+                  <option value="">Select a topic...</option>
+                  {topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>
+                      {topic.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Names (one per line)</label>
+                <textarea
+                  name="names"
+                  required
+                  rows={8}
+                  className={`${inputClass} resize-y`}
+                  placeholder={"Michael Jordan\nLeBron James\nKobe Bryant"}
+                />
+              </div>
+              <StatusMessage message={bulkMessage} />
+              <button
+                type="submit"
+                disabled={bulkLoading}
+                className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkLoading ? "Adding..." : "Add Subjects"}
+              </button>
+            </form>
           </div>
-          <div>
-            <label className={labelClass}>Name</label>
-            <input
-              name="name"
-              type="text"
-              required
-              className={inputClass}
-              placeholder="Michael Jordan"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Era (optional)</label>
-            <input
-              name="era"
-              type="text"
-              className={inputClass}
-              placeholder="1984–2003"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Photo Link (optional)</label>
-            <input
-              name="link_photo"
-              type="url"
-              className={inputClass}
-              placeholder="https://..."
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Music Link (optional)</label>
-            <input
-              name="link_music"
-              type="url"
-              className={inputClass}
-              placeholder="https://..."
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Video Link (optional)</label>
-            <input
-              name="link_video"
-              type="url"
-              className={inputClass}
-              placeholder="https://..."
-            />
-          </div>
-          <StatusMessage message={message} />
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Adding..." : "Add Subject"}
-          </button>
-        </form>
+        </div>
       )}
     </section>
   );
@@ -253,6 +326,11 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
 function AddAttributeForm({ topics }: { topics: Topic[] }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
@@ -274,6 +352,26 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
     setLoading(false);
   }
 
+  async function handleBulkSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBulkLoading(true);
+    setBulkMessage(null);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await addAttributesBulk(formData);
+
+    if (result.error) {
+      setBulkMessage({ type: "error", text: result.error });
+    } else {
+      setBulkMessage({
+        type: "success",
+        text: `Added ${result.count} attribute${result.count === 1 ? "" : "s"}!`,
+      });
+      (e.target as HTMLFormElement).reset();
+    }
+    setBulkLoading(false);
+  }
+
   return (
     <section className="border border-brand-border rounded-2xl p-6">
       <h2 className="font-display text-2xl tracking-wide mb-6">ADD ATTRIBUTE</h2>
@@ -282,46 +380,88 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
           No topics yet. Create a topic first.
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
-          <div>
-            <label className={labelClass}>Topic</label>
-            <select name="topic_id" required className={inputClass}>
-              <option value="">Select a topic...</option>
-              {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.title}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+            <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+              Single Entry
+            </p>
+            <div>
+              <label className={labelClass}>Topic</label>
+              <select name="topic_id" required className={inputClass}>
+                <option value="">Select a topic...</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Name</label>
+              <input
+                name="name"
+                type="text"
+                required
+                className={inputClass}
+                placeholder="Scoring"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Description (optional)</label>
+              <input
+                name="description"
+                type="text"
+                className={inputClass}
+                placeholder="Ability to score points efficiently"
+              />
+            </div>
+            <StatusMessage message={message} />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? "Adding..." : "Add Attribute"}
+            </button>
+          </form>
+
+          <div className="border-t border-brand-border/50 pt-8">
+            <form onSubmit={handleBulkSubmit} className="space-y-4 max-w-lg">
+              <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                Bulk Entry
+              </p>
+              <div>
+                <label className={labelClass}>Topic</label>
+                <select name="topic_id" required className={inputClass}>
+                  <option value="">Select a topic...</option>
+                  {topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>
+                      {topic.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Names (one per line)</label>
+                <textarea
+                  name="names"
+                  required
+                  rows={6}
+                  className={`${inputClass} resize-y`}
+                  placeholder={"Scoring\nDefense\nLeadership"}
+                />
+              </div>
+              <StatusMessage message={bulkMessage} />
+              <button
+                type="submit"
+                disabled={bulkLoading}
+                className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkLoading ? "Adding..." : "Add Attributes"}
+              </button>
+            </form>
           </div>
-          <div>
-            <label className={labelClass}>Name</label>
-            <input
-              name="name"
-              type="text"
-              required
-              className={inputClass}
-              placeholder="Scoring"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Description (optional)</label>
-            <input
-              name="description"
-              type="text"
-              className={inputClass}
-              placeholder="Ability to score points efficiently"
-            />
-          </div>
-          <StatusMessage message={message} />
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Adding..." : "Add Attribute"}
-          </button>
-        </form>
+        </div>
       )}
     </section>
   );
