@@ -122,6 +122,7 @@ export function TopicVotingFlow({
   const [step, setStep] = useState<Step>("rank");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
@@ -455,6 +456,27 @@ export function TopicVotingFlow({
     }
   }
 
+  async function handleStartOver() {
+    if (!userId) return;
+    await supabase.from("user_attribute_ranks").delete().eq("user_id", userId).eq("topic_id", topic.id);
+    await supabase.from("user_subject_scores").delete().eq("user_id", userId).eq("topic_id", topic.id);
+    setRankedAttributeIds(attributes.map((a) => a.id));
+    setScores(() => {
+      const reset: Record<string, Record<string, number>> = {};
+      for (const subject of subjects) {
+        reset[subject.id] = {};
+        for (const attr of attributes) {
+          reset[subject.id][attr.id] = 50;
+        }
+      }
+      return reset;
+    });
+    setCurrentSubjectIdx(0);
+    setCurrentAttrIdx(0);
+    setStep("rank");
+    setConfirmingReset(false);
+  }
+
   function updateScore(subjectId: string, attributeId: string, value: number) {
     setScores((prev) => ({
       ...prev,
@@ -539,14 +561,42 @@ export function TopicVotingFlow({
         })}
       </div>
 
-      {/* Auto-save indicator */}
-      {userId && autoSaveStatus !== "idle" && (
-        <div className="flex justify-end -mt-4">
-          <span className="text-xs font-mono text-neutral-600">
-            {autoSaveStatus === "saving"
-              ? "Saving..."
-              : "✓ Progress saved — pick up where you left off anytime"}
-          </span>
+      {/* Auto-save indicator + Start Over */}
+      {userId && !saved && (
+        <div className="flex items-center justify-between -mt-4">
+          <div className="text-xs font-mono">
+            {confirmingReset ? (
+              <span className="flex items-center gap-2">
+                <span className="text-neutral-500">Reset all progress?</span>
+                <button
+                  onClick={() => setConfirmingReset(false)}
+                  className="text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStartOver}
+                  className="text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Yes, reset
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmingReset(true)}
+                className="text-neutral-700 hover:text-neutral-500 transition-colors"
+              >
+                Start Over
+              </button>
+            )}
+          </div>
+          {autoSaveStatus !== "idle" && (
+            <span className="text-xs font-mono text-neutral-600">
+              {autoSaveStatus === "saving"
+                ? "Saving..."
+                : "✓ Progress saved — pick up where you left off anytime"}
+            </span>
+          )}
         </div>
       )}
 
