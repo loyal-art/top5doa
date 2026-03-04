@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTopic,
@@ -12,6 +12,8 @@ import {
   getAttributesForTopic,
   updateSubject,
   updateAttribute,
+  getTopics,
+  updateTopic,
 } from "./actions";
 
 interface Topic {
@@ -33,6 +35,14 @@ type AttributeRow = {
   id: string;
   name: string;
   description: string | null;
+};
+
+type TopicRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  status: string;
 };
 
 function slugify(text: string): string {
@@ -919,10 +929,205 @@ function ManageAttributesSection({ topics }: { topics: Topic[] }) {
   );
 }
 
+function EditTopicForm({
+  topic,
+  onSave,
+  onCancel,
+}: {
+  topic: TopicRow;
+  onSave: (updated: TopicRow) => void;
+  onCancel: () => void;
+}) {
+  const [fields, setFields] = useState({
+    title: topic.title,
+    description: topic.description ?? "",
+    category: topic.category,
+    status: topic.status,
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    const result = await updateTopic(topic.id, {
+      title: fields.title,
+      description: fields.description || null,
+      category: fields.category,
+      status: fields.status as "draft" | "coming_soon" | "active" | "archived",
+    });
+
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+      setLoading(false);
+    } else {
+      onSave({
+        ...topic,
+        title: fields.title,
+        description: fields.description || null,
+        category: fields.category,
+        status: fields.status,
+      });
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Title</label>
+          <input
+            type="text"
+            required
+            value={fields.title}
+            onChange={(e) => setFields((f) => ({ ...f, title: e.target.value }))}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Category</label>
+          <select
+            value={fields.category}
+            onChange={(e) => setFields((f) => ({ ...f, category: e.target.value }))}
+            className={inputClass}
+          >
+            <option value="Sports">Sports</option>
+            <option value="Music">Music</option>
+            <option value="Film">Film</option>
+            <option value="Gaming">Gaming</option>
+            <option value="Fashion">Fashion</option>
+            <option value="TV">TV</option>
+            <option value="Food">Food</option>
+            <option value="Culture">Culture</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={labelClass}>Description</label>
+        <textarea
+          rows={2}
+          value={fields.description}
+          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+          className={`${inputClass} resize-none`}
+          placeholder="Short description..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Status</label>
+        <select
+          value={fields.status}
+          onChange={(e) => setFields((f) => ({ ...f, status: e.target.value }))}
+          className={inputClass}
+        >
+          <option value="draft">Draft</option>
+          <option value="coming_soon">Coming Soon</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+      <StatusMessage message={message} />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ManageTopicsSection() {
+  const [topics, setTopics] = useState<TopicRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
+    const result = await getTopics();
+    if (result.error) {
+      setLoadError(result.error);
+    } else {
+      setTopics(result.data ?? []);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <section className="border border-brand-border rounded-2xl p-6">
+      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE TOPICS</h2>
+
+      {loading && <p className="text-sm font-mono text-neutral-500">Loading...</p>}
+      {loadError && <p className="text-sm font-mono text-brand-red">{loadError}</p>}
+      {!loading && !loadError && topics.length === 0 && (
+        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
+      )}
+
+      {topics.length > 0 && (
+        <ul className="space-y-2 max-w-2xl">
+          {topics.map((topic) => (
+            <li key={topic.id} className="rounded-xl border border-brand-border p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-body text-white">{topic.title}</span>
+                  <span className="ml-2 text-xs font-mono text-neutral-500">{topic.category}</span>
+                  <span className="ml-2 text-xs font-mono text-neutral-600">{topic.status}</span>
+                </div>
+                {editingId !== topic.id && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(topic.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+              {editingId === topic.id && (
+                <EditTopicForm
+                  topic={topic}
+                  onSave={(updated) => {
+                    setTopics((prev) =>
+                      prev.map((t) => (t.id === updated.id ? updated : t))
+                    );
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function AdminForms({ topics }: { topics: Topic[] }) {
   return (
     <div className="space-y-10">
       <CreateTopicForm />
+      <ManageTopicsSection />
       <AddSubjectForm topics={topics} />
       <AddAttributeForm topics={topics} />
       <ManageSubjectsSection topics={topics} />
