@@ -525,6 +525,9 @@ export function TopicVotingFlow({
                   {currentSubject.era && (
                     <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
                   )}
+                  {currentSubject.description && (
+                    <p className="text-sm text-neutral-400 break-words mt-1">{currentSubject.description}</p>
+                  )}
                   <p className="text-neutral-600 text-xs font-mono mt-1">
                     Subject {currentSubjectIdx + 1} of {subjects.length}
                   </p>
@@ -669,6 +672,9 @@ export function TopicVotingFlow({
                         </div>
                         {subject.era && (
                           <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
+                        )}
+                        {subject.description && (
+                          <p className="text-sm text-neutral-400 break-words mt-0.5">{subject.description}</p>
                         )}
                       </div>
                     </div>
