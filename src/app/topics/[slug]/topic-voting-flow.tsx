@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type html2canvasType from "html2canvas";
 import { createClient } from "@/lib/supabase/client";
 import { SubjectScoreSlider } from "@/components/subject-score-slider";
 import { ShareButton } from "@/components/share-button";
@@ -1083,8 +1084,127 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
+              {/* Share card — hidden off-screen, captured by html2canvas */}
+              <div
+                id="share-card"
+                style={{
+                  position: "fixed",
+                  left: "-9999px",
+                  top: 0,
+                  width: "1080px",
+                  height: "1080px",
+                  backgroundColor: "#080808",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "72px",
+                  boxSizing: "border-box",
+                  fontFamily: "sans-serif",
+                }}
+              >
+                {/* Top row: branding + category chip */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "56px" }}>
+                  <div>
+                    <div style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "38px", letterSpacing: "6px", color: "#ffffff", lineHeight: 1 }}>
+                      TOP5 DOA
+                    </div>
+                    <div style={{ width: "48px", height: "3px", backgroundColor: "#00ff87", marginTop: "8px" }} />
+                  </div>
+                  {topic.category && (
+                    <div style={{
+                      padding: "10px 22px",
+                      borderRadius: "999px",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                      color: "#aaaaaa",
+                      fontSize: "22px",
+                      letterSpacing: "3px",
+                      fontFamily: "monospace",
+                      textTransform: "uppercase",
+                    }}>
+                      {topic.category}
+                    </div>
+                  )}
+                </div>
+
+                {/* Topic title */}
+                <div style={{
+                  fontFamily: "'Bebas Neue', 'Impact', sans-serif",
+                  fontSize: "88px",
+                  letterSpacing: "4px",
+                  color: "#ffffff",
+                  lineHeight: 1,
+                  marginBottom: "52px",
+                  wordBreak: "break-word",
+                }}>
+                  {topic.title.toUpperCase()}
+                </div>
+
+                {/* Ranked list */}
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {results.slice(0, 5).map((r, idx) => {
+                    const isGold = idx === 0;
+                    const accentColor = isGold ? "#00ff87" : idx === 1 ? "#cccccc" : idx === 2 ? "#ff9944" : "#555555";
+                    return (
+                      <div
+                        key={r.subject.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "28px",
+                          padding: "22px 28px",
+                          borderRadius: "14px",
+                          border: `1px solid ${isGold ? "rgba(0,255,135,0.3)" : "rgba(255,255,255,0.07)"}`,
+                          backgroundColor: isGold ? "rgba(0,255,135,0.06)" : "rgba(255,255,255,0.03)",
+                        }}
+                      >
+                        <div style={{
+                          width: "54px",
+                          height: "54px",
+                          borderRadius: "50%",
+                          backgroundColor: `${accentColor}22`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontFamily: "'Bebas Neue', 'Impact', sans-serif",
+                          fontSize: "28px",
+                          color: accentColor,
+                          flexShrink: 0,
+                        }}>
+                          {idx + 1}
+                        </div>
+                        <div style={{ flex: 1, fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "36px", letterSpacing: "2px", color: isGold ? "#00ff87" : "#ffffff" }}>
+                          {r.subject.name.toUpperCase()}
+                        </div>
+                        <div style={{ fontFamily: "monospace", fontSize: "30px", fontWeight: "bold", color: isGold ? "#00ff87" : "#666666" }}>
+                          {r.score.toFixed(1)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bottom row: user info + site URL */}
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: "52px" }}>
+                  <div>
+                    {displayName && (
+                      <div style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "30px", letterSpacing: "2px", color: "#ffffff", lineHeight: 1 }}>
+                        {displayName}
+                      </div>
+                    )}
+                    {username && (
+                      <div style={{ fontFamily: "monospace", fontSize: "22px", color: "#555555", marginTop: "4px" }}>
+                        @{username}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: "monospace", fontSize: "22px", color: "#444444", letterSpacing: "1px" }}>
+                    Make your list at TOP5DOA.APP
+                  </div>
+                </div>
+              </div>
+
               {/* Edit Vote button */}
-              <div className="flex justify-start pt-2">
+              <div className="flex justify-start gap-3 pt-2">
                 <button
                   onClick={() => {
                     setSaved(false);
@@ -1095,6 +1215,28 @@ export function TopicVotingFlow({
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
                 >
                   Edit Vote
+                </button>
+                <button
+                  onClick={async () => {
+                    const el = document.getElementById("share-card");
+                    if (!el) return;
+                    const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
+                    const canvas = await html2canvas(el, {
+                      width: 1080,
+                      height: 1080,
+                      scale: 1,
+                      useCORS: true,
+                      backgroundColor: "#080808",
+                    });
+                    const link = document.createElement("a");
+                    link.download = `top5-${topic.slug ?? "list"}.png`;
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                  }}
+                  className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                             text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                >
+                  Download Card
                 </button>
               </div>
             </>
