@@ -219,13 +219,11 @@ function HeroBanner({
 function TopicCard({
   topic,
   attributes,
-  voterCount,
   hasVoted,
   top3,
 }: {
   topic: Topic;
   attributes: { id: string; name: string }[];
-  voterCount: number;
   hasVoted: boolean;
   top3: { name: string; score: number }[];
 }) {
@@ -297,14 +295,8 @@ function TopicCard({
           </div>
         )}
 
-        {/* Footer: voter count + share */}
+        {/* Footer: share */}
         <div className="flex items-center gap-3 mt-auto pt-1">
-          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {formatCount(voterCount)} voters
-          </span>
           <ShareButton title={topic.title} path={`/topics/${topic.slug}`} />
         </div>
       </div>
@@ -658,7 +650,6 @@ export default async function Home({
                     key={topic.id}
                     topic={topic}
                     attributes={attributesByTopic[topic.id] ?? []}
-                    voterCount={voterCounts[topic.id] ?? 0}
                     hasVoted={votedTopicIds.has(topic.id)}
                     top3={globalTop3ByTopic[topic.id] ?? []}
                   />

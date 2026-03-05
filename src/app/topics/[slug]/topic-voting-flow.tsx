@@ -16,6 +16,7 @@ interface TopicVotingFlowProps {
   attributes: Attribute[];
   weights: number[];
   globalRankings?: { subject: Subject; score: number }[];
+  voterCount: number;
 }
 
 function imageSearchUrl(topicTitle: string, subjectName: string): string {
@@ -106,6 +107,7 @@ export function TopicVotingFlow({
   attributes,
   weights,
   globalRankings: initialGlobalRankings,
+  voterCount,
 }: TopicVotingFlowProps) {
   // Memoize the Supabase client so its reference stays stable across renders.
   // createBrowserClient returns a new object on every call; if it were called
@@ -904,6 +906,9 @@ export function TopicVotingFlow({
                   <h2 className="font-display text-3xl tracking-wide">LIST LOCKED IN</h2>
                   <p className="text-neutral-500 text-sm mt-1 font-body">
                     Your vote has been counted
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600 mt-1">
+                    {voterCount.toLocaleString()} {voterCount === 1 ? "voter" : "voters"} on this topic
                   </p>
                   <p className="text-xs italic text-neutral-600 mt-1 font-body">
                     Scores reflect ranking within this topic only.
