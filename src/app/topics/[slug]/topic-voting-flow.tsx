@@ -544,6 +544,10 @@ export function TopicVotingFlow({
     }));
   }
 
+  const openPip = useCallback((url: string, type: "photo" | "music" | "video") => {
+    setPipContent({ url, type });
+  }, []);
+
   if (!attributes.length || !subjects.length) {
     return (
       <div className="text-center py-16 text-neutral-500">
@@ -568,10 +572,6 @@ export function TopicVotingFlow({
       </div>
     );
   }
-
-  const openPip = useCallback((url: string, type: "photo" | "music" | "video") => {
-    setPipContent({ url, type });
-  }, []);
 
   return (
     <div className="space-y-8">
