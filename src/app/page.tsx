@@ -11,6 +11,7 @@ type Topic = {
   category: string;
   description: string | null;
   cover_image_url: string | null;
+  view_count: number;
 };
 
 type GlobalRanking = { subject_id: string; avg_score: number };
@@ -141,10 +142,12 @@ function HeroBanner({
   topic,
   voterCount,
   attributeCount,
+  viewCount,
 }: {
   topic: Topic;
   voterCount: number;
   attributeCount: number;
+  viewCount: number;
 }) {
   const accentColor = categoryColor(topic.category);
 
@@ -195,6 +198,10 @@ function HeroBanner({
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
+              {formatCount(viewCount)} views
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-border" />
               {attributeCount} attributes
             </span>
           </div>
@@ -363,14 +370,14 @@ export default async function Home({
   // Active topics
   const { data: topics } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url")
+    .select("id, title, slug, category, description, cover_image_url, view_count")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url")
+    .select("id, title, slug, category, description, cover_image_url, view_count")
     .eq("status", "coming_soon")
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
@@ -616,6 +623,7 @@ export default async function Home({
                     topic={heroBannerTopic}
                     voterCount={voterCounts[heroBannerTopic.id] ?? 0}
                     attributeCount={(attributesByTopic[heroBannerTopic.id] ?? []).length}
+                    viewCount={heroBannerTopic.view_count ?? 0}
                   />
                 )}
 

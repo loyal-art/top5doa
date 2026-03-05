@@ -63,6 +63,7 @@ export type Database = {
           cover_image_url: string | null;
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
+          view_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +76,7 @@ export type Database = {
           cover_image_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
+          view_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -86,6 +88,7 @@ export type Database = {
           cover_image_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
+          view_count?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -551,6 +554,10 @@ export type Database = {
       get_aura_tier: {
         Args: { points: number };
         Returns: string;
+      };
+      increment_topic_view: {
+        Args: { p_topic_id: string };
+        Returns: undefined;
       };
       get_global_rankings: {
         Args: { p_topic_id: string };
