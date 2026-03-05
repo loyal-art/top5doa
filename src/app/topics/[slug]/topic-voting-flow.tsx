@@ -21,78 +21,128 @@ interface TopicVotingFlowProps {
   voterCount: number;
 }
 
-function imageSearchUrl(topicTitle: string, subjectName: string): string {
-  return `https://www.google.com/search?q=${encodeURIComponent(`${topicTitle} ${subjectName}`)}&tbm=isch`;
-}
+type PipContent = { url: string; type: "photo" | "music" | "video" } | null;
 
-function CameraLink({ topicTitle, subjectName }: { topicTitle: string; subjectName: string }) {
+function PipPanel({ content, onClose }: { content: PipContent; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const dragging = useRef(false);
+  const dragStart = useRef({ mx: 0, my: 0, left: 0, top: 0 });
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      setPos({
+        left: dragStart.current.left + (e.clientX - dragStart.current.mx),
+        top: dragStart.current.top + (e.clientY - dragStart.current.my),
+      });
+    };
+    const onUp = () => { dragging.current = false; };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  if (!content) return null;
+
+  const handleDragMouseDown = (e: React.MouseEvent) => {
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, left: rect.left, top: rect.top };
+    e.preventDefault();
+  };
+
+  const style: React.CSSProperties = pos
+    ? { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999, width: 380 }
+    : { position: "fixed", right: 24, bottom: 24, zIndex: 9999, width: 380 };
+
   return (
-    <a
-      href={imageSearchUrl(topicTitle, subjectName)}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      title="Search images"
-      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
-    >
-      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    </a>
+    <div ref={panelRef} style={style} className="rounded-xl overflow-hidden shadow-2xl border border-neutral-700 bg-neutral-900 flex flex-col">
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragMouseDown}
+        className="flex items-center justify-between px-3 py-2 bg-neutral-800 cursor-grab active:cursor-grabbing select-none border-b border-neutral-700"
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+          </div>
+          <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">
+            {content.type === "photo" ? "Photo" : content.type === "music" ? "Music" : "Video"}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-6 h-6 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="w-full bg-black" style={{ height: content.type === "photo" ? "auto" : 240 }}>
+        {content.type === "photo" ? (
+          <img src={content.url} alt="Subject photo" className="w-full h-auto object-contain max-h-[400px]" />
+        ) : (
+          <iframe
+            src={content.url}
+            className="w-full h-full"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            title="Media preview"
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
-function SubjectLinks({ subject, topicTitle }: { subject: Subject; topicTitle: string }) {
+function SubjectLinks({
+  subject,
+  onOpen,
+}: {
+  subject: Subject;
+  onOpen: (url: string, type: "photo" | "music" | "video") => void;
+}) {
   return (
-    <>
-      <CameraLink topicTitle={topicTitle} subjectName={subject.name} />
+    <div className="flex items-center gap-1.5 flex-wrap">
       {subject.link_photo && (
-        <a
-          href={subject.link_photo}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title="View photo"
-          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(subject.link_photo!, "photo"); }}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-          </svg>
-        </a>
+          📷 PHOTO
+        </button>
       )}
       {subject.link_music && (
-        <a
-          href={subject.link_music}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title="Listen to music"
-          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(subject.link_music!, "music"); }}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-green-600 hover:bg-green-500 transition-colors"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-          </svg>
-        </a>
+          🎵 MUSIC
+        </button>
       )}
       {subject.link_video && (
-        <a
-          href={subject.link_video}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title="Watch video"
-          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-neutral-600 hover:text-brand-accent hover:bg-brand-accent/10 transition-colors flex-shrink-0"
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(subject.link_video!, "video"); }}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
-          </svg>
-        </a>
+          🎬 VIDEO
+        </button>
       )}
-    </>
+    </div>
   );
 }
+
 
 type Step = "rank" | "score" | "results";
 type VoteMode = "by-subject" | "by-attribute";
@@ -141,6 +191,7 @@ export function TopicVotingFlow({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [pipContent, setPipContent] = useState<PipContent>(null);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -518,8 +569,13 @@ export function TopicVotingFlow({
     );
   }
 
+  const openPip = useCallback((url: string, type: "photo" | "music" | "video") => {
+    setPipContent({ url, type });
+  }, []);
+
   return (
     <div className="space-y-8">
+      <PipPanel content={pipContent} onClose={() => setPipContent(null)} />
       {/* Step Indicator */}
       <div className="flex items-center gap-1 sm:gap-2">
         {(["rank", "score", "results"] as const).map((s, i) => {
@@ -681,7 +737,7 @@ export function TopicVotingFlow({
                     <h2 className="font-display text-3xl tracking-wide">
                       {currentSubject.name.toUpperCase()}
                     </h2>
-                    <SubjectLinks subject={currentSubject} topicTitle={topic.title} />
+                    <SubjectLinks subject={currentSubject} onOpen={openPip} />
                   </div>
                   {currentSubject.era && (
                     <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
@@ -829,7 +885,7 @@ export function TopicVotingFlow({
                           <p className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
                             {subject.name}
                           </p>
-                          <SubjectLinks subject={subject} topicTitle={topic.title} />
+                          <SubjectLinks subject={subject} onOpen={openPip} />
                         </div>
                         {subject.era && (
                           <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
@@ -966,7 +1022,7 @@ export function TopicVotingFlow({
                             <p className={`font-display text-sm tracking-wide truncate flex-1 min-w-0 ${isGold ? "text-brand-accent" : "text-white"}`}>
                               {r.subject.name.toUpperCase()}
                             </p>
-                            <SubjectLinks subject={r.subject} topicTitle={topic.title} />
+                            <SubjectLinks subject={r.subject} onOpen={openPip} />
                           </div>
                           {r.subject.era && (
                             <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1011,7 +1067,7 @@ export function TopicVotingFlow({
                                 <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                                   {r.subject.name.toUpperCase()}
                                 </p>
-                                <SubjectLinks subject={r.subject} topicTitle={topic.title} />
+                                <SubjectLinks subject={r.subject} onOpen={openPip} />
                               </div>
                               {r.subject.era && (
                                 <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1050,7 +1106,7 @@ export function TopicVotingFlow({
                                         <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-white">
                                           {r.subject.name.toUpperCase()}
                                         </p>
-                                        <SubjectLinks subject={r.subject} topicTitle={topic.title} />
+                                        <SubjectLinks subject={r.subject} onOpen={openPip} />
                                       </div>
                                       {r.subject.era && (
                                         <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1377,7 +1433,7 @@ export function TopicVotingFlow({
                         <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                           {results[0].subject.name.toUpperCase()}
                         </p>
-                        <SubjectLinks subject={results[0].subject} topicTitle={topic.title} />
+                        <SubjectLinks subject={results[0].subject} onOpen={openPip} />
                       </div>
                       {results[0].subject.era && (
                         <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
@@ -1418,7 +1474,7 @@ export function TopicVotingFlow({
                                   <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-white">
                                     {r.subject.name.toUpperCase()}
                                   </p>
-                                  <SubjectLinks subject={r.subject} topicTitle={topic.title} />
+                                  <SubjectLinks subject={r.subject} onOpen={openPip} />
                                 </div>
                                 {r.subject.era && (
                                   <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
