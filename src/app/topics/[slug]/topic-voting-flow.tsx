@@ -1107,7 +1107,7 @@ export function TopicVotingFlow({
                     <div style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "38px", letterSpacing: "6px", color: "#ffffff", lineHeight: 1 }}>
                       TOP5 DOA
                     </div>
-                    <div style={{ width: "48px", height: "3px", backgroundColor: "#00ff87", marginTop: "8px" }} />
+                    <div style={{ width: "48px", height: "3px", backgroundColor: "#e8ff00", marginTop: "8px" }} />
                   </div>
                   {topic.category && (
                     <div style={{
@@ -1141,46 +1141,63 @@ export function TopicVotingFlow({
 
                 {/* Ranked list */}
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "18px" }}>
-                  {results.slice(0, 5).map((r, idx) => {
-                    const isGold = idx === 0;
-                    const accentColor = isGold ? "#00ff87" : idx === 1 ? "#cccccc" : idx === 2 ? "#ff9944" : "#555555";
-                    return (
-                      <div
-                        key={r.subject.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "28px",
-                          padding: "22px 28px",
-                          borderRadius: "14px",
-                          border: `1px solid ${isGold ? "rgba(0,255,135,0.3)" : "rgba(255,255,255,0.07)"}`,
-                          backgroundColor: isGold ? "rgba(0,255,135,0.06)" : "rgba(255,255,255,0.03)",
-                        }}
-                      >
-                        <div style={{
-                          width: "54px",
-                          height: "54px",
-                          borderRadius: "50%",
-                          backgroundColor: `${accentColor}22`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontFamily: "'Bebas Neue', 'Impact', sans-serif",
-                          fontSize: "28px",
-                          color: accentColor,
-                          flexShrink: 0,
-                        }}>
-                          {idx + 1}
+                  {(() => {
+                    const top5 = results.slice(0, 5);
+                    const maxScore = top5[0]?.score || 1;
+                    return top5.map((r, idx) => {
+                      const isGold = idx === 0;
+                      const accentColor = isGold ? "#e8ff00" : idx === 1 ? "#cccccc" : idx === 2 ? "#ff9944" : "#555555";
+                      const fillPct = Math.round((r.score / maxScore) * 100);
+                      return (
+                        <div
+                          key={r.subject.id}
+                          style={{
+                            position: "relative",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "28px",
+                            padding: "22px 28px",
+                            borderRadius: "14px",
+                            border: `1px solid ${isGold ? "rgba(232,255,0,0.3)" : "rgba(255,255,255,0.07)"}`,
+                            backgroundColor: "rgba(255,255,255,0.02)",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {/* Fill bar */}
+                          <div style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            height: "100%",
+                            width: `${fillPct}%`,
+                            backgroundColor: isGold ? "rgba(232,255,0,0.07)" : "rgba(255,255,255,0.03)",
+                            borderRadius: "14px",
+                          }} />
+                          {/* Rank number */}
+                          <div style={{
+                            position: "relative",
+                            width: "54px",
+                            height: "54px",
+                            borderRadius: "50%",
+                            backgroundColor: `${accentColor}22`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontFamily: "'Bebas Neue', 'Impact', sans-serif",
+                            fontSize: "28px",
+                            color: accentColor,
+                            flexShrink: 0,
+                          }}>
+                            {idx + 1}
+                          </div>
+                          {/* Subject name */}
+                          <div style={{ position: "relative", flex: 1, fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "36px", letterSpacing: "2px", color: isGold ? "#e8ff00" : "#ffffff" }}>
+                            {r.subject.name.toUpperCase()}
+                          </div>
                         </div>
-                        <div style={{ flex: 1, fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "36px", letterSpacing: "2px", color: isGold ? "#00ff87" : "#ffffff" }}>
-                          {r.subject.name.toUpperCase()}
-                        </div>
-                        <div style={{ fontFamily: "monospace", fontSize: "30px", fontWeight: "bold", color: isGold ? "#00ff87" : "#666666" }}>
-                          {r.score.toFixed(1)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Bottom row: user info + site URL */}
