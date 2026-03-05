@@ -69,6 +69,13 @@ export default async function TopicPage({ params }: TopicPageProps) {
     p_topic_id: topic.id,
   });
 
+  // Voter count — distinct users who have locked in a list for this topic
+  const { data: voterRows } = await supabase
+    .from("user_lists")
+    .select("user_id")
+    .eq("topic_id", topic.id);
+  const voterCount = new Set((voterRows ?? []).map((r) => r.user_id)).size;
+
   const subjectMap = Object.fromEntries((subjects ?? []).map((s) => [s.id, s]));
   const globalRankings = (globalRankingsData ?? [])
     .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
@@ -129,6 +136,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
               : []
           }
           globalRankings={globalRankings}
+          voterCount={voterCount}
         />
       </section>
     </main>
