@@ -1085,6 +1085,7 @@ export function TopicVotingFlow({
               </div>
 
               {/* Share card — hidden off-screen, captured by html2canvas */}
+              {/* Layout matches mockup v1 exactly, scaled 2× to 1080px */}
               <div
                 id="share-card"
                 style={{
@@ -1096,103 +1097,170 @@ export function TopicVotingFlow({
                   backgroundColor: "#080808",
                   display: "flex",
                   flexDirection: "column",
-                  padding: "72px",
+                  overflow: "hidden",
                   boxSizing: "border-box",
-                  fontFamily: "sans-serif",
+                  fontFamily: "'DM Sans', sans-serif",
                 }}
               >
-                {/* Top row: branding + category chip */}
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "56px" }}>
-                  <div>
-                    <div style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "38px", letterSpacing: "6px", color: "#ffffff", lineHeight: 1 }}>
-                      TOP5 DOA
-                    </div>
-                    <div style={{ width: "48px", height: "3px", backgroundColor: "#e8ff00", marginTop: "8px" }} />
+                {/* Top accent bar */}
+                <div style={{
+                  height: "6px",
+                  background: "linear-gradient(90deg, #e8ff00 0%, #e8ff00 60%, transparent 100%)",
+                  width: "100%",
+                  flexShrink: 0,
+                }} />
+
+                {/* Header: brand + category chip */}
+                <div style={{
+                  padding: "40px 48px 32px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', Impact, sans-serif",
+                    fontSize: "44px",
+                    letterSpacing: "4px",
+                    color: "#ffffff",
+                    lineHeight: 1,
+                  }}>
+                    TOP5 <span style={{ color: "#e8ff00" }}>DOA</span>
                   </div>
                   {topic.category && (
                     <div style={{
-                      padding: "10px 22px",
-                      borderRadius: "999px",
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      color: "#aaaaaa",
-                      fontSize: "22px",
-                      letterSpacing: "3px",
-                      fontFamily: "monospace",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      background: "rgba(232,255,0,0.08)",
+                      border: "1px solid rgba(232,255,0,0.3)",
+                      borderRadius: "8px",
+                      padding: "8px 20px",
+                      fontFamily: "'Space Mono', monospace",
+                      fontSize: "18px",
+                      color: "#e8ff00",
+                      letterSpacing: "4px",
                       textTransform: "uppercase",
                     }}>
-                      {topic.category}
+                      ● {topic.category}
                     </div>
                   )}
                 </div>
 
-                {/* Topic title */}
+                {/* Topic section */}
                 <div style={{
-                  fontFamily: "'Bebas Neue', 'Impact', sans-serif",
-                  fontSize: "88px",
-                  letterSpacing: "4px",
-                  color: "#ffffff",
-                  lineHeight: 1,
-                  marginBottom: "52px",
-                  wordBreak: "break-word",
+                  padding: "0 48px 40px",
+                  borderBottom: "1px solid #161616",
+                  flexShrink: 0,
                 }}>
-                  {topic.title.toUpperCase()}
+                  <div style={{
+                    fontFamily: "'Space Mono', monospace",
+                    fontSize: "18px",
+                    color: "#444444",
+                    letterSpacing: "4px",
+                    textTransform: "uppercase",
+                    marginBottom: "12px",
+                  }}>
+                    My Top 5
+                  </div>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', Impact, sans-serif",
+                    fontSize: "64px",
+                    color: "#ffffff",
+                    lineHeight: 1,
+                    letterSpacing: "2px",
+                    wordBreak: "break-word",
+                  }}>
+                    {topic.title.toUpperCase()}
+                  </div>
                 </div>
 
-                {/* Ranked list */}
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "18px" }}>
+                {/* Rankings */}
+                <div style={{
+                  padding: "36px 48px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
+                  flex: 1,
+                }}>
                   {(() => {
                     const top5 = results.slice(0, 5);
-                    const maxScore = top5[0]?.score || 1;
+                    const rankColors = ["#e8ff00", "#a78bfa", "#fb923c", "#6b7280", "#6b7280"];
+                    const barGradients = [
+                      "linear-gradient(90deg, rgba(232,255,0,0.08) 0%, transparent 100%)",
+                      "linear-gradient(90deg, rgba(167,139,250,0.06) 0%, transparent 100%)",
+                      "linear-gradient(90deg, rgba(251,146,60,0.06) 0%, transparent 100%)",
+                      "#111111",
+                      "#111111",
+                    ];
+                    const barBorders = [
+                      "rgba(232,255,0,0.2)",
+                      "rgba(167,139,250,0.15)",
+                      "rgba(251,146,60,0.15)",
+                      "#1e1e1e",
+                      "#1e1e1e",
+                    ];
                     return top5.map((r, idx) => {
-                      const isGold = idx === 0;
-                      const accentColor = isGold ? "#e8ff00" : idx === 1 ? "#cccccc" : idx === 2 ? "#ff9944" : "#555555";
-                      const fillPct = Math.round((r.score / maxScore) * 100);
+                      const color = rankColors[idx] ?? "#6b7280";
+                      const fillWidth = Math.min(100, Math.round(r.score));
                       return (
-                        <div
-                          key={r.subject.id}
-                          style={{
-                            position: "relative",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "28px",
-                            padding: "22px 28px",
-                            borderRadius: "14px",
-                            border: `1px solid ${isGold ? "rgba(232,255,0,0.3)" : "rgba(255,255,255,0.07)"}`,
-                            backgroundColor: "rgba(255,255,255,0.02)",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {/* Fill bar */}
-                          <div style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            height: "100%",
-                            width: `${fillPct}%`,
-                            backgroundColor: isGold ? "rgba(232,255,0,0.07)" : "rgba(255,255,255,0.03)",
-                            borderRadius: "14px",
-                          }} />
+                        <div key={r.subject.id} style={{ display: "flex", alignItems: "center", gap: "28px" }}>
                           {/* Rank number */}
                           <div style={{
-                            position: "relative",
-                            width: "54px",
-                            height: "54px",
-                            borderRadius: "50%",
-                            backgroundColor: `${accentColor}22`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontFamily: "'Bebas Neue', 'Impact', sans-serif",
-                            fontSize: "28px",
-                            color: accentColor,
+                            fontFamily: "'Bebas Neue', Impact, sans-serif",
+                            fontSize: "26px",
+                            width: "44px",
+                            textAlign: "center",
+                            color: color,
                             flexShrink: 0,
                           }}>
                             {idx + 1}
                           </div>
-                          {/* Subject name */}
-                          <div style={{ position: "relative", flex: 1, fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "36px", letterSpacing: "2px", color: isGold ? "#e8ff00" : "#ffffff" }}>
-                            {r.subject.name.toUpperCase()}
+                          {/* Bar */}
+                          <div style={{
+                            flex: 1,
+                            height: "72px",
+                            borderRadius: "12px",
+                            background: barGradients[idx] ?? "#111111",
+                            border: `1px solid ${barBorders[idx] ?? "#1e1e1e"}`,
+                            position: "relative",
+                            overflow: "hidden",
+                            display: "flex",
+                            alignItems: "center",
+                            padding: "0 28px",
+                          }}>
+                            {/* Score fill */}
+                            <div style={{
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              height: "100%",
+                              width: `${fillWidth}%`,
+                              backgroundColor: color,
+                              opacity: 0.06,
+                              borderRadius: "12px",
+                            }} />
+                            {/* Subject name */}
+                            <span style={{
+                              position: "relative",
+                              fontFamily: "'Space Mono', monospace",
+                              fontSize: "22px",
+                              color: idx === 0 ? "#ffffff" : "#e5e5e5",
+                              fontWeight: idx === 0 ? 700 : 400,
+                              letterSpacing: "1px",
+                              flex: 1,
+                            }}>
+                              {r.subject.name.toUpperCase()}
+                            </span>
+                            {/* Score */}
+                            <span style={{
+                              position: "relative",
+                              fontFamily: "'Space Mono', monospace",
+                              fontSize: "20px",
+                              color: idx === 0 ? "#e8ff00" : "#444444",
+                            }}>
+                              {Math.round(r.score)}
+                            </span>
                           </div>
                         </div>
                       );
@@ -1200,22 +1268,56 @@ export function TopicVotingFlow({
                   })()}
                 </div>
 
-                {/* Bottom row: user info + site URL */}
-                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: "52px" }}>
-                  <div>
+                {/* Footer */}
+                <div style={{
+                  padding: "32px 48px",
+                  background: "linear-gradient(0deg, #080808 60%, transparent)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  flexShrink: 0,
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     {displayName && (
-                      <div style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: "30px", letterSpacing: "2px", color: "#ffffff", lineHeight: 1 }}>
+                      <span style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "26px",
+                        fontWeight: 600,
+                        color: "#ffffff",
+                        lineHeight: 1.2,
+                      }}>
                         {displayName}
-                      </div>
+                      </span>
                     )}
                     {username && (
-                      <div style={{ fontFamily: "monospace", fontSize: "22px", color: "#555555", marginTop: "4px" }}>
+                      <span style={{
+                        fontFamily: "'Space Mono', monospace",
+                        fontSize: "20px",
+                        color: "#555555",
+                      }}>
                         @{username}
-                      </div>
+                      </span>
                     )}
                   </div>
-                  <div style={{ fontFamily: "monospace", fontSize: "22px", color: "#444444", letterSpacing: "1px" }}>
-                    Make your list at TOP5DOA.APP
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{
+                      display: "block",
+                      fontFamily: "'Space Mono', monospace",
+                      fontSize: "18px",
+                      color: "#444444",
+                      letterSpacing: "2px",
+                      marginBottom: "6px",
+                    }}>
+                      Make your list at
+                    </span>
+                    <span style={{
+                      fontFamily: "'Bebas Neue', Impact, sans-serif",
+                      fontSize: "28px",
+                      color: "#e8ff00",
+                      letterSpacing: "2px",
+                    }}>
+                      TOP5DOA.APP
+                    </span>
                   </div>
                 </div>
               </div>
