@@ -27,6 +27,26 @@ function scoreToHapticMs(score: number, min: number, max: number): number {
 const CELEBRATION_HAPTIC = [40, 30, 60, 30, 80, 40, 120];
 
 // ---------------------------------------------------------------------------
+// Milestone burst configuration — one entry per score milestone
+// ---------------------------------------------------------------------------
+
+interface MilestoneConfig {
+  score: number;
+  particleCount: number;
+  maxDist: number;   // max radius of particle travel in px
+  maxSize: number;   // max particle diameter in px
+  duration: number;  // how long the burst state lasts in ms
+  haptic: number[];
+}
+
+const MILESTONES: MilestoneConfig[] = [
+  { score: 25, particleCount: 8,  maxDist: 45,  maxSize: 5.5, duration: 800,  haptic: [20, 15, 30] },
+  { score: 50, particleCount: 12, maxDist: 65,  maxSize: 7.5, duration: 950,  haptic: [30, 20, 45, 20, 55] },
+  { score: 75, particleCount: 16, maxDist: 85,  maxSize: 9.5, duration: 1100, haptic: [35, 25, 55, 25, 70, 30, 90] },
+  { score: 99, particleCount: 20, maxDist: 105, maxSize: 11,  duration: 1200, haptic: CELEBRATION_HAPTIC },
+];
+
+// ---------------------------------------------------------------------------
 // Color interpolation — brand palette: gray → accent → orange → red
 // ---------------------------------------------------------------------------
 
@@ -105,29 +125,34 @@ interface Particle {
   size: number;
 }
 
-const CELEBRATION_COLORS = [
-  "#ff3c3c",   // brand red
-  "#e8ff00",   // brand accent
-  "#a78bfa",   // brand aura
-  "#ffffff",
-  "#f97316",
-  "#fbbf24",
-];
+/** Returns a 5-color palette centered on the given HSL, with lighter variants and white. */
+function milestoneParticleColors(h: number, s: number, l: number): string[] {
+  return [
+    hslString(h, s, l),
+    hslString(h, Math.min(100, s + 5), Math.min(85, l + 20)),
+    hslString(h, Math.min(100, s + 5), Math.min(90, l + 32)),
+    "#ffffff",
+    hslString((h + 20) % 360, s, Math.min(85, l + 12)),
+  ];
+}
 
-function generateParticles(count: number): Particle[] {
+function generateParticles(
+  count: number,
+  maxDist: number,
+  maxSize: number,
+  colors: string[],
+): Particle[] {
   return Array.from({ length: count }, (_, i) => {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
-    const distance = 30 + Math.random() * 50;
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+    const distance = maxDist * 0.35 + Math.random() * maxDist * 0.65;
+    const size = maxSize * 0.4 + Math.random() * maxSize * 0.6;
     return {
       id: i,
       tx: Math.cos(angle) * distance,
       ty: Math.sin(angle) * distance,
-      color:
-        CELEBRATION_COLORS[
-          Math.floor(Math.random() * CELEBRATION_COLORS.length)
-        ],
+      color: colors[Math.floor(Math.random() * colors.length)],
       delay: Math.random() * 0.15,
-      size: 4 + Math.random() * 4,
+      size,
     };
   });
 }
@@ -151,6 +176,7 @@ export function SubjectScoreSlider({
 }: SubjectScoreSliderProps) {
   const [celebrating, setCelebrating] = useState(false);
   const [particles, setParticles] = useState<Particle[]>([]);
+  const [milestoneGlowColor, setMilestoneGlowColor] = useState<string | null>(null);
   const prevValue = useRef(value);
 
   // Normalize value to 0–1 range for color lookup
@@ -168,20 +194,37 @@ export function SubjectScoreSlider({
     )}) 0% / ${pct}% 100% no-repeat, #1a1a1a`;
   }, [pct]);
 
-  // Trigger celebration when value reaches max
+  // Trigger a scaled burst whenever the value lands on a milestone (25, 50, 75, 99)
   useEffect(() => {
-    if (value === max && prevValue.current !== max) {
-      vibrate(CELEBRATION_HAPTIC);
-      setCelebrating(true);
-      setParticles(generateParticles(18));
-      const timeout = setTimeout(() => {
-        setCelebrating(false);
-        setParticles([]);
-      }, 1200);
-      return () => clearTimeout(timeout);
-    }
+    const prev = prevValue.current;
     prevValue.current = value;
-  }, [value, max]);
+
+    const milestone = MILESTONES.find((m) => value === m.score && prev !== m.score);
+    if (!milestone) return;
+
+    const t = (milestone.score - min) / (max - min);
+    const { h, s, l } = getColorAtT(t);
+    const glowCss = `hsla(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%, 0.75)`;
+
+    vibrate(milestone.haptic);
+    setCelebrating(true);
+    setMilestoneGlowColor(glowCss);
+    setParticles(
+      generateParticles(
+        milestone.particleCount,
+        milestone.maxDist,
+        milestone.maxSize,
+        milestoneParticleColors(h, s, l),
+      ),
+    );
+
+    const timeout = setTimeout(() => {
+      setCelebrating(false);
+      setParticles([]);
+      setMilestoneGlowColor(null);
+    }, milestone.duration);
+    return () => clearTimeout(timeout);
+  }, [value, min, max]);
 
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,7 +341,8 @@ export function SubjectScoreSlider({
               color: currentColor,
               backgroundColor: `hsl(${Math.round(h)}, ${Math.round(s * 0.3)}%, 8%)`,
               border: `2px solid ${currentColor}`,
-            }}
+              "--glow-color": milestoneGlowColor ?? undefined,
+            } as React.CSSProperties}
           >
             {value}
           </span>
