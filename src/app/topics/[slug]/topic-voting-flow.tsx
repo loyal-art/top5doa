@@ -1100,6 +1100,7 @@ export function TopicVotingFlow({
                   overflow: "hidden",
                   boxSizing: "border-box",
                   fontFamily: "'DM Sans', sans-serif",
+                  contain: "layout",
                 }}
               >
                 {/* Top accent bar */}
@@ -1170,6 +1171,10 @@ export function TopicVotingFlow({
                     lineHeight: 1,
                     letterSpacing: "2px",
                     wordBreak: "break-word",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
                   }}>
                     {topic.title.toUpperCase()}
                   </div>
@@ -1177,7 +1182,7 @@ export function TopicVotingFlow({
 
                 {/* Rankings */}
                 <div style={{
-                  padding: "36px 48px",
+                  padding: "36px 48px 160px",
                   display: "flex",
                   flexDirection: "column",
                   gap: "20px",
@@ -1185,23 +1190,16 @@ export function TopicVotingFlow({
                 }}>
                   {(() => {
                     const top5 = results.slice(0, 5);
-                    const rankColors = ["#e8ff00", "#a78bfa", "#fb923c", "#6b7280", "#6b7280"];
-                    const barGradients = [
-                      "linear-gradient(90deg, rgba(232,255,0,0.08) 0%, transparent 100%)",
-                      "linear-gradient(90deg, rgba(167,139,250,0.06) 0%, transparent 100%)",
-                      "linear-gradient(90deg, rgba(251,146,60,0.06) 0%, transparent 100%)",
-                      "#111111",
-                      "#111111",
-                    ];
-                    const barBorders = [
-                      "rgba(232,255,0,0.2)",
-                      "rgba(167,139,250,0.15)",
-                      "rgba(251,146,60,0.15)",
-                      "#1e1e1e",
-                      "#1e1e1e",
+                    // HSL gradient: green (120) → yellow-green (80) → yellow (55) → orange (30) → red (0)
+                    const hslColors = [
+                      "hsl(120, 85%, 45%)",
+                      "hsl(80, 85%, 45%)",
+                      "hsl(55, 90%, 50%)",
+                      "hsl(30, 95%, 50%)",
+                      "hsl(0, 85%, 50%)",
                     ];
                     return top5.map((r, idx) => {
-                      const color = rankColors[idx] ?? "#6b7280";
+                      const color = hslColors[idx] ?? "hsl(0, 85%, 50%)";
                       const fillWidth = Math.min(100, Math.round(r.score));
                       return (
                         <div key={r.subject.id} style={{ display: "flex", alignItems: "center", gap: "28px" }}>
@@ -1221,8 +1219,8 @@ export function TopicVotingFlow({
                             flex: 1,
                             height: "72px",
                             borderRadius: "12px",
-                            background: barGradients[idx] ?? "#111111",
-                            border: `1px solid ${barBorders[idx] ?? "#1e1e1e"}`,
+                            background: "#111111",
+                            border: `1px solid rgba(255,255,255,0.07)`,
                             position: "relative",
                             overflow: "hidden",
                             display: "flex",
@@ -1237,7 +1235,7 @@ export function TopicVotingFlow({
                               height: "100%",
                               width: `${fillWidth}%`,
                               backgroundColor: color,
-                              opacity: 0.06,
+                              opacity: 0.15,
                               borderRadius: "12px",
                             }} />
                             {/* Subject name */}
@@ -1257,7 +1255,8 @@ export function TopicVotingFlow({
                               position: "relative",
                               fontFamily: "'Space Mono', monospace",
                               fontSize: "20px",
-                              color: idx === 0 ? "#e8ff00" : "#444444",
+                              color: color,
+                              opacity: 0.8,
                             }}>
                               {Math.round(r.score)}
                             </span>
@@ -1268,14 +1267,17 @@ export function TopicVotingFlow({
                   })()}
                 </div>
 
-                {/* Footer */}
+                {/* Footer — absolutely anchored to the bottom so long titles can't push it off */}
                 <div style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   padding: "32px 48px",
-                  background: "linear-gradient(0deg, #080808 60%, transparent)",
+                  background: "linear-gradient(0deg, #080808 80%, transparent)",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "flex-end",
-                  flexShrink: 0,
                 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     {displayName && (
