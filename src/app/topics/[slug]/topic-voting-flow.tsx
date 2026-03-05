@@ -1166,11 +1166,12 @@ export function TopicVotingFlow({
                   </div>
                   <div style={{
                     fontFamily: "'Bebas Neue', Impact, sans-serif",
-                    fontSize: "64px",
+                    fontSize: "52px",
                     color: "#ffffff",
-                    lineHeight: 1,
+                    lineHeight: 1.15,
                     letterSpacing: "2px",
                     wordBreak: "break-word",
+                    minHeight: "120px",
                     display: "-webkit-box",
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: "vertical",
