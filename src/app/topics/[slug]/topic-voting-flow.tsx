@@ -1250,16 +1250,6 @@ export function TopicVotingFlow({
                             }}>
                               {r.subject.name.toUpperCase()}
                             </span>
-                            {/* Score */}
-                            <span style={{
-                              position: "relative",
-                              fontFamily: "'Space Mono', monospace",
-                              fontSize: "20px",
-                              color: color,
-                              opacity: 0.8,
-                            }}>
-                              {Math.round(r.score)}
-                            </span>
                           </div>
                         </div>
                       );
