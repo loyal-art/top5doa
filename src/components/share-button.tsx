@@ -5,16 +5,17 @@ import { useState } from "react";
 interface ShareButtonProps {
   title: string;
   path: string; // e.g. "/topics/slug"
+  listUrl?: string; // when set, share this URL instead of path
 }
 
-export function ShareButton({ title, path }: ShareButtonProps) {
+export function ShareButton({ title, path, listUrl }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
 
-    const url = `${window.location.origin}${path}`;
+    const url = `${window.location.origin}${listUrl ?? path}`;
 
     if (navigator.share) {
       try {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SubjectScoreSlider } from "@/components/subject-score-slider";
+import { ShareButton } from "@/components/share-button";
 import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 
@@ -137,6 +138,7 @@ export function TopicVotingFlow({
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
@@ -200,7 +202,7 @@ export function TopicVotingFlow({
       const [{ data: profile }, { data: lockedList }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, is_premium, premium_expires_at")
+          .select("display_name, username, is_premium, premium_expires_at")
           .eq("id", userId!)
           .single(),
         supabase
@@ -214,6 +216,7 @@ export function TopicVotingFlow({
       console.log("[profile] raw result:", profile);
       console.log("[lockedList] result:", lockedList);
       setDisplayName(profile?.display_name ?? null);
+      setUsername(profile?.username ?? null);
       setIsPremium(
         profile?.is_premium === true &&
           profile?.premium_expires_at != null &&
@@ -914,12 +917,21 @@ export function TopicVotingFlow({
                     Scores reflect ranking within this topic only.
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  LOCKED
-                </span>
+                <div className="flex items-center gap-2">
+                  {username && (
+                    <ShareButton
+                      title={`My ${topic.title} Top 5`}
+                      path={`/topics/${topic.slug}`}
+                      listUrl={`/list/${username}/${topic.slug}`}
+                    />
+                  )}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    LOCKED
+                  </span>
+                </div>
               </div>
 
               {/* Two-column grid */}
