@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopicVotingFlow } from "./topic-voting-flow";
 import { ShareButton } from "@/components/share-button";
+import { ViewCounter } from "./view-counter";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
@@ -83,6 +84,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
 
   return (
     <main className="min-h-screen">
+      <ViewCounter topicId={topic.id} />
       {/* Topic Header */}
       <section className="relative border-b border-brand-border overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
