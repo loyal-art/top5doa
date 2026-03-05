@@ -140,12 +140,10 @@ function ComingSoonCard({
 
 function HeroBanner({
   topic,
-  voterCount,
   attributeCount,
   viewCount,
 }: {
   topic: Topic;
-  voterCount: number;
   attributeCount: number;
   viewCount: number;
 }) {
@@ -193,11 +191,7 @@ function HeroBanner({
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-              {formatCount(voterCount)} voters
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura" />
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura animate-pulse" />
               {formatCount(viewCount)} views
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
@@ -228,11 +222,13 @@ function TopicCard({
   attributes,
   hasVoted,
   top3,
+  viewCount,
 }: {
   topic: Topic;
   attributes: { id: string; name: string }[];
   hasVoted: boolean;
   top3: { name: string; score: number }[];
+  viewCount: number;
 }) {
   const accentColor = categoryColor(topic.category);
   const MAX_CHIPS = 3;
@@ -302,8 +298,12 @@ function TopicCard({
           </div>
         )}
 
-        {/* Footer: share */}
+        {/* Footer: views + share */}
         <div className="flex items-center gap-3 mt-auto pt-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-aura/60" />
+            {formatCount(viewCount)} views
+          </span>
           <ShareButton title={topic.title} path={`/topics/${topic.slug}`} />
         </div>
       </div>
@@ -399,12 +399,11 @@ export default async function Home({
   // ── Parallel data fetches ──────────────────────────────────────────────────
   let subjectMap: Record<string, string> = {};
   let attributesByTopic: Record<string, { id: string; name: string }[]> = {};
-  let voterCounts: Record<string, number> = {};
   let votedTopicIds: Set<string> = new Set();
   let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
 
   if (topicIds.length > 0) {
-    const [subjectsRes, attrsRes, votersRes, rankingsList] = await Promise.all([
+    const [subjectsRes, attrsRes, rankingsList] = await Promise.all([
       supabase
         .from("subjects")
         .select("id, topic_id, name")
@@ -414,10 +413,6 @@ export default async function Home({
         .select("id, topic_id, name")
         .in("topic_id", topicIds)
         .eq("status", "active"),
-      supabase
-        .from("user_lists")
-        .select("topic_id, user_id")
-        .in("topic_id", topicIds),
       Promise.all(
         feedTopics.map(async (t: Topic) => {
           const { data } = await supabase.rpc("get_global_rankings", {
@@ -437,16 +432,6 @@ export default async function Home({
     (attrsRes.data ?? []).forEach((a: { id: string; topic_id: string; name: string }) => {
       if (!attributesByTopic[a.topic_id]) attributesByTopic[a.topic_id] = [];
       attributesByTopic[a.topic_id].push({ id: a.id, name: a.name });
-    });
-
-    // Voter counts — distinct user_id per topic
-    const voterSets: Record<string, Set<string>> = {};
-    (votersRes.data ?? []).forEach(({ topic_id, user_id }: { topic_id: string; user_id: string }) => {
-      if (!voterSets[topic_id]) voterSets[topic_id] = new Set();
-      voterSets[topic_id].add(user_id);
-    });
-    Object.entries(voterSets).forEach(([tid, s]) => {
-      voterCounts[tid] = s.size;
     });
 
     // Global top 3 per topic
@@ -470,9 +455,9 @@ export default async function Home({
     }
   }
 
-  // Trending: topics sorted by voter count descending
+  // Trending: topics sorted by view count descending
   const trendingTopics = [...feedTopics]
-    .sort((a, b) => (voterCounts[b.id] ?? 0) - (voterCounts[a.id] ?? 0))
+    .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
     .slice(0, 5);
 
   // Hero banner topic = most recent
@@ -621,7 +606,6 @@ export default async function Home({
                 {heroBannerTopic && (
                   <HeroBanner
                     topic={heroBannerTopic}
-                    voterCount={voterCounts[heroBannerTopic.id] ?? 0}
                     attributeCount={(attributesByTopic[heroBannerTopic.id] ?? []).length}
                     viewCount={heroBannerTopic.view_count ?? 0}
                   />
@@ -635,6 +619,7 @@ export default async function Home({
                     attributes={attributesByTopic[topic.id] ?? []}
                     hasVoted={votedTopicIds.has(topic.id)}
                     top3={globalTop3ByTopic[topic.id] ?? []}
+                    viewCount={topic.view_count ?? 0}
                   />
                 ))}
               </div>
@@ -670,7 +655,7 @@ export default async function Home({
                             {topic.title}
                           </p>
                           <p className="text-xs font-mono text-neutral-600 mt-0.5">
-                            {formatCount(voterCounts[topic.id] ?? 0)} voters
+                            {formatCount(topic.view_count ?? 0)} views
                           </p>
                         </div>
                       </Link>
