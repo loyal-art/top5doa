@@ -586,31 +586,6 @@ export default async function Home({
           {/* ── MAIN FEED ── */}
           <section className="min-w-0">
 
-            {/* Coming Soon section */}
-            {comingSoonTopics.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <h2 className="font-display text-xs tracking-[0.2em] text-neutral-500 flex-shrink-0">
-                    COMING SOON
-                  </h2>
-                  <div className="flex-1 h-px bg-brand-border" />
-                </div>
-                <div className="flex flex-col gap-3">
-                  {comingSoonTopics.map((topic) => (
-                    <ComingSoonCard
-                      key={topic.id}
-                      topic={topic}
-                      alertHref={
-                        currentUsername
-                          ? `/profile/${currentUsername}#alerts`
-                          : "/login"
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Sort Buttons */}
             <div className="flex items-center gap-2 mb-5">
               {SORT_TABS.map((tab) => {
@@ -698,6 +673,28 @@ export default async function Home({
                 <p className="text-xs font-mono text-neutral-700 px-2">No debates yet</p>
               )}
             </div>
+
+            {/* Coming Soon */}
+            {comingSoonTopics.length > 0 && (
+              <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
+                  COMING SOON
+                </h3>
+                <div className="flex flex-col gap-2">
+                  {comingSoonTopics.map((topic) => (
+                    <ComingSoonCard
+                      key={topic.id}
+                      topic={topic}
+                      alertHref={
+                        currentUsername
+                          ? `/profile/${currentUsername}#alerts`
+                          : "/login"
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Submit Topic CTA — Premium only */}
             <div className="rounded-xl border border-brand-accent/20 bg-brand-surface p-4 relative overflow-hidden">
