@@ -110,17 +110,18 @@ function SubjectLinks({
   subject: Subject;
   onOpen: (url: string, type: "photo" | "music" | "video") => void;
 }) {
+  const photoUrl = subject.link_photo ||
+    `https://www.google.com/search?q=${encodeURIComponent(subject.name)}&tbm=isch`;
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      {subject.link_photo && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onOpen(subject.link_photo!, "photo"); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
-        >
-          📷 PHOTO
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpen(photoUrl, "photo"); }}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+      >
+        📷 PHOTO
+      </button>
       {subject.link_music && (
         <button
           type="button"
