@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ShareButton } from "@/components/share-button";
+import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,7 @@ type Topic = {
   description: string | null;
   cover_image_url: string | null;
   card_image_url: string | null;
+  card_video_url: string | null;
   view_count: number;
 };
 
@@ -242,23 +244,49 @@ function TopicCard({
       className="group relative flex rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/40 overflow-hidden"
       style={{ transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.3s ease" }}
     >
-      {/* Card background image (if available) */}
-      {topic.card_image_url && (
-        <>
-          <img
-            src={topic.card_image_url}
-            alt=""
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ objectFit: "cover" }}
-          />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: "linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.6))",
-            }}
-          />
-        </>
-      )}
+      {/* Card background video or image */}
+      {(() => {
+        const videoId = topic.card_video_url ? extractYouTubeId(topic.card_video_url) : null;
+        if (videoId) {
+          return (
+            <>
+              <iframe
+                src={youtubeBackgroundSrc(videoId)}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ border: 0, transform: "scale(1.5)" }}
+                allow="autoplay; encrypted-media"
+                tabIndex={-1}
+                title="Card background video"
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.6))",
+                }}
+              />
+            </>
+          );
+        }
+        if (topic.card_image_url) {
+          return (
+            <>
+              <img
+                src={topic.card_image_url}
+                alt=""
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ objectFit: "cover" }}
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.6))",
+                }}
+              />
+            </>
+          );
+        }
+        return null;
+      })()}
       {/* Hover glow overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/0 group-hover:from-brand-accent/[0.04] to-transparent transition-all duration-300 pointer-events-none" />
 
@@ -389,14 +417,14 @@ export default async function Home({
   // Active topics
   const { data: topics } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, card_image_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, card_image_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
     .eq("status", "coming_soon")
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
