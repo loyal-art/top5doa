@@ -253,7 +253,7 @@ function TopicCard({
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: "linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.4))",
+              background: "linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.6))",
             }}
           />
         </>
