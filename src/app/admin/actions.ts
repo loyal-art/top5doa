@@ -279,6 +279,7 @@ export async function updateTopic(
     status: "draft" | "coming_soon" | "active" | "archived";
     cover_image_url: string | null;
     card_image_url: string | null;
+    card_video_url: string | null;
     video_url: string | null;
   }
 ): Promise<{ error: string | null }> {
