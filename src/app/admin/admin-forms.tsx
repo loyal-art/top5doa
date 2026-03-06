@@ -43,6 +43,7 @@ type TopicRow = {
   description: string | null;
   category: string;
   status: string;
+  cover_image_url: string | null;
 };
 
 function slugify(text: string): string {
@@ -943,6 +944,7 @@ function EditTopicForm({
     description: topic.description ?? "",
     category: topic.category,
     status: topic.status,
+    cover_image_url: topic.cover_image_url ?? "",
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -960,6 +962,7 @@ function EditTopicForm({
       description: fields.description || null,
       category: fields.category,
       status: fields.status as "draft" | "coming_soon" | "active" | "archived",
+      cover_image_url: fields.cover_image_url || null,
     });
 
     if (result.error) {
@@ -972,6 +975,7 @@ function EditTopicForm({
         description: fields.description || null,
         category: fields.category,
         status: fields.status,
+        cover_image_url: fields.cover_image_url || null,
       });
     }
   }
@@ -1029,6 +1033,16 @@ function EditTopicForm({
           <option value="active">Active</option>
           <option value="archived">Archived</option>
         </select>
+      </div>
+      <div>
+        <label className={labelClass}>Cover Image URL</label>
+        <input
+          type="url"
+          value={fields.cover_image_url}
+          onChange={(e) => setFields((f) => ({ ...f, cover_image_url: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
       </div>
       <StatusMessage message={message} />
       <div className="flex gap-2">

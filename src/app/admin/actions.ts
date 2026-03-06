@@ -272,6 +272,7 @@ export async function updateTopic(
     description: string | null;
     category: string;
     status: "draft" | "coming_soon" | "active" | "archived";
+    cover_image_url: string | null;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
