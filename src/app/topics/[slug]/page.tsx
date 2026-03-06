@@ -4,6 +4,7 @@ import Link from "next/link";
 import { TopicVotingFlow } from "./topic-voting-flow";
 import { ShareButton } from "@/components/share-button";
 import { ViewCounter } from "./view-counter";
+import { ScrollToTop } from "./scroll-to-top";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
@@ -85,6 +86,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
   return (
     <main className="min-h-screen">
       <ViewCounter topicId={topic.id} />
+      <ScrollToTop />
       {/* Topic Header */}
       <section className="relative border-b border-brand-border overflow-hidden">
         {topic.cover_image_url ? (
