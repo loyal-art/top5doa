@@ -87,10 +87,10 @@ export default async function TopicPage({ params }: TopicPageProps) {
       <ViewCounter topicId={topic.id} />
       {/* Topic Header */}
       <section className="relative border-b border-brand-border overflow-hidden">
-        {topic.link_photo ? (
+        {topic.cover_image_url ? (
           <>
             <img
-              src={topic.link_photo}
+              src={topic.cover_image_url}
               alt=""
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
