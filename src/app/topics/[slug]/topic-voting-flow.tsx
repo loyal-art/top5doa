@@ -123,16 +123,27 @@ function SubjectLinks({
   subject: Subject;
   onOpen: (url: string, type: "photo" | "music" | "video") => void;
 }) {
+  const hasRealPhoto = !!subject.link_photo && !subject.link_photo.includes("google.com/search");
   const photoUrl = subject.link_photo ?? `https://www.google.com/search?q=${encodeURIComponent(subject.name)}&tbm=isch`;
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onOpen(photoUrl, "photo"); }}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
-      >
-        📷 PHOTO
-      </button>
+      {hasRealPhoto ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(subject.link_photo!, "photo"); }}
+          className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-neutral-700 hover:border-blue-500 transition-colors"
+        >
+          <img src={subject.link_photo!} alt={subject.name} className="w-full h-full object-cover" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(photoUrl, "photo"); }}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+        >
+          📷 PHOTO
+        </button>
+      )}
       {subject.link_music && (
         <button
           type="button"
