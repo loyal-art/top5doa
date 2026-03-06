@@ -174,6 +174,7 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
     link_photo: string | null;
     link_music: string | null;
     link_video: string | null;
+    video_url: string | null;
   }> | null;
   error: string | null;
 }> {
@@ -182,7 +183,7 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
 
   const { data, error } = await supabase
     .from("subjects")
-    .select("id, name, description, era, link_photo, link_music, link_video")
+    .select("id, name, description, era, link_photo, link_music, link_video, video_url")
     .eq("topic_id", topic_id)
     .order("name");
 
@@ -216,6 +217,7 @@ export async function updateSubject(
     link_photo: string | null;
     link_music: string | null;
     link_video: string | null;
+    video_url: string | null;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
@@ -250,6 +252,8 @@ export async function getTopics(): Promise<{
     description: string | null;
     category: string;
     status: string;
+    cover_image_url: string | null;
+    video_url: string | null;
   }> | null;
   error: string | null;
 }> {
@@ -258,7 +262,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status")
+    .select("id, title, description, category, status, cover_image_url, video_url")
     .order("title");
 
   if (error) return { data: null, error: error.message };
@@ -272,6 +276,8 @@ export async function updateTopic(
     description: string | null;
     category: string;
     status: "draft" | "coming_soon" | "active" | "archived";
+    cover_image_url: string | null;
+    video_url: string | null;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
