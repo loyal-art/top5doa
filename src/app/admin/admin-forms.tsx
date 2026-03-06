@@ -46,6 +46,7 @@ type TopicRow = {
   status: string;
   cover_image_url: string | null;
   card_image_url: string | null;
+  card_video_url: string | null;
   video_url: string | null;
 };
 
@@ -962,6 +963,7 @@ function EditTopicForm({
     status: topic.status,
     cover_image_url: topic.cover_image_url ?? "",
     card_image_url: topic.card_image_url ?? "",
+    card_video_url: topic.card_video_url ?? "",
     video_url: topic.video_url ?? "",
   });
   const [loading, setLoading] = useState(false);
@@ -982,6 +984,7 @@ function EditTopicForm({
       status: fields.status as "draft" | "coming_soon" | "active" | "archived",
       cover_image_url: fields.cover_image_url || null,
       card_image_url: fields.card_image_url || null,
+      card_video_url: fields.card_video_url || null,
       video_url: fields.video_url || null,
     });
 
@@ -997,6 +1000,7 @@ function EditTopicForm({
         status: fields.status,
         cover_image_url: fields.cover_image_url || null,
         card_image_url: fields.card_image_url || null,
+        card_video_url: fields.card_video_url || null,
         video_url: fields.video_url || null,
       });
     }
@@ -1072,6 +1076,16 @@ function EditTopicForm({
           type="url"
           value={fields.card_image_url}
           onChange={(e) => setFields((f) => ({ ...f, card_image_url: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Card Video URL</label>
+        <input
+          type="url"
+          value={fields.card_video_url}
+          onChange={(e) => setFields((f) => ({ ...f, card_video_url: e.target.value }))}
           className={inputClass}
           placeholder="https://..."
         />
