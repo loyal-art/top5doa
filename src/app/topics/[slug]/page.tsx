@@ -87,7 +87,21 @@ export default async function TopicPage({ params }: TopicPageProps) {
       <ViewCounter topicId={topic.id} />
       {/* Topic Header */}
       <section className="relative border-b border-brand-border overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
+        {topic.cover_image_url ? (
+          <>
+            <img
+              src={topic.cover_image_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: "linear-gradient(to right, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.4) 100%)" }}
+            />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
+        )}
 
         <div className="max-w-6xl mx-auto px-4 py-10 relative">
           {/* Breadcrumb */}
