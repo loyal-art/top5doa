@@ -9,7 +9,8 @@ export function ViewCounter({ topicId }: { topicId: string }) {
     const supabase = createClient();
     supabase
       .rpc("increment_topic_view", { p_topic_id: topicId })
-      .then(({ error }) => {
+      .then(({ data, error, status, statusText }) => {
+        console.log("RPC result:", { data, error, status, statusText });
         if (error) console.error("increment_topic_view failed:", error.message);
       });
   }, [topicId]);
