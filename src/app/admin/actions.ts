@@ -253,6 +253,7 @@ export async function getTopics(): Promise<{
     category: string;
     status: string;
     cover_image_url: string | null;
+    card_image_url: string | null;
     video_url: string | null;
   }> | null;
   error: string | null;
@@ -262,7 +263,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status, cover_image_url, video_url")
+    .select("id, title, description, category, status, cover_image_url, card_image_url, video_url")
     .order("title");
 
   if (error) return { data: null, error: error.message };
@@ -277,6 +278,7 @@ export async function updateTopic(
     category: string;
     status: "draft" | "coming_soon" | "active" | "archived";
     cover_image_url: string | null;
+    card_image_url: string | null;
     video_url: string | null;
   }
 ): Promise<{ error: string | null }> {
