@@ -88,7 +88,20 @@ function PipPanel({ content, onClose }: { content: PipContent; onClose: () => vo
       {/* Content */}
       <div className="w-full bg-black" style={{ height: content.type === "photo" ? "auto" : 240 }}>
         {content.type === "photo" ? (
-          <img src={content.url} alt="Subject photo" className="w-full h-auto object-contain max-h-[400px]" />
+          content.url.includes("google.com/search") ? (
+            <div className="flex items-center justify-center p-6">
+              <a
+                href={content.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+              >
+                🔍 Search Google Images
+              </a>
+            </div>
+          ) : (
+            <img src={content.url} alt="Subject photo" className="w-full h-auto object-contain max-h-[400px]" />
+          )
         ) : (
           <iframe
             src={content.url}
