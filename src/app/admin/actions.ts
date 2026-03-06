@@ -254,6 +254,7 @@ export async function getTopics(): Promise<{
     status: string;
     cover_image_url: string | null;
     card_image_url: string | null;
+    card_video_url: string | null;
     video_url: string | null;
   }> | null;
   error: string | null;
@@ -263,7 +264,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status, cover_image_url, card_image_url, video_url")
+    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url")
     .order("title");
 
   if (error) return { data: null, error: error.message };
