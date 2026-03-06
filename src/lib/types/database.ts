@@ -61,6 +61,7 @@ export type Database = {
           category: string;
           description: string | null;
           cover_image_url: string | null;
+          video_url: string | null;
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count: number;
@@ -74,6 +75,7 @@ export type Database = {
           category: string;
           description?: string | null;
           cover_image_url?: string | null;
+          video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count?: number;
@@ -86,6 +88,7 @@ export type Database = {
           category?: string;
           description?: string | null;
           cover_image_url?: string | null;
+          video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
           view_count?: number;
@@ -105,6 +108,7 @@ export type Database = {
           link_photo: string | null;
           link_music: string | null;
           link_video: string | null;
+          video_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -118,6 +122,7 @@ export type Database = {
           link_photo?: string | null;
           link_music?: string | null;
           link_video?: string | null;
+          video_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -130,6 +135,7 @@ export type Database = {
           link_photo?: string | null;
           link_music?: string | null;
           link_video?: string | null;
+          video_url?: string | null;
         };
         Relationships: [];
       };

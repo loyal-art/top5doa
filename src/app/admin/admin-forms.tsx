@@ -29,6 +29,7 @@ type SubjectRow = {
   link_photo: string | null;
   link_music: string | null;
   link_video: string | null;
+  video_url: string | null;
 };
 
 type AttributeRow = {
@@ -44,6 +45,7 @@ type TopicRow = {
   category: string;
   status: string;
   cover_image_url: string | null;
+  video_url: string | null;
 };
 
 function slugify(text: string): string {
@@ -514,6 +516,7 @@ function EditSubjectForm({
     link_photo: subject.link_photo ?? "",
     link_music: subject.link_music ?? "",
     link_video: subject.link_video ?? "",
+    video_url: subject.video_url ?? "",
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -533,6 +536,7 @@ function EditSubjectForm({
       link_photo: fields.link_photo || null,
       link_music: fields.link_music || null,
       link_video: fields.link_video || null,
+      video_url: fields.video_url || null,
     });
 
     if (result.error) {
@@ -547,6 +551,7 @@ function EditSubjectForm({
         link_photo: fields.link_photo || null,
         link_music: fields.link_music || null,
         link_video: fields.link_video || null,
+        video_url: fields.video_url || null,
       });
     }
   }
@@ -611,6 +616,16 @@ function EditSubjectForm({
           type="url"
           value={fields.link_video}
           onChange={(e) => setFields((f) => ({ ...f, link_video: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Video URL</label>
+        <input
+          type="url"
+          value={fields.video_url}
+          onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
           className={inputClass}
           placeholder="https://..."
         />
@@ -945,6 +960,7 @@ function EditTopicForm({
     category: topic.category,
     status: topic.status,
     cover_image_url: topic.cover_image_url ?? "",
+    video_url: topic.video_url ?? "",
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -963,6 +979,7 @@ function EditTopicForm({
       category: fields.category,
       status: fields.status as "draft" | "coming_soon" | "active" | "archived",
       cover_image_url: fields.cover_image_url || null,
+      video_url: fields.video_url || null,
     });
 
     if (result.error) {
@@ -976,6 +993,7 @@ function EditTopicForm({
         category: fields.category,
         status: fields.status,
         cover_image_url: fields.cover_image_url || null,
+        video_url: fields.video_url || null,
       });
     }
   }
@@ -1040,6 +1058,16 @@ function EditTopicForm({
           type="url"
           value={fields.cover_image_url}
           onChange={(e) => setFields((f) => ({ ...f, cover_image_url: e.target.value }))}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Video URL</label>
+        <input
+          type="url"
+          value={fields.video_url}
+          onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
           className={inputClass}
           placeholder="https://..."
         />
