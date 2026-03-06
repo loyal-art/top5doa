@@ -11,6 +11,7 @@ type Topic = {
   category: string;
   description: string | null;
   cover_image_url: string | null;
+  card_image_url: string | null;
   view_count: number;
 };
 
@@ -240,6 +241,23 @@ function TopicCard({
       href={`/topics/${topic.slug}`}
       className="group relative flex rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 transition-all duration-300 overflow-hidden"
     >
+      {/* Card background image (if available) */}
+      {topic.card_image_url && (
+        <>
+          <img
+            src={topic.card_image_url}
+            alt=""
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ objectFit: "cover" }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.4))",
+            }}
+          />
+        </>
+      )}
       {/* Hover glow overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/0 group-hover:from-brand-accent/[0.04] to-transparent transition-all duration-300 pointer-events-none" />
 
@@ -370,14 +388,14 @@ export default async function Home({
   // Active topics
   const { data: topics } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, view_count")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, view_count")
     .eq("status", "coming_soon")
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
