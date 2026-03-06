@@ -61,6 +61,7 @@ export type Database = {
           category: string;
           description: string | null;
           cover_image_url: string | null;
+          card_image_url: string | null;
           video_url: string | null;
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
@@ -75,6 +76,7 @@ export type Database = {
           category: string;
           description?: string | null;
           cover_image_url?: string | null;
+          card_image_url?: string | null;
           video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
@@ -88,6 +90,7 @@ export type Database = {
           category?: string;
           description?: string | null;
           cover_image_url?: string | null;
+          card_image_url?: string | null;
           video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
