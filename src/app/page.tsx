@@ -239,7 +239,8 @@ function TopicCard({
   return (
     <Link
       href={`/topics/${topic.slug}`}
-      className="group relative flex rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 transition-all duration-300 overflow-hidden"
+      className="group relative flex rounded-2xl border border-brand-border bg-brand-surface hover:border-brand-accent/40 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/40 overflow-hidden"
+      style={{ transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.3s ease" }}
     >
       {/* Card background image (if available) */}
       {topic.card_image_url && (
