@@ -5,6 +5,8 @@ import { TopicVotingFlow } from "./topic-voting-flow";
 import { ShareButton } from "@/components/share-button";
 import { ViewCounter } from "./view-counter";
 import { ScrollToTop } from "./scroll-to-top";
+import { WatchVideoButton } from "./watch-video-button";
+import { extractYouTubeId, youtubeBackgroundSrc, youtubePipSrc } from "@/lib/youtube";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
@@ -89,21 +91,45 @@ export default async function TopicPage({ params }: TopicPageProps) {
       <ScrollToTop />
       {/* Topic Header */}
       <section className="relative border-b border-brand-border overflow-hidden">
-        {topic.cover_image_url ? (
-          <>
-            <img
-              src={topic.cover_image_url}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(to right, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.4) 100%)" }}
-            />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
-        )}
+        {(() => {
+          const videoId = topic.video_url ? extractYouTubeId(topic.video_url) : null;
+          if (videoId) {
+            return (
+              <>
+                <iframe
+                  src={youtubeBackgroundSrc(videoId)}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ border: 0, objectFit: "cover", transform: "scale(1.5)" }}
+                  allow="autoplay; encrypted-media"
+                  tabIndex={-1}
+                  title="Background video"
+                />
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(to right, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.4) 100%)" }}
+                />
+              </>
+            );
+          }
+          if (topic.cover_image_url) {
+            return (
+              <>
+                <img
+                  src={topic.cover_image_url}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                />
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(to right, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.4) 100%)" }}
+                />
+              </>
+            );
+          }
+          return (
+            <div className="absolute inset-0 bg-gradient-to-b from-brand-accent/3 to-transparent pointer-events-none" />
+          );
+        })()}
 
         <div className="max-w-6xl mx-auto px-4 py-10 relative">
           {/* Breadcrumb */}
@@ -138,6 +164,11 @@ export default async function TopicPage({ params }: TopicPageProps) {
               {attrCount} attributes
             </span>
             <ShareButton title={topic.title} path={`/topics/${slug}`} />
+            {(() => {
+              const videoId = topic.video_url ? extractYouTubeId(topic.video_url) : null;
+              if (!videoId) return null;
+              return <WatchVideoButton embedUrl={youtubePipSrc(videoId)} />;
+            })()}
           </div>
         </div>
       </section>
