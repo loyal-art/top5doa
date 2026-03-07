@@ -42,13 +42,18 @@ type TopicRow = {
   id: string;
   title: string;
   description: string | null;
-  category: string;
+  category: string[];
   status: string;
   cover_image_url: string | null;
   card_image_url: string | null;
   card_video_url: string | null;
   video_url: string | null;
 };
+
+const ALL_CATEGORIES = [
+  "NFL", "NBA", "MLB", "Music", "Movies", "Gaming",
+  "Combat", "Culture", "Sports", "Film", "Fashion", "TV", "Food",
+] as const;
 
 function slugify(text: string): string {
   return text
@@ -145,17 +150,15 @@ function CreateTopicForm() {
           />
         </div>
         <div>
-          <label className={labelClass}>Category</label>
-          <select name="category" required className={inputClass}>
-            <option value="Sports">Sports</option>
-            <option value="Music">Music</option>
-            <option value="Film">Film</option>
-            <option value="Gaming">Gaming</option>
-            <option value="Fashion">Fashion</option>
-            <option value="TV">TV</option>
-            <option value="Food">Food</option>
-            <option value="Culture">Culture</option>
-          </select>
+          <label className={labelClass}>Categories</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {ALL_CATEGORIES.map((cat) => (
+              <label key={cat} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+                <input type="checkbox" name="category" value={cat} className="accent-[#e8ff00] w-3.5 h-3.5" />
+                {cat}
+              </label>
+            ))}
+          </div>
         </div>
         <div>
           <label className={labelClass}>Description (optional)</label>
@@ -1020,21 +1023,27 @@ function EditTopicForm({
           />
         </div>
         <div>
-          <label className={labelClass}>Category</label>
-          <select
-            value={fields.category}
-            onChange={(e) => setFields((f) => ({ ...f, category: e.target.value }))}
-            className={inputClass}
-          >
-            <option value="Sports">Sports</option>
-            <option value="Music">Music</option>
-            <option value="Film">Film</option>
-            <option value="Gaming">Gaming</option>
-            <option value="Fashion">Fashion</option>
-            <option value="TV">TV</option>
-            <option value="Food">Food</option>
-            <option value="Culture">Culture</option>
-          </select>
+          <label className={labelClass}>Categories</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {ALL_CATEGORIES.map((cat) => (
+              <label key={cat} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+                <input
+                  type="checkbox"
+                  checked={fields.category.includes(cat)}
+                  onChange={(e) => {
+                    setFields((f) => ({
+                      ...f,
+                      category: e.target.checked
+                        ? [...f.category, cat]
+                        : f.category.filter((c) => c !== cat),
+                    }));
+                  }}
+                  className="accent-[#e8ff00] w-3.5 h-3.5"
+                />
+                {cat}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
       <div>
@@ -1160,7 +1169,7 @@ function ManageTopicsSection() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <span className="font-body text-white">{topic.title}</span>
-                  <span className="ml-2 text-xs font-mono text-neutral-500">{topic.category}</span>
+                  <span className="ml-2 text-xs font-mono text-neutral-500">{topic.category.join(", ")}</span>
                   <span className="ml-2 text-xs font-mono text-neutral-600">{topic.status}</span>
                 </div>
                 {editingId !== topic.id && (

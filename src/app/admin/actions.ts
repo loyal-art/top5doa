@@ -30,7 +30,7 @@ export async function createTopic(
 
   const title = formData.get("title") as string;
   const slug = formData.get("slug") as string;
-  const category = formData.get("category") as string;
+  const category = formData.getAll("category") as string[];
   const description = (formData.get("description") as string) || null;
   const status = (formData.get("status") as string) || "active";
 
@@ -49,14 +49,16 @@ export async function createTopic(
 
   if (error) return { error: error.message };
 
-  // Fan-out notifications to premium users who subscribed to this category.
+  // Fan-out notifications to premium users who subscribed to any of the topic's categories.
   // Non-blocking — topic creation succeeds even if the RPC fails.
   if (newTopic) {
-    await supabase.rpc("notify_new_topic", {
-      p_topic_id: newTopic.id,
-      p_category: category,
-      p_title: title,
-    });
+    for (const cat of category) {
+      await supabase.rpc("notify_new_topic", {
+        p_topic_id: newTopic.id,
+        p_category: cat,
+        p_title: title,
+      });
+    }
   }
 
   revalidatePath("/admin");
@@ -250,7 +252,7 @@ export async function getTopics(): Promise<{
     id: string;
     title: string;
     description: string | null;
-    category: string;
+    category: string[];
     status: string;
     cover_image_url: string | null;
     card_image_url: string | null;
@@ -276,7 +278,7 @@ export async function updateTopic(
   updates: {
     title: string;
     description: string | null;
-    category: string;
+    category: string[];
     status: "draft" | "coming_soon" | "active" | "archived";
     cover_image_url: string | null;
     card_image_url: string | null;

@@ -78,7 +78,7 @@ export default async function SharedListPage({ params }: PageProps) {
     .order("rank_position")
     .limit(5);
 
-  const accent = categoryColor(topic.category);
+  const accent = categoryColor(topic.category?.[0] ?? "");
   const displayName = profile.display_name ?? profile.username;
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -106,7 +106,7 @@ export default async function SharedListPage({ params }: PageProps) {
             className="text-xs font-mono uppercase tracking-widest"
             style={{ color: accent }}
           >
-            {topic.category}
+            {topic.category?.join(" / ")}
           </span>
           <h1 className="font-display text-3xl sm:text-4xl tracking-wide text-white leading-tight mt-1 break-words">
             {topic.title.toUpperCase()}

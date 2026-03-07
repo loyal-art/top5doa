@@ -9,7 +9,7 @@ type Topic = {
   id: string;
   title: string;
   slug: string;
-  category: string;
+  category: string[];
   description: string | null;
   cover_image_url: string | null;
   card_image_url: string | null;
@@ -91,8 +91,6 @@ function ComingSoonCard({
   topic: Topic;
   alertHref: string;
 }) {
-  const accentColor = categoryColor(topic.category);
-
   return (
     <div
       className="relative rounded-2xl overflow-hidden"
@@ -111,16 +109,22 @@ function ComingSoonCard({
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-[#e8ff00]/10 border border-[#e8ff00]/40 text-xs font-mono text-[#e8ff00] tracking-[0.15em]">
               COMING SOON
             </span>
-            <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider opacity-50"
-              style={{ color: accentColor }}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: accentColor }}
-              />
-              {topic.category}
-            </span>
+            {topic.category.map((cat) => {
+              const color = categoryColor(cat);
+              return (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider opacity-50"
+                  style={{ color }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  {cat}
+                </span>
+              );
+            })}
           </div>
           <h3 className="font-display text-xl sm:text-2xl tracking-wide text-neutral-500 leading-tight">
             {topic.title.toUpperCase()}
@@ -150,7 +154,7 @@ function HeroBanner({
   attributeCount: number;
   viewCount: number;
 }) {
-  const accentColor = categoryColor(topic.category);
+  const accentColor = categoryColor(topic.category[0] ?? "");
 
   return (
     <div className="relative rounded-2xl overflow-hidden border border-brand-border mb-5">
@@ -168,14 +172,19 @@ function HeroBanner({
 
       <div className="relative p-6 sm:p-8">
         {/* Label + Category */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 flex-wrap mb-4">
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
             ★ FEATURED DEBATE
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider" style={{ color: accentColor }}>
-            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
-            {topic.category}
-          </span>
+          {topic.category.map((cat) => {
+            const color = categoryColor(cat);
+            return (
+              <span key={cat} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider" style={{ color }}>
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                {cat}
+              </span>
+            );
+          })}
         </div>
 
         {/* Title */}
@@ -233,7 +242,6 @@ function TopicCard({
   top3: { name: string; score: number }[];
   viewCount: number;
 }) {
-  const accentColor = categoryColor(topic.category);
   const MAX_CHIPS = 3;
   const visibleAttrs = attributes.slice(0, MAX_CHIPS);
   const overflowCount = attributes.length - MAX_CHIPS;
@@ -307,16 +315,22 @@ function TopicCard({
 
         {/* Top row: category + status badge */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider"
-            style={{ color: accentColor }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: accentColor }}
-            />
-            {topic.category}
-          </span>
+          {topic.category.map((cat) => {
+            const color = categoryColor(cat);
+            return (
+              <span
+                key={cat}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider"
+                style={{ color }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                {cat}
+              </span>
+            );
+          })}
 
           {hasVoted ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-aura/10 border border-brand-aura/30 text-xs font-mono text-brand-aura">
@@ -524,7 +538,7 @@ export default async function Home({
   let displayTopics = feedTopics;
   if (activeCat !== "all") {
     displayTopics = displayTopics.filter(
-      (t) => t.category.toLowerCase() === activeCat.toLowerCase()
+      (t) => t.category.some((c) => c.toLowerCase() === activeCat.toLowerCase())
     );
   }
 
