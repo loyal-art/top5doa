@@ -118,13 +118,15 @@ function PipPanel({ content, onClose }: { content: PipContent; onClose: () => vo
 
 function SubjectLinks({
   subject,
+  topicTitle,
   onOpen,
 }: {
   subject: Subject;
+  topicTitle: string;
   onOpen: (url: string, type: "photo" | "music" | "video") => void;
 }) {
   const hasRealPhoto = !!subject.link_photo && !subject.link_photo.includes("google.com/search");
-  const photoUrl = subject.link_photo ?? `https://www.google.com/search?q=${encodeURIComponent(subject.name)}&tbm=isch`;
+  const photoUrl = subject.link_photo ?? `https://www.google.com/search?q=${encodeURIComponent(`${subject.name} ${topicTitle}`)}&tbm=isch`;
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {hasRealPhoto ? (
@@ -760,7 +762,7 @@ export function TopicVotingFlow({
                     <h2 className="font-display text-3xl tracking-wide">
                       {currentSubject.name.toUpperCase()}
                     </h2>
-                    <SubjectLinks subject={currentSubject} onOpen={openPip} />
+                    <SubjectLinks subject={currentSubject} topicTitle={topic.title} onOpen={openPip} />
                   </div>
                   {currentSubject.era && (
                     <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
@@ -908,7 +910,7 @@ export function TopicVotingFlow({
                           <p className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
                             {subject.name}
                           </p>
-                          <SubjectLinks subject={subject} onOpen={openPip} />
+                          <SubjectLinks subject={subject} topicTitle={topic.title} onOpen={openPip} />
                         </div>
                         {subject.era && (
                           <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
@@ -1045,7 +1047,7 @@ export function TopicVotingFlow({
                             <p className={`font-display text-sm tracking-wide truncate flex-1 min-w-0 ${isGold ? "text-brand-accent" : "text-white"}`}>
                               {r.subject.name.toUpperCase()}
                             </p>
-                            <SubjectLinks subject={r.subject} onOpen={openPip} />
+                            <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
                           </div>
                           {r.subject.era && (
                             <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1090,7 +1092,7 @@ export function TopicVotingFlow({
                                 <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                                   {r.subject.name.toUpperCase()}
                                 </p>
-                                <SubjectLinks subject={r.subject} onOpen={openPip} />
+                                <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
                               </div>
                               {r.subject.era && (
                                 <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1129,7 +1131,7 @@ export function TopicVotingFlow({
                                         <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-white">
                                           {r.subject.name.toUpperCase()}
                                         </p>
-                                        <SubjectLinks subject={r.subject} onOpen={openPip} />
+                                        <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
                                       </div>
                                       {r.subject.era && (
                                         <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
@@ -1456,7 +1458,7 @@ export function TopicVotingFlow({
                         <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-brand-accent">
                           {results[0].subject.name.toUpperCase()}
                         </p>
-                        <SubjectLinks subject={results[0].subject} onOpen={openPip} />
+                        <SubjectLinks subject={results[0].subject} topicTitle={topic.title} onOpen={openPip} />
                       </div>
                       {results[0].subject.era && (
                         <p className="text-xs font-mono text-neutral-600">{results[0].subject.era}</p>
@@ -1497,7 +1499,7 @@ export function TopicVotingFlow({
                                   <p className="font-display text-lg tracking-wide truncate flex-1 min-w-0 text-white">
                                     {r.subject.name.toUpperCase()}
                                   </p>
-                                  <SubjectLinks subject={r.subject} onOpen={openPip} />
+                                  <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
                                 </div>
                                 {r.subject.era && (
                                   <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
