@@ -40,9 +40,9 @@ const SORT_TABS = [
 ] as const;
 
 const BROWSE_LINKS = [
-  { label: "Trending", href: "/?browse=trending" },
-  { label: "Featured", href: "/?browse=featured" },
-  { label: "New Topics", href: "/?browse=new" },
+  { label: "Trending", href: "/?sort=top" },
+  { label: "Featured", href: "/" },
+  { label: "New Topics", href: "/?sort=new" },
   { label: "My Voted", href: "/?browse=voted" },
 ];
 
@@ -413,9 +413,10 @@ function TopicCard({
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sort?: string }>;
+  searchParams: Promise<{ cat?: string; sort?: string; browse?: string }>;
 }) {
   const params = await searchParams;
+  const activeBrowse = params.browse ?? null;
   const activeCat = params.cat ?? "all";
   const activeSort = params.sort ?? "hot";
 
@@ -514,13 +515,37 @@ export default async function Home({
     }
   }
 
-  // Trending: topics sorted by view count descending
+  // Trending: topics sorted by view count descending (always from full list)
   const trendingTopics = [...feedTopics]
     .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
     .slice(0, 5);
 
-  // Hero banner topic = most recent
-  const heroBannerTopic = feedTopics[0] ?? null;
+  // ── Filter by category ───────────────────────────────────────────────────
+  let displayTopics = feedTopics;
+  if (activeCat !== "all") {
+    displayTopics = displayTopics.filter(
+      (t) => t.category.toLowerCase() === activeCat.toLowerCase()
+    );
+  }
+
+  // ── Filter by browse mode ────────────────────────────────────────────────
+  if (activeBrowse === "voted") {
+    displayTopics = displayTopics.filter((t) => votedTopicIds.has(t.id));
+  }
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  if (activeSort === "new") {
+    // feedTopics already ordered by created_at desc from query — no re-sort needed
+  } else if (activeSort === "top") {
+    displayTopics = [...displayTopics].sort(
+      (a, b) => (b.view_count ?? 0) - (a.view_count ?? 0)
+    );
+  } else {
+    // "hot" — default: keep created_at desc order from query
+  }
+
+  // Hero banner topic = first in display list
+  const heroBannerTopic = displayTopics[0] ?? null;
 
   return (
     <main className="min-h-screen">
@@ -659,7 +684,7 @@ export default async function Home({
               })}
             </div>
 
-            {feedTopics.length > 0 ? (
+            {displayTopics.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {/* Hero feed banner — most recent topic */}
                 {heroBannerTopic && (
@@ -671,7 +696,7 @@ export default async function Home({
                 )}
 
                 {/* Topic cards */}
-                {feedTopics.map((topic) => (
+                {displayTopics.map((topic) => (
                   <TopicCard
                     key={topic.id}
                     topic={topic}
