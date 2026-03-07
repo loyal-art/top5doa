@@ -1209,22 +1209,26 @@ export function TopicVotingFlow({
                   }}>
                     TOP5 <span style={{ color: "#e8ff00" }}>DOA</span>
                   </div>
-                  {topic.category && (
-                    <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      background: "rgba(232,255,0,0.08)",
-                      border: "1px solid rgba(232,255,0,0.3)",
-                      borderRadius: "8px",
-                      padding: "8px 20px",
-                      fontFamily: "'Space Mono', monospace",
-                      fontSize: "18px",
-                      color: "#e8ff00",
-                      letterSpacing: "4px",
-                      textTransform: "uppercase",
-                    }}>
-                      ● {topic.category}
+                  {topic.category?.length > 0 && (
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {topic.category.map((cat) => (
+                        <div key={cat} style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          background: "rgba(232,255,0,0.08)",
+                          border: "1px solid rgba(232,255,0,0.3)",
+                          borderRadius: "8px",
+                          padding: "8px 20px",
+                          fontFamily: "'Space Mono', monospace",
+                          fontSize: "18px",
+                          color: "#e8ff00",
+                          letterSpacing: "4px",
+                          textTransform: "uppercase",
+                        }}>
+                          ● {cat}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

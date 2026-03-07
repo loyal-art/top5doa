@@ -58,7 +58,7 @@ export type Database = {
           id: string;
           title: string;
           slug: string;
-          category: string;
+          category: string[];
           description: string | null;
           cover_image_url: string | null;
           card_image_url: string | null;
@@ -74,7 +74,7 @@ export type Database = {
           id?: string;
           title: string;
           slug: string;
-          category: string;
+          category: string[];
           description?: string | null;
           cover_image_url?: string | null;
           card_image_url?: string | null;
@@ -89,7 +89,7 @@ export type Database = {
         Update: {
           title?: string;
           slug?: string;
-          category?: string;
+          category?: string[];
           description?: string | null;
           cover_image_url?: string | null;
           card_image_url?: string | null;

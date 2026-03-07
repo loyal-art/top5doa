@@ -138,7 +138,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
               Home
             </Link>
             <span>/</span>
-            <span className="text-neutral-500 uppercase">{topic.category}</span>
+            <span className="text-neutral-500 uppercase">{topic.category.join(" / ")}</span>
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl tracking-wide text-white">
