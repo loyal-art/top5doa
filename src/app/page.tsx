@@ -250,14 +250,26 @@ function TopicCard({
         if (videoId) {
           return (
             <>
-              <iframe
-                src={youtubeBackgroundSrc(videoId)}
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ border: 0, transform: "scale(1.5)" }}
-                allow="autoplay; encrypted-media"
-                tabIndex={-1}
-                title="Card background video"
-              />
+              {/* Desktop: YouTube iframe */}
+              <div className="absolute inset-0 hidden md:block pointer-events-none">
+                <iframe
+                  src={youtubeBackgroundSrc(videoId)}
+                  className="absolute inset-0 w-full h-full"
+                  style={{ border: 0, transform: "scale(1.5)" }}
+                  allow="autoplay; encrypted-media"
+                  tabIndex={-1}
+                  title="Card background video"
+                />
+              </div>
+              {/* Mobile: fall back to card_image_url */}
+              {topic.card_image_url && (
+                <img
+                  src={topic.card_image_url}
+                  alt=""
+                  className="absolute inset-0 w-full h-full pointer-events-none md:hidden"
+                  style={{ objectFit: "cover" }}
+                />
+              )}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
