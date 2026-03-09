@@ -158,6 +158,14 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
+              {/* Feed link */}
+              <Link
+                href="/feed"
+                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+              >
+                FEED
+              </Link>
+
               {/* ── Notification bell ──────────────────────────────────── */}
               <div className="relative" ref={notifRef}>
                 <button
