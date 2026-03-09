@@ -623,6 +623,7 @@ export function TopicVotingFlow({
     setCurrentAttrIdx(0);
     setStep("rank");
     setConfirmingReset(false);
+    window.scrollTo(0, 0);
   }
 
   function updateScore(subjectId: string, attributeId: string, value: number) {
@@ -678,7 +679,7 @@ export function TopicVotingFlow({
           return (
             <button
               key={s}
-              onClick={() => setStep(s)}
+              onClick={() => { setStep(s); window.scrollTo(0, 0); }}
               className="flex items-center gap-2 flex-1 sm:flex-none"
             >
               <div
@@ -771,7 +772,7 @@ export function TopicVotingFlow({
 
           <div className="flex justify-end pt-2">
             <button
-              onClick={() => setStep("score")}
+              onClick={() => { setStep("score"); window.scrollTo(0, 0); }}
               className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold
                          hover:bg-brand-accent/90 transition-colors"
             >
@@ -891,6 +892,7 @@ export function TopicVotingFlow({
                       setCurrentSubjectIdx(currentSubjectIdx - 1);
                     } else {
                       setStep("rank");
+                      window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
@@ -921,6 +923,7 @@ export function TopicVotingFlow({
                       setCurrentSubjectIdx(currentSubjectIdx + 1);
                     } else {
                       setStep("results");
+                      window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
@@ -1002,6 +1005,7 @@ export function TopicVotingFlow({
                       setCurrentAttrIdx(currentAttrIdx - 1);
                     } else {
                       setStep("rank");
+                      window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
@@ -1032,6 +1036,7 @@ export function TopicVotingFlow({
                       setCurrentAttrIdx(currentAttrIdx + 1);
                     } else {
                       setStep("results");
+                      window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
@@ -1522,6 +1527,7 @@ export function TopicVotingFlow({
                     setSaved(false);
                     setCurrentSubjectIdx(0);
                     setStep("rank");
+                    window.scrollTo(0, 0);
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
@@ -1657,6 +1663,7 @@ export function TopicVotingFlow({
                   onClick={() => {
                     setCurrentSubjectIdx(0);
                     setStep("score");
+                    window.scrollTo(0, 0);
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
