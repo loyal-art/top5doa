@@ -476,13 +476,14 @@ export default async function Home({
   }
 
   // ── Suggested topics ──────────────────────────────────────────────────────
-  const { data: suggestionsRaw } = await supabase
+  const { data: suggestionsRaw, count: suggestionsCount } = await supabase
     .from("topic_suggestions")
-    .select("id, title, description, categories, vote_count, user_id")
+    .select("id, title, description, categories, vote_count, user_id, expires_at", { count: "exact" })
     .eq("status", "pending")
-    .order("vote_count", { ascending: false });
+    .gt("expires_at", new Date().toISOString())
+    .order("vote_count", { ascending: false })
+    .limit(5);
 
-  // Fetch submitter profiles for all suggestions
   const suggestionRows = suggestionsRaw ?? [];
   const submitterIds = [...new Set(suggestionRows.map((s) => s.user_id))];
   let submitterMap: Record<string, { username: string; display_name: string }> = {};
@@ -496,7 +497,7 @@ export default async function Home({
     });
   }
 
-  const allSuggestions: SuggestionRow[] = suggestionRows.map((s) => ({
+  const top5Suggestions: SuggestionRow[] = suggestionRows.map((s) => ({
     id: s.id,
     title: s.title,
     description: s.description,
@@ -505,17 +506,18 @@ export default async function Home({
     user_id: s.user_id,
     submitter_username: submitterMap[s.user_id]?.username ?? null,
     submitter_display_name: submitterMap[s.user_id]?.display_name ?? null,
+    expires_at: s.expires_at,
   }));
-  const top5Suggestions = allSuggestions.slice(0, 5);
+  const totalSuggestionsCount = suggestionsCount ?? top5Suggestions.length;
 
   // Fetch which suggestions the current user has voted on
   let suggestionVotedIds: string[] = [];
-  if (user && allSuggestions.length > 0) {
+  if (user && top5Suggestions.length > 0) {
     const { data: myVotes } = await supabase
       .from("topic_suggestion_votes")
       .select("suggestion_id")
       .eq("user_id", user.id)
-      .in("suggestion_id", allSuggestions.map((s) => s.id));
+      .in("suggestion_id", top5Suggestions.map((s) => s.id));
     suggestionVotedIds = (myVotes ?? []).map((v) => v.suggestion_id);
   }
 
@@ -842,9 +844,9 @@ export default async function Home({
             {/* Suggested Topics */}
             <SuggestedTopicsPanel
               suggestions={top5Suggestions}
-              allSuggestions={allSuggestions}
               votedIds={suggestionVotedIds}
               userId={user?.id ?? null}
+              totalCount={totalSuggestionsCount}
             />
 
             {/* Submit Topic CTA */}

@@ -1,13 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-
-const ALL_CATEGORIES = [
-  "NFL", "NBA", "MLB", "Music", "Movies", "Gaming",
-  "Combat", "Culture", "Sports", "Film", "Fashion", "TV", "Food",
-] as const;
 
 export type SuggestionRow = {
   id: string;
@@ -18,6 +13,7 @@ export type SuggestionRow = {
   user_id: string;
   submitter_username: string | null;
   submitter_display_name: string | null;
+  expires_at: string;
 };
 
 function formatCount(n: number): string {
@@ -25,51 +21,78 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-// ── Inline vote button ───────────────────────────────────────────────────────
+function daysRemaining(expiresAt: string): number {
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+// ── Vote toggle button ───────────────────────────────────────────────────────
 
 function VoteButton({
   suggestionId,
   initialVoted,
   initialCount,
   userId,
+  onVoteChange,
 }: {
   suggestionId: string;
   initialVoted: boolean;
   initialCount: number;
   userId: string | null;
+  onVoteChange?: (voted: boolean, newCount: number) => void;
 }) {
   const [voted, setVoted] = useState(initialVoted);
   const [count, setCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
 
-  async function handleVote() {
-    if (!userId || voted || loading) return;
+  async function handleToggle() {
+    if (!userId || loading) return;
     setLoading(true);
     const supabase = createClient();
 
-    const { error } = await supabase
-      .from("topic_suggestion_votes")
-      .insert({ suggestion_id: suggestionId, user_id: userId });
-
-    if (!error) {
-      // Increment vote_count on the suggestion
-      await supabase
-        .from("topic_suggestions")
-        .update({ vote_count: count + 1 })
-        .eq("id", suggestionId);
-      setVoted(true);
-      setCount((c) => c + 1);
+    if (voted) {
+      // Unvote
+      const { error } = await supabase
+        .from("topic_suggestion_votes")
+        .delete()
+        .eq("suggestion_id", suggestionId)
+        .eq("user_id", userId);
+      if (!error) {
+        const newCount = Math.max(0, count - 1);
+        await supabase
+          .from("topic_suggestions")
+          .update({ vote_count: newCount })
+          .eq("id", suggestionId);
+        setVoted(false);
+        setCount(newCount);
+        onVoteChange?.(false, newCount);
+      }
+    } else {
+      // Vote
+      const { error } = await supabase
+        .from("topic_suggestion_votes")
+        .insert({ suggestion_id: suggestionId, user_id: userId });
+      if (!error) {
+        const newCount = count + 1;
+        await supabase
+          .from("topic_suggestions")
+          .update({ vote_count: newCount })
+          .eq("id", suggestionId);
+        setVoted(true);
+        setCount(newCount);
+        onVoteChange?.(true, newCount);
+      }
     }
     setLoading(false);
   }
 
   return (
     <button
-      onClick={handleVote}
-      disabled={!userId || voted || loading}
+      onClick={handleToggle}
+      disabled={!userId || loading}
       className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono transition-colors ${
         voted
-          ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+          ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/30"
           : userId
             ? "bg-brand-surface border border-brand-border text-neutral-400 hover:border-brand-accent/40 hover:text-brand-accent"
             : "bg-brand-surface border border-brand-border text-neutral-600 cursor-not-allowed"
@@ -78,138 +101,150 @@ function VoteButton({
       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
       </svg>
-      {formatCount(count)}
+      {voted ? "Voted" : formatCount(count)}
     </button>
   );
 }
 
-// ── See All Modal ────────────────────────────────────────────────────────────
+// ── PiP Detail Panel (draggable floating panel) ─────────────────────────────
 
-function SeeAllModal({
-  allSuggestions,
-  votedIds,
+function SuggestionPipPanel({
+  suggestion,
+  voted: initialVoted,
   userId,
   onClose,
 }: {
-  allSuggestions: SuggestionRow[];
-  votedIds: Set<string>;
+  suggestion: SuggestionRow;
+  voted: boolean;
   userId: string | null;
   onClose: () => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const dragging = useRef(false);
+  const dragStart = useRef({ mx: 0, my: 0, left: 0, top: 0 });
+  const [pipVoteCount, setPipVoteCount] = useState(suggestion.vote_count);
 
-  function toggleCat(cat: string) {
-    setSelectedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  }
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      setPos({
+        left: dragStart.current.left + (e.clientX - dragStart.current.mx),
+        top: dragStart.current.top + (e.clientY - dragStart.current.my),
+      });
+    };
+    const onUp = () => { dragging.current = false; };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
 
-  const filtered = allSuggestions.filter((s) => {
-    if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (selectedCats.size > 0 && !s.categories.some((c) => selectedCats.has(c))) return false;
-    return true;
-  });
+  const handleDragMouseDown = (e: React.MouseEvent) => {
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, left: rect.left, top: rect.top };
+    e.preventDefault();
+  };
+
+  const style: React.CSSProperties = pos
+    ? { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999, width: 380 }
+    : { position: "fixed", right: 24, bottom: 24, zIndex: 9999, width: 380 };
+
+  const days = daysRemaining(suggestion.expires_at);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-2xl max-h-[80vh] rounded-2xl border border-brand-border bg-brand-bg flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-brand-border">
-          <h2 className="font-display text-2xl tracking-wide">SUGGESTED TOPICS</h2>
-          <button
-            onClick={onClose}
-            className="text-neutral-500 hover:text-white transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Search + filter */}
-        <div className="px-6 py-4 space-y-3 border-b border-brand-border">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search suggestions..."
-            className="w-full px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-sm font-body text-white placeholder:text-neutral-600 focus:outline-none focus:border-brand-accent/50 transition-colors"
-          />
-          <div className="flex flex-wrap gap-1.5">
-            {ALL_CATEGORIES.map((cat) => {
-              const active = selectedCats.has(cat);
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => toggleCat(cat)}
-                  className={`px-2 py-1 rounded-md border text-xs font-mono transition-colors ${
-                    active
-                      ? "border-brand-accent text-brand-accent bg-brand-accent/10"
-                      : "border-brand-border text-neutral-500 hover:border-brand-accent/40"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+    <div ref={panelRef} style={style} className="rounded-xl overflow-hidden shadow-2xl border border-neutral-700 bg-neutral-900 flex flex-col">
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragMouseDown}
+        className="flex items-center justify-between px-3 py-2 bg-neutral-800 cursor-grab active:cursor-grabbing select-none border-b border-neutral-700"
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
           </div>
+          <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">
+            Suggestion
+          </span>
         </div>
+        <button
+          onClick={onClose}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3">
-          {filtered.length === 0 ? (
-            <p className="text-center text-sm font-mono text-neutral-600 py-8">No suggestions found</p>
-          ) : (
-            filtered.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-start gap-3 p-4 rounded-xl bg-brand-surface border border-brand-border"
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <h3 className="font-display text-xl tracking-wide text-white leading-tight">
+          {suggestion.title.toUpperCase()}
+        </h3>
+
+        {suggestion.description && (
+          <p className="text-sm font-body text-neutral-400 leading-relaxed">
+            {suggestion.description}
+          </p>
+        )}
+
+        {/* Categories */}
+        {suggestion.categories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {suggestion.categories.map((cat) => (
+              <span
+                key={cat}
+                className="px-2 py-0.5 rounded-md bg-brand-bg border border-brand-border text-[10px] font-mono text-neutral-500 uppercase tracking-wider"
               >
-                {/* Vote */}
-                <div className="flex-shrink-0 pt-0.5">
-                  <VoteButton
-                    suggestionId={s.id}
-                    initialVoted={votedIds.has(s.id)}
-                    initialCount={s.vote_count}
-                    userId={userId}
-                  />
-                </div>
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-body text-white">{s.title}</p>
-                  {s.description && (
-                    <p className="text-xs font-body text-neutral-500 mt-1 line-clamp-2">{s.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {s.categories.map((cat) => (
-                      <span
-                        key={cat}
-                        className="px-2 py-0.5 rounded-md bg-brand-bg border border-brand-border text-[10px] font-mono text-neutral-500 uppercase tracking-wider"
-                      >
-                        {cat}
-                      </span>
-                    ))}
-                    {s.submitter_username && (
-                      <Link
-                        href={`/profile/${s.submitter_username}`}
-                        className="text-[10px] font-mono text-neutral-600 hover:text-brand-accent transition-colors"
-                      >
-                        by {s.submitter_display_name ?? s.submitter_username}
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
+                {cat}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Submitter */}
+        {suggestion.submitter_username && (
+          <p className="text-xs font-mono text-neutral-600">
+            Submitted by{" "}
+            <Link
+              href={`/profile/${suggestion.submitter_username}`}
+              className="text-neutral-400 hover:text-brand-accent transition-colors"
+            >
+              {suggestion.submitter_display_name ?? suggestion.submitter_username}
+            </Link>
+          </p>
+        )}
+
+        {/* Stats row */}
+        <div className="flex items-center gap-4 pt-2 border-t border-neutral-700">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+            {formatCount(pipVoteCount)} votes
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-500">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {days}d left
+          </div>
+          <div className="ml-auto">
+            <VoteButton
+              suggestionId={suggestion.id}
+              initialVoted={initialVoted}
+              initialCount={suggestion.vote_count}
+              userId={userId}
+              onVoteChange={(_voted, newCount) => setPipVoteCount(newCount)}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -220,17 +255,21 @@ function SeeAllModal({
 
 export function SuggestedTopicsPanel({
   suggestions,
-  allSuggestions,
   votedIds: initialVotedIds,
   userId,
+  totalCount,
 }: {
   suggestions: SuggestionRow[];
-  allSuggestions: SuggestionRow[];
   votedIds: string[];
   userId: string | null;
+  totalCount: number;
 }) {
-  const [showAll, setShowAll] = useState(false);
   const votedSet = new Set(initialVotedIds);
+  const [pipSuggestion, setPipSuggestion] = useState<SuggestionRow | null>(null);
+
+  const openPip = useCallback((s: SuggestionRow) => {
+    setPipSuggestion(s);
+  }, []);
 
   if (suggestions.length === 0) return null;
 
@@ -241,46 +280,55 @@ export function SuggestedTopicsPanel({
           SUGGESTED TOPICS
         </h3>
         <ol className="flex flex-col gap-0.5">
-          {suggestions.map((s, i) => (
-            <li key={s.id}>
-              <div className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150">
-                <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-body text-neutral-300 truncate">
-                    {s.title}
-                  </p>
-                  <p className="text-xs font-mono text-neutral-600 mt-0.5">
-                    {formatCount(s.vote_count)} votes
-                  </p>
+          {suggestions.map((s, i) => {
+            const days = daysRemaining(s.expires_at);
+            return (
+              <li key={s.id}>
+                <div className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150">
+                  <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => openPip(s)}
+                      className="text-sm font-body text-neutral-300 truncate block w-full text-left hover:text-brand-accent transition-colors"
+                    >
+                      {s.title}
+                    </button>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-mono text-neutral-600">
+                        {formatCount(s.vote_count)} votes
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-700">
+                        {days}d left
+                      </span>
+                    </div>
+                  </div>
+                  <VoteButton
+                    suggestionId={s.id}
+                    initialVoted={votedSet.has(s.id)}
+                    initialCount={s.vote_count}
+                    userId={userId}
+                  />
                 </div>
-                <VoteButton
-                  suggestionId={s.id}
-                  initialVoted={votedSet.has(s.id)}
-                  initialCount={s.vote_count}
-                  userId={userId}
-                />
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
-        {allSuggestions.length > 5 && (
-          <button
-            onClick={() => setShowAll(true)}
-            className="w-full mt-3 px-2 py-2 rounded-lg text-xs font-mono text-brand-accent hover:bg-brand-accent/5 transition-colors"
-          >
-            See All ({allSuggestions.length})
-          </button>
-        )}
+        <Link
+          href="/suggestions"
+          className="flex items-center justify-center w-full mt-3 px-2 py-2 rounded-lg text-xs font-mono text-brand-accent hover:bg-brand-accent/5 transition-colors"
+        >
+          View All Suggestions{totalCount > 5 ? ` (${totalCount})` : ""}
+        </Link>
       </div>
 
-      {showAll && (
-        <SeeAllModal
-          allSuggestions={allSuggestions}
-          votedIds={votedSet}
+      {pipSuggestion && (
+        <SuggestionPipPanel
+          suggestion={pipSuggestion}
+          voted={votedSet.has(pipSuggestion.id)}
           userId={userId}
-          onClose={() => setShowAll(false)}
+          onClose={() => setPipSuggestion(null)}
         />
       )}
     </>

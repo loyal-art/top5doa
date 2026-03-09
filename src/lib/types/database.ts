@@ -527,6 +527,7 @@ export type Database = {
           status: string;
           vote_count: number;
           created_at: string;
+          expires_at: string;
         };
         Insert: {
           id?: string;
@@ -537,6 +538,7 @@ export type Database = {
           status?: string;
           vote_count?: number;
           created_at?: string;
+          expires_at?: string;
         };
         Update: {
           user_id?: string;
@@ -545,6 +547,7 @@ export type Database = {
           categories?: string[];
           status?: string;
           vote_count?: number;
+          expires_at?: string;
         };
         Relationships: [];
       };
