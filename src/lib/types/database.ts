@@ -517,6 +517,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      topic_suggestions: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          categories: string[];
+          status: string;
+          vote_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          description: string;
+          categories?: string[];
+          status?: string;
+          vote_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          title?: string;
+          description?: string;
+          categories?: string[];
+          status?: string;
+          vote_count?: number;
+        };
+        Relationships: [];
+      };
       follows: {
         Row: {
           id: string;
