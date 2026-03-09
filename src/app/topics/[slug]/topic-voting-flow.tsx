@@ -308,11 +308,8 @@ export function TopicVotingFlow({
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
     const voters = uniqueUserIds
       .map((uid) => profileMap.get(uid))
-      .filter(
-        (p): p is { id: string; username: string; display_name: string | null } =>
-          p != null && p.username != null
-      )
-      .map((p) => ({ username: p.username, display_name: p.display_name }));
+      .filter((p) => p != null && p.username != null)
+      .map((p) => ({ username: p!.username, display_name: p!.display_name }));
     setRecentVoters(voters);
   }, [supabase, topic.id]);
 
