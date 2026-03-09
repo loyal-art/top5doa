@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type html2canvasType from "html2canvas";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { SubjectScoreSlider } from "@/components/subject-score-slider";
 import { ShareButton } from "@/components/share-button";
@@ -213,6 +214,9 @@ export function TopicVotingFlow({
     { subject: Subject; score: number }[] | null
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
+  const [recentVoters, setRecentVoters] = useState<
+    { username: string; display_name: string | null }[]
+  >([]);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -268,6 +272,49 @@ export function TopicVotingFlow({
     }
     setGlobalLoading(false);
   }, [supabase, topic.id, subjects]);
+
+  // Fetch the most recent 10 distinct voters for this topic
+  const fetchRecentVoters = useCallback(async () => {
+    // Get distinct user_ids ordered by most recent vote
+    const { data: rows } = await supabase
+      .from("user_lists")
+      .select("user_id, created_at")
+      .eq("topic_id", topic.id)
+      .order("created_at", { ascending: false });
+    if (!rows || rows.length === 0) {
+      setRecentVoters([]);
+      return;
+    }
+    // Deduplicate by user_id, keeping the most recent entry
+    const seen = new Set<string>();
+    const uniqueUserIds: string[] = [];
+    for (const row of rows) {
+      if (!seen.has(row.user_id)) {
+        seen.add(row.user_id);
+        uniqueUserIds.push(row.user_id);
+      }
+      if (uniqueUserIds.length >= 10) break;
+    }
+    // Fetch profiles for those users
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", uniqueUserIds);
+    if (!profiles) {
+      setRecentVoters([]);
+      return;
+    }
+    // Preserve recency order and filter out profiles without a username
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
+    const voters = uniqueUserIds
+      .map((uid) => profileMap.get(uid))
+      .filter(
+        (p): p is { id: string; username: string; display_name: string | null } =>
+          p != null && p.username != null
+      )
+      .map((p) => ({ username: p.username, display_name: p.display_name }));
+    setRecentVoters(voters);
+  }, [supabase, topic.id]);
 
   // Load existing user data if logged in
   useEffect(() => {
@@ -351,6 +398,7 @@ export function TopicVotingFlow({
         setStep("results");
         setSaved(true);
         fetchGlobalRankings();
+        fetchRecentVoters();
       }
 
       console.log("[loadExistingData] done — calling setInitializing(false)");
@@ -358,7 +406,7 @@ export function TopicVotingFlow({
     }
 
     loadExistingData();
-  }, [userId, topic.id, supabase, attributes, fetchGlobalRankings]);
+  }, [userId, topic.id, supabase, attributes, fetchGlobalRankings, fetchRecentVoters]);
 
   // Enable auto-save one tick after initialization so the initial state restore
   // doesn't trigger a spurious write-back to the database.
@@ -533,6 +581,7 @@ export function TopicVotingFlow({
       setSaved(true);
       // Refetch so the community tally reflects this user's new vote
       await fetchGlobalRankings();
+      await fetchRecentVoters();
     } finally {
       setSaving(false);
     }
@@ -1164,6 +1213,38 @@ export function TopicVotingFlow({
                   )}
                 </div>
               </div>
+
+              {/* Recent Voters */}
+              {recentVoters.length >= 2 && (
+                <div className="mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
+                  <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-4">
+                    RECENT VOTERS
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {recentVoters.map((voter) => {
+                      const initials = (voter.display_name ?? voter.username)
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((w) => w[0]?.toUpperCase() ?? "")
+                        .join("");
+                      return (
+                        <Link
+                          key={voter.username}
+                          href={`/profile/${voter.username}`}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors duration-150 group"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-brand-border flex items-center justify-center text-[10px] font-mono text-neutral-400 flex-shrink-0">
+                            {initials}
+                          </span>
+                          <span className="text-sm font-body text-neutral-400 group-hover:text-[#e8ff00] transition-colors duration-150">
+                            {voter.display_name ?? voter.username}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Share card — hidden off-screen, captured by html2canvas */}
               {/* Layout matches mockup v1 exactly, scaled 2× to 1080px */}
