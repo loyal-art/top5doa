@@ -215,7 +215,7 @@ export function TopicVotingFlow({
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [recentVoters, setRecentVoters] = useState<
-    { username: string; display_name: string | null }[]
+    { username: string; display_name: string; topPick: string | null }[]
   >([]);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -295,21 +295,41 @@ export function TopicVotingFlow({
       }
       if (uniqueUserIds.length >= 10) break;
     }
-    // Fetch profiles for those users
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, display_name")
-      .in("id", uniqueUserIds);
+    // Fetch profiles and #1 picks in parallel
+    const [{ data: profiles }, { data: topPicks }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, display_name")
+        .in("id", uniqueUserIds),
+      supabase
+        .from("user_lists")
+        .select("user_id, subject_id, subjects(name)")
+        .eq("topic_id", topic.id)
+        .eq("rank_position", 1)
+        .in("user_id", uniqueUserIds),
+    ]);
     if (!profiles) {
       setRecentVoters([]);
       return;
     }
-    // Preserve recency order and filter out profiles without a username
+    // Build lookup maps
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
+    const topPickMap = new Map<string, string>();
+    if (topPicks) {
+      for (const pick of topPicks) {
+        const subj = pick.subjects as unknown as { name: string } | null;
+        if (subj?.name) topPickMap.set(pick.user_id, subj.name);
+      }
+    }
+    // Preserve recency order and filter out profiles without a username
     const voters = uniqueUserIds
       .map((uid) => profileMap.get(uid))
       .filter((p) => p != null && p.username != null)
-      .map((p) => ({ username: p!.username, display_name: p!.display_name }));
+      .map((p) => ({
+        username: p!.username,
+        display_name: p!.display_name,
+        topPick: topPickMap.get(p!.id) ?? null,
+      }));
     setRecentVoters(voters);
   }, [supabase, topic.id]);
 
@@ -1031,6 +1051,10 @@ export function TopicVotingFlow({
           {saved ? (
             /* ── Post-save: two-column locked-in view ── */
             <>
+              {/* Main content + sidebar layout */}
+              <div className="flex flex-col lg:flex-row lg:gap-6">
+              {/* Main content area */}
+              <div className="flex-1 min-w-0 space-y-6">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
@@ -1211,37 +1235,50 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* Recent Voters */}
+              </div>{/* end main content area */}
+
+              {/* Recent Voters sidebar — desktop: right side panel, mobile: below results */}
               {recentVoters.length >= 2 && (
-                <div className="mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
-                  <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-4">
-                    RECENT VOTERS
-                  </h3>
-                  <div className="flex flex-wrap gap-3">
-                    {recentVoters.map((voter) => {
-                      const initials = (voter.display_name ?? voter.username)
-                        .split(/\s+/)
-                        .slice(0, 2)
-                        .map((w) => w[0]?.toUpperCase() ?? "")
-                        .join("");
-                      return (
-                        <Link
-                          key={voter.username}
-                          href={`/profile/${voter.username}`}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors duration-150 group"
-                        >
-                          <span className="w-7 h-7 rounded-full bg-brand-border flex items-center justify-center text-[10px] font-mono text-neutral-400 flex-shrink-0">
-                            {initials}
-                          </span>
-                          <span className="text-sm font-body text-neutral-400 group-hover:text-[#e8ff00] transition-colors duration-150">
-                            {voter.display_name ?? voter.username}
-                          </span>
-                        </Link>
-                      );
-                    })}
+                <div className="mt-6 lg:mt-0 w-full lg:w-[240px] lg:flex-shrink-0">
+                  <div className="lg:sticky lg:top-[113px] rounded-xl border border-brand-border bg-brand-surface p-4">
+                    <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
+                      RECENT VOTERS
+                    </h3>
+                    <ol className="flex flex-col gap-0.5">
+                      {recentVoters.map((voter) => {
+                        const initials = (voter.display_name ?? voter.username)
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map((w) => w[0]?.toUpperCase() ?? "")
+                          .join("");
+                        return (
+                          <li key={voter.username}>
+                            <Link
+                              href={`/profile/${voter.username}`}
+                              className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150 group"
+                            >
+                              <span className="w-7 h-7 rounded-full bg-brand-border flex items-center justify-center text-[10px] font-mono text-neutral-400 flex-shrink-0">
+                                {initials}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-body text-neutral-300 truncate group-hover:text-[#e8ff00] transition-colors duration-150">
+                                  {voter.username}
+                                </p>
+                                {voter.topPick && (
+                                  <p className="text-xs font-mono text-neutral-600 mt-0.5 truncate">
+                                    #1 {voter.topPick}
+                                  </p>
+                                )}
+                              </div>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ol>
                   </div>
                 </div>
               )}
+              </div>{/* end flex row */}
 
               {/* Share card — hidden off-screen, captured by html2canvas */}
               {/* Layout matches mockup v1 exactly, scaled 2× to 1080px */}
