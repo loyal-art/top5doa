@@ -296,3 +296,72 @@ export async function updateTopic(
   revalidatePath("/");
   return { error: null };
 }
+
+export async function createTopicWithContent(data: {
+  title: string;
+  slug: string;
+  category: string[];
+  description: string | null;
+  status: string;
+  subjects: { name: string; description: string | null; era: string | null }[];
+  attributes: { name: string; description: string | null }[];
+}): Promise<{ error: string | null; topicId: string | null }> {
+  const { supabase, userId, error: authError } = await getAdminUser();
+  if (authError || !supabase || !userId)
+    return { error: authError ?? "Auth failed", topicId: null };
+
+  // 1. Create topic
+  const { data: newTopic, error: topicError } = await supabase
+    .from("topics")
+    .insert({
+      title: data.title,
+      slug: data.slug,
+      category: data.category,
+      description: data.description,
+      status: data.status as "draft" | "coming_soon" | "active" | "archived",
+      creator_id: userId,
+    })
+    .select("id")
+    .single();
+
+  if (topicError) return { error: topicError.message, topicId: null };
+
+  const topicId = newTopic.id;
+
+  // 2. Bulk insert subjects
+  if (data.subjects.length > 0) {
+    const subjectRows = data.subjects.map((s) => ({
+      topic_id: topicId,
+      name: s.name,
+      description: s.description,
+      era: s.era,
+    }));
+    const { error: subErr } = await supabase.from("subjects").insert(subjectRows);
+    if (subErr) return { error: `Topic created but subjects failed: ${subErr.message}`, topicId };
+  }
+
+  // 3. Bulk insert attributes
+  if (data.attributes.length > 0) {
+    const attrRows = data.attributes.map((a) => ({
+      topic_id: topicId,
+      name: a.name,
+      description: a.description,
+      status: "active" as const,
+    }));
+    const { error: attrErr } = await supabase.from("attributes").insert(attrRows);
+    if (attrErr) return { error: `Topic+subjects created but attributes failed: ${attrErr.message}`, topicId };
+  }
+
+  // Fan-out notifications
+  for (const cat of data.category) {
+    await supabase.rpc("notify_new_topic", {
+      p_topic_id: topicId,
+      p_category: cat,
+      p_title: data.title,
+    });
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null, topicId };
+}
