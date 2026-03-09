@@ -548,6 +548,25 @@ export type Database = {
         };
         Relationships: [];
       };
+      topic_suggestion_votes: {
+        Row: {
+          id: string;
+          suggestion_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          suggestion_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          suggestion_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       follows: {
         Row: {
           id: string;

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ShareButton } from "@/components/share-button";
 import { SubmitTopicCTA } from "@/components/submit-topic-cta";
+import { SuggestedTopicsPanel } from "@/components/suggested-topics-panel";
+import type { SuggestionRow } from "@/components/suggested-topics-panel";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -473,6 +475,50 @@ export default async function Home({
     isPremium = profile?.is_premium ?? false;
   }
 
+  // ── Suggested topics ──────────────────────────────────────────────────────
+  const { data: suggestionsRaw } = await supabase
+    .from("topic_suggestions")
+    .select("id, title, description, categories, vote_count, user_id")
+    .eq("status", "pending")
+    .order("vote_count", { ascending: false });
+
+  // Fetch submitter profiles for all suggestions
+  const suggestionRows = suggestionsRaw ?? [];
+  const submitterIds = [...new Set(suggestionRows.map((s) => s.user_id))];
+  let submitterMap: Record<string, { username: string; display_name: string }> = {};
+  if (submitterIds.length > 0) {
+    const { data: submitters } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", submitterIds);
+    (submitters ?? []).forEach((p) => {
+      submitterMap[p.id] = { username: p.username, display_name: p.display_name };
+    });
+  }
+
+  const allSuggestions: SuggestionRow[] = suggestionRows.map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    categories: s.categories,
+    vote_count: s.vote_count,
+    user_id: s.user_id,
+    submitter_username: submitterMap[s.user_id]?.username ?? null,
+    submitter_display_name: submitterMap[s.user_id]?.display_name ?? null,
+  }));
+  const top5Suggestions = allSuggestions.slice(0, 5);
+
+  // Fetch which suggestions the current user has voted on
+  let suggestionVotedIds: string[] = [];
+  if (user && allSuggestions.length > 0) {
+    const { data: myVotes } = await supabase
+      .from("topic_suggestion_votes")
+      .select("suggestion_id")
+      .eq("user_id", user.id)
+      .in("suggestion_id", allSuggestions.map((s) => s.id));
+    suggestionVotedIds = (myVotes ?? []).map((v) => v.suggestion_id);
+  }
+
   const feedTopics: Topic[] = topics ?? [];
   const topicIds = feedTopics.map((t) => t.id);
 
@@ -792,6 +838,14 @@ export default async function Home({
                 </div>
               </div>
             )}
+
+            {/* Suggested Topics */}
+            <SuggestedTopicsPanel
+              suggestions={top5Suggestions}
+              allSuggestions={allSuggestions}
+              votedIds={suggestionVotedIds}
+              userId={user?.id ?? null}
+            />
 
             {/* Submit Topic CTA */}
             <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
