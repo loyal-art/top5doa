@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ShareButton } from "@/components/share-button";
+import { SubmitTopicCTA } from "@/components/submit-topic-cta";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -459,15 +460,17 @@ export default async function Home({
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
 
-  // Current user's username for the alert preferences link
+  // Current user's username + premium status
   let currentUsername: string | null = null;
+  let isPremium = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("username")
+      .select("username, is_premium")
       .eq("id", user.id)
       .single();
     currentUsername = profile?.username ?? null;
+    isPremium = profile?.is_premium ?? false;
   }
 
   const feedTopics: Topic[] = topics ?? [];
@@ -790,25 +793,8 @@ export default async function Home({
               </div>
             )}
 
-            {/* Submit Topic CTA — Premium only */}
-            <div className="rounded-xl border border-brand-accent/20 bg-brand-surface p-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-brand-accent/5 rounded-full blur-2xl pointer-events-none" />
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-xs font-mono text-brand-accent mb-3">
-                ★ PREMIUM
-              </span>
-              <h3 className="font-display text-xl tracking-wide text-white leading-tight mb-1">
-                SUBMIT A TOPIC
-              </h3>
-              <p className="text-xs font-body text-neutral-500 leading-relaxed mb-4">
-                Have a debate worth having? Premium members can submit topics for the community.
-              </p>
-              <Link
-                href="/premium"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
-              >
-                UPGRADE TO SUBMIT
-              </Link>
-            </div>
+            {/* Submit Topic CTA */}
+            <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
           </aside>
 
         </div>
