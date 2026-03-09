@@ -31,6 +31,7 @@ const NAV_TABS = [
   { label: "GAMING", value: "gaming" },
   { label: "COMBAT", value: "combat" },
   { label: "CULTURE", value: "culture" },
+  { label: "FASHION", value: "fashion" },
 ] as const;
 
 const SORT_TABS = [
@@ -55,6 +56,7 @@ const SIDEBAR_CATEGORIES = [
   { label: "Gaming", emoji: "🎮" },
   { label: "Combat", emoji: "🥊" },
   { label: "Culture", emoji: "🌐" },
+  { label: "Fashion", emoji: "👗" },
 ];
 
 // Category accent colors — keyed on lowercase category name
@@ -67,6 +69,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   gaming: "#34d399",
   combat: "#ef4444",
   culture: "#fbbf24",
+  fashion: "#ec4899",
   sports: "#60a5fa",
   film: "#f472b6",
 };
