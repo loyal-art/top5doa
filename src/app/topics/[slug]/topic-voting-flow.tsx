@@ -890,6 +890,7 @@ export function TopicVotingFlow({
                   onClick={() => {
                     if (currentSubjectIdx > 0) {
                       setCurrentSubjectIdx(currentSubjectIdx - 1);
+                      window.scrollTo(0, 0);
                     } else {
                       setStep("rank");
                       window.scrollTo(0, 0);
@@ -906,7 +907,7 @@ export function TopicVotingFlow({
                   {subjects.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => setCurrentSubjectIdx(i)}
+                      onClick={() => { setCurrentSubjectIdx(i); window.scrollTo(0, 0); }}
                       className={`w-2.5 h-2.5 rounded-full transition-colors ${
                         i === currentSubjectIdx
                           ? "bg-brand-accent"
@@ -921,6 +922,7 @@ export function TopicVotingFlow({
                   onClick={() => {
                     if (currentSubjectIdx < subjects.length - 1) {
                       setCurrentSubjectIdx(currentSubjectIdx + 1);
+                      window.scrollTo(0, 0);
                     } else {
                       setStep("results");
                       window.scrollTo(0, 0);
@@ -1003,6 +1005,7 @@ export function TopicVotingFlow({
                   onClick={() => {
                     if (currentAttrIdx > 0) {
                       setCurrentAttrIdx(currentAttrIdx - 1);
+                      window.scrollTo(0, 0);
                     } else {
                       setStep("rank");
                       window.scrollTo(0, 0);
@@ -1019,7 +1022,7 @@ export function TopicVotingFlow({
                   {rankedAttributes.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => setCurrentAttrIdx(i)}
+                      onClick={() => { setCurrentAttrIdx(i); window.scrollTo(0, 0); }}
                       className={`w-2.5 h-2.5 rounded-full transition-colors ${
                         i === currentAttrIdx
                           ? "bg-brand-accent"
@@ -1034,6 +1037,7 @@ export function TopicVotingFlow({
                   onClick={() => {
                     if (currentAttrIdx < rankedAttributes.length - 1) {
                       setCurrentAttrIdx(currentAttrIdx + 1);
+                      window.scrollTo(0, 0);
                     } else {
                       setStep("results");
                       window.scrollTo(0, 0);
