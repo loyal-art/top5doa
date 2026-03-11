@@ -915,6 +915,13 @@ export function TopicVotingFlow({
                       </svg>
                     )}
                   </span>
+                  {subject.link_photo && !subject.link_photo.includes("google.com/search") && (
+                    <img
+                      src={subject.link_photo}
+                      alt={subject.name}
+                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                    />
+                  )}
                   <div className="min-w-0">
                     <p className="text-sm font-mono text-neutral-200 uppercase tracking-wider">
                       {subject.name}
