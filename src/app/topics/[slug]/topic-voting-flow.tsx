@@ -170,14 +170,17 @@ function SubjectLinks({
 }
 
 
-type Step = "rank" | "score" | "results";
+type Step = "rank" | "select" | "score" | "results";
 type VoteMode = "by-subject" | "by-attribute";
 
 const STEP_META: Record<Step, { num: number; label: string }> = {
   rank: { num: 1, label: "RANK ATTRIBUTES" },
-  score: { num: 2, label: "SCORE SUBJECTS" },
-  results: { num: 3, label: "YOUR TOP 5" },
+  select: { num: 2, label: "SELECT SUBJECTS" },
+  score: { num: 3, label: "SCORE SUBJECTS" },
+  results: { num: 4, label: "YOUR TOP 5" },
 };
+
+const MIN_SELECTED_SUBJECTS = 5;
 
 export function TopicVotingFlow({
   topic,
@@ -221,6 +224,11 @@ export function TopicVotingFlow({
   const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [pipContent, setPipContent] = useState<PipContent>(null);
+
+  // Selected subjects for the "select" step — IDs of subjects the user wants to score
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(
+    () => new Set(subjects.map((s) => s.id)),
+  );
 
   // Attribute ranking: attribute IDs ordered by importance (index 0 = most important)
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -469,7 +477,7 @@ export function TopicVotingFlow({
     return () => clearTimeout(timer);
   }, [rankedAttributeIds, userId, supabase, topic.id]);
 
-  // Debounced auto-save: subject scores
+  // Debounced auto-save: subject scores (only selected subjects)
   useEffect(() => {
     console.log("[autoSave:scores] effect ran — userId:", userId, "autoSaveReady:", autoSaveReadyRef.current);
     if (!userId || !autoSaveReadyRef.current) return;
@@ -477,6 +485,7 @@ export function TopicVotingFlow({
     const timer = setTimeout(async () => {
       const rows: { user_id: string; topic_id: string; subject_id: string; attribute_id: string; score: number }[] = [];
       for (const subjectId of Object.keys(scores)) {
+        if (!selectedSubjectIds.has(subjectId)) continue;
         for (const attrId of Object.keys(scores[subjectId])) {
           rows.push({
             user_id: userId,
@@ -499,7 +508,7 @@ export function TopicVotingFlow({
       savedTimerRef.current = setTimeout(() => setAutoSaveStatus("idle"), 2000);
     }, 500);
     return () => clearTimeout(timer);
-  }, [scores, userId, supabase, topic.id]);
+  }, [scores, userId, supabase, topic.id, selectedSubjectIds]);
 
   // Compute ranked attribute objects in order
   const rankedAttributes = useMemo(
@@ -510,7 +519,13 @@ export function TopicVotingFlow({
     [rankedAttributeIds, attributes],
   );
 
-  const currentSubject = subjects[currentSubjectIdx];
+  // Subjects filtered to only the selected ones (for scoring step)
+  const selectedSubjects = useMemo(
+    () => subjects.filter((s) => selectedSubjectIds.has(s.id)),
+    [subjects, selectedSubjectIds],
+  );
+
+  const currentSubject = selectedSubjects[currentSubjectIdx];
   const currentAttr = rankedAttributes[currentAttrIdx];
 
   // Calculate weighted score for a single subject
@@ -561,21 +576,54 @@ export function TopicVotingFlow({
       }));
       await supabase.from("user_attribute_ranks").insert(rankRows);
 
-      // Upsert subject scores — safe to upsert individually since the only
-      // unique key is (user_id, subject_id, attribute_id) with no rank position.
+      // For unselected subjects: assign (lowest score among selected - 1) per attribute
+      const unselectedIds = subjects
+        .map((s) => s.id)
+        .filter((id) => !selectedSubjectIds.has(id));
+
+      const allScoreRows: { user_id: string; topic_id: string; subject_id: string; attribute_id: string; score: number }[] = [];
+
+      // Build rows for selected subjects (user-provided scores)
       for (const subjectId of Object.keys(scores)) {
+        if (!selectedSubjectIds.has(subjectId)) continue;
         for (const attrId of Object.keys(scores[subjectId])) {
-          await supabase.from("user_subject_scores").upsert(
-            {
+          allScoreRows.push({
+            user_id: userId,
+            topic_id: topic.id,
+            subject_id: subjectId,
+            attribute_id: attrId,
+            score: scores[subjectId][attrId],
+          });
+        }
+      }
+
+      // Build rows for unselected subjects — (lowest selected score - 1) per attribute
+      if (unselectedIds.length > 0) {
+        for (const attrId of rankedAttributeIds) {
+          let lowest = Infinity;
+          for (const subjectId of subjects.map((s) => s.id)) {
+            if (!selectedSubjectIds.has(subjectId)) continue;
+            const s = scores[subjectId]?.[attrId] ?? 50;
+            if (s < lowest) lowest = s;
+          }
+          const unselectedScore = Math.max(1, lowest - 1);
+          for (const subjectId of unselectedIds) {
+            allScoreRows.push({
               user_id: userId,
               topic_id: topic.id,
               subject_id: subjectId,
               attribute_id: attrId,
-              score: scores[subjectId][attrId],
-            },
-            { onConflict: "user_id,subject_id,attribute_id" },
-          );
+              score: unselectedScore,
+            });
+          }
         }
+      }
+
+      // Upsert all score rows
+      for (const row of allScoreRows) {
+        await supabase.from("user_subject_scores").upsert(row, {
+          onConflict: "user_id,subject_id,attribute_id",
+        });
       }
 
       // Delete then insert user list for the same reason as attribute ranks:
@@ -609,6 +657,7 @@ export function TopicVotingFlow({
     await supabase.from("user_attribute_ranks").delete().eq("user_id", userId).eq("topic_id", topic.id);
     await supabase.from("user_subject_scores").delete().eq("user_id", userId).eq("topic_id", topic.id);
     setRankedAttributeIds(attributes.map((a) => a.id));
+    setSelectedSubjectIds(new Set(subjects.map((s) => s.id)));
     setScores(() => {
       const reset: Record<string, Record<string, number>> = {};
       for (const subject of subjects) {
@@ -652,7 +701,7 @@ export function TopicVotingFlow({
     return (
       <div className="space-y-8">
         <div className="flex items-center gap-2">
-          {[...Array(3)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div key={i} className="h-10 flex-1 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
           ))}
         </div>
@@ -670,11 +719,10 @@ export function TopicVotingFlow({
       <PipPanel content={pipContent} onClose={() => setPipContent(null)} />
       {/* Step Indicator */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {(["rank", "score", "results"] as const).map((s, i) => {
+        {(["rank", "select", "score", "results"] as const).map((s, i) => {
+          const stepOrder = { rank: 0, select: 1, score: 2, results: 3 } as const;
           const isActive = step === s;
-          const isPast =
-            (s === "rank" && (step === "score" || step === "results")) ||
-            (s === "score" && step === "results");
+          const isPast = stepOrder[s] < stepOrder[step];
 
           return (
             <button
@@ -772,9 +820,131 @@ export function TopicVotingFlow({
 
           <div className="flex justify-end pt-2">
             <button
-              onClick={() => { setStep("score"); window.scrollTo(0, 0); }}
+              onClick={() => { setStep("select"); window.scrollTo(0, 0); }}
               className="px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold
                          hover:bg-brand-accent/90 transition-colors"
+            >
+              Next: Select Subjects
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Select Subjects */}
+      {step === "select" && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="font-display text-3xl tracking-wide">SELECT SUBJECTS TO SCORE</h2>
+            <p className="text-neutral-500 text-sm mt-1 font-body">
+              Choose which subjects you want to score. You must select at least {MIN_SELECTED_SUBJECTS}.
+            </p>
+          </div>
+
+          {/* Select All toggle + counter */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                if (selectedSubjectIds.size === subjects.length) {
+                  setSelectedSubjectIds(new Set());
+                } else {
+                  setSelectedSubjectIds(new Set(subjects.map((s) => s.id)));
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-surface border border-brand-border text-sm font-mono hover:border-neutral-600 transition-colors"
+            >
+              <span
+                className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                  selectedSubjectIds.size === subjects.length
+                    ? "bg-brand-accent border-brand-accent text-brand-bg"
+                    : "border-neutral-600"
+                }`}
+              >
+                {selectedSubjectIds.size === subjects.length && (
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </span>
+              <span className="text-neutral-300">Select All</span>
+            </button>
+            <span
+              className={`text-sm font-mono ${
+                selectedSubjectIds.size >= MIN_SELECTED_SUBJECTS
+                  ? "text-brand-accent"
+                  : "text-neutral-500"
+              }`}
+            >
+              {selectedSubjectIds.size}/{MIN_SELECTED_SUBJECTS} minimum selected
+            </span>
+          </div>
+
+          {/* Subject checklist */}
+          <div className="space-y-2">
+            {subjects.map((subject) => {
+              const isSelected = selectedSubjectIds.has(subject.id);
+              return (
+                <button
+                  key={subject.id}
+                  onClick={() => {
+                    setSelectedSubjectIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(subject.id)) {
+                        next.delete(subject.id);
+                      } else {
+                        next.add(subject.id);
+                      }
+                      return next;
+                    });
+                  }}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-colors text-left ${
+                    isSelected
+                      ? "bg-brand-surface border-brand-accent/40"
+                      : "bg-brand-surface border-brand-border hover:border-neutral-600"
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${
+                      isSelected
+                        ? "bg-brand-accent border-brand-accent text-brand-bg"
+                        : "border-neutral-600"
+                    }`}
+                  >
+                    {isSelected && (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-mono text-neutral-200 uppercase tracking-wider">
+                      {subject.name}
+                    </p>
+                    {subject.era && (
+                      <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between pt-4">
+            <button
+              onClick={() => { setStep("rank"); window.scrollTo(0, 0); }}
+              className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                         text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+            >
+              Back to Ranking
+            </button>
+            <button
+              onClick={() => { setCurrentSubjectIdx(0); setCurrentAttrIdx(0); setStep("score"); window.scrollTo(0, 0); }}
+              disabled={selectedSubjectIds.size < MIN_SELECTED_SUBJECTS}
+              className={`px-8 py-3.5 rounded-xl font-mono font-bold transition-colors ${
+                selectedSubjectIds.size >= MIN_SELECTED_SUBJECTS
+                  ? "bg-brand-accent text-brand-bg hover:bg-brand-accent/90"
+                  : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+              }`}
             >
               Next: Score Subjects
             </button>
@@ -782,7 +952,7 @@ export function TopicVotingFlow({
         </div>
       )}
 
-      {/* Step 2: Score Subjects */}
+      {/* Step 3: Score Subjects */}
       {step === "score" && (
         <div className="space-y-6">
           {/* Mode toggle */}
@@ -838,7 +1008,7 @@ export function TopicVotingFlow({
                     <p className="text-sm text-neutral-400 break-words mt-1">{currentSubject.description}</p>
                   )}
                   <p className="text-neutral-600 text-xs font-mono mt-1">
-                    Subject {currentSubjectIdx + 1} of {subjects.length}
+                    Subject {currentSubjectIdx + 1} of {selectedSubjects.length}
                   </p>
                 </div>
 
@@ -892,19 +1062,19 @@ export function TopicVotingFlow({
                       setCurrentSubjectIdx(currentSubjectIdx - 1);
                       window.scrollTo(0, 0);
                     } else {
-                      setStep("rank");
+                      setStep("select");
                       window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
                 >
-                  {currentSubjectIdx > 0 ? "Previous" : "Back to Ranking"}
+                  {currentSubjectIdx > 0 ? "Previous" : "Back to Selection"}
                 </button>
 
                 {/* Dot nav */}
                 <div className="flex gap-1.5">
-                  {subjects.map((_, i) => (
+                  {selectedSubjects.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => { setCurrentSubjectIdx(i); window.scrollTo(0, 0); }}
@@ -920,7 +1090,7 @@ export function TopicVotingFlow({
 
                 <button
                   onClick={() => {
-                    if (currentSubjectIdx < subjects.length - 1) {
+                    if (currentSubjectIdx < selectedSubjects.length - 1) {
                       setCurrentSubjectIdx(currentSubjectIdx + 1);
                       window.scrollTo(0, 0);
                     } else {
@@ -931,7 +1101,7 @@ export function TopicVotingFlow({
                   className="px-5 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm
                              hover:bg-brand-accent/90 transition-colors"
                 >
-                  {currentSubjectIdx < subjects.length - 1 ? "Next Subject" : "See Results"}
+                  {currentSubjectIdx < selectedSubjects.length - 1 ? "Next Subject" : "See Results"}
                 </button>
               </div>
             </>
@@ -971,9 +1141,9 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* All subjects as sliders for this attribute */}
+              {/* All selected subjects as sliders for this attribute */}
               <div className="space-y-4">
-                {subjects.map((subject) => (
+                {selectedSubjects.map((subject) => (
                   <div key={subject.id} className="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -1007,14 +1177,14 @@ export function TopicVotingFlow({
                       setCurrentAttrIdx(currentAttrIdx - 1);
                       window.scrollTo(0, 0);
                     } else {
-                      setStep("rank");
+                      setStep("select");
                       window.scrollTo(0, 0);
                     }
                   }}
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
                 >
-                  {currentAttrIdx > 0 ? "Previous" : "Back to Ranking"}
+                  {currentAttrIdx > 0 ? "Previous" : "Back to Selection"}
                 </button>
 
                 {/* Dot nav for attributes */}
