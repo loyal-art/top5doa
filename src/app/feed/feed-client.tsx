@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { FeedItem } from "./page";
+import { brandHighlight } from "@/lib/utils";
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -59,7 +60,7 @@ function FeedCard({ item }: { item: FeedItem }) {
           Topic
         </p>
         <p className="font-display text-lg tracking-wide text-white group-hover:text-brand-accent transition-colors leading-tight">
-          {item.topicTitle.toUpperCase()}
+          {brandHighlight(item.topicTitle)}
         </p>
       </Link>
 

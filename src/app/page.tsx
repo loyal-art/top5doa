@@ -5,6 +5,7 @@ import { SubmitTopicCTA } from "@/components/submit-topic-cta";
 import { SuggestedTopicsPanel } from "@/components/suggested-topics-panel";
 import type { SuggestionRow } from "@/components/suggested-topics-panel";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
+import { brandHighlight } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ function ComingSoonCard({
             })}
           </div>
           <h3 className="font-display text-xl sm:text-2xl tracking-wide text-neutral-500 leading-tight">
-            {topic.title.toUpperCase()}
+            {brandHighlight(topic.title)}
           </h3>
         </div>
 
@@ -271,7 +272,7 @@ function TopicCard({
 
         {/* Title */}
         <h3 className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300 leading-tight">
-          {topic.title.toUpperCase()}
+          {brandHighlight(topic.title)}
         </h3>
 
         {/* Attribute chips */}
@@ -647,7 +648,7 @@ export default async function Home({
                     })}
                   </div>
                   <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight mb-4">
-                    {heroBannerTopic.title.toUpperCase()}
+                    {brandHighlight(heroBannerTopic.title)}
                   </h2>
                   <Link
                     href={`/topics/${heroBannerTopic.slug}`}

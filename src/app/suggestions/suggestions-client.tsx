@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { SuggestionRow } from "@/components/suggested-topics-panel";
+import { brandHighlight } from "@/lib/utils";
 
 const ALL_CATEGORIES = [
   "NFL", "NBA", "MLB", "Music", "Movies", "Gaming",
@@ -205,7 +206,7 @@ export function SuggestionsPageClient({
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-display text-lg tracking-wide text-white leading-tight">
-                      {s.title.toUpperCase()}
+                      {brandHighlight(s.title)}
                     </h3>
                     {s.description && (
                       <p className="text-sm font-body text-neutral-500 mt-1 line-clamp-2">
