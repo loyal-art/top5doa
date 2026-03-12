@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -7,10 +7,48 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/";
 
   if (code) {
-    const supabase = await createClient();
+    const cookiesToSet: {
+      name: string;
+      value: string;
+      options: Record<string, unknown>;
+    }[] = [];
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return [...new Headers(request.headers).entries()]
+              .filter(([key]) => key === "cookie")
+              .flatMap(([, value]) =>
+                value.split(";").map((c) => {
+                  const [name, ...rest] = c.trim().split("=");
+                  return { name, value: rest.join("=") };
+                }),
+              );
+          },
+          setAll(cookies) {
+            cookiesToSet.push(
+              ...cookies.map(({ name, value, options }) => ({
+                name,
+                value,
+                options: options as Record<string, unknown>,
+              })),
+            );
+          },
+        },
+      },
+    );
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      const response = NextResponse.redirect(`${origin}${next}`);
+      for (const { name, value, options } of cookiesToSet) {
+        response.cookies.set(name, value, options);
+      }
+      return response;
     }
   }
 
