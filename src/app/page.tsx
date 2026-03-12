@@ -641,37 +641,9 @@ export default async function Home({
                 {feedTopics.length} active debates
               </span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── How It Works ── */}
-      <section className="border-b border-brand-border bg-brand-bg">
-        <div className="max-w-5xl mx-auto px-4 py-10 sm:py-12">
-          <h2 className="font-display text-xs tracking-[0.25em] text-neutral-500 text-center mb-8">
-            HOW IT WORKS
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              { num: "1", title: "Pick a Debate", desc: "Choose a topic that gets you fired up" },
-              { num: "2", title: "Rank & Score", desc: "Rate what matters most, then score every contender" },
-              { num: "3", title: "See Your Top 5", desc: "Lock in your list and see how the world voted" },
-            ].map((step) => (
-              <div key={step.num} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                <span
-                  className="font-display text-3xl leading-none mb-2"
-                  style={{ color: "#e8ff00" }}
-                >
-                  {step.num}
-                </span>
-                <h3 className="font-display text-sm tracking-widest text-white mb-1">
-                  {step.title.toUpperCase()}
-                </h3>
-                <p className="text-sm font-body text-neutral-500 leading-relaxed">
-                  {step.desc}
-                </p>
-              </div>
-            ))}
+            <p className="font-body text-xs tracking-wide text-neutral-400 mt-4">
+              1. Pick a Debate &bull; 2. Rank &amp; Score &bull; 3. See Your Top 5
+            </p>
           </div>
         </div>
       </section>
