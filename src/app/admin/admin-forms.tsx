@@ -49,6 +49,7 @@ type TopicRow = {
   card_image_url: string | null;
   card_video_url: string | null;
   video_url: string | null;
+  is_featured: boolean;
 };
 
 const ALL_CATEGORIES = [
@@ -969,6 +970,7 @@ function EditTopicForm({
     card_image_url: topic.card_image_url ?? "",
     card_video_url: topic.card_video_url ?? "",
     video_url: topic.video_url ?? "",
+    is_featured: topic.is_featured,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -990,6 +992,7 @@ function EditTopicForm({
       card_image_url: fields.card_image_url || null,
       card_video_url: fields.card_video_url || null,
       video_url: fields.video_url || null,
+      is_featured: fields.is_featured,
     });
 
     if (result.error) {
@@ -1006,6 +1009,7 @@ function EditTopicForm({
         card_image_url: fields.card_image_url || null,
         card_video_url: fields.card_video_url || null,
         video_url: fields.video_url || null,
+        is_featured: fields.is_featured,
       });
     }
   }
@@ -1069,6 +1073,17 @@ function EditTopicForm({
           <option value="active">Active</option>
           <option value="archived">Archived</option>
         </select>
+      </div>
+      <div>
+        <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+          <input
+            type="checkbox"
+            checked={fields.is_featured}
+            onChange={(e) => setFields((f) => ({ ...f, is_featured: e.target.checked }))}
+            className="accent-[#e8ff00] w-3.5 h-3.5"
+          />
+          Featured (shown in hero banner)
+        </label>
       </div>
       <div>
         <label className={labelClass}>Cover Image URL</label>

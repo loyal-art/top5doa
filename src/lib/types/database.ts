@@ -67,6 +67,7 @@ export type Database = {
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count: number;
+          is_featured: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -83,6 +84,7 @@ export type Database = {
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count?: number;
+          is_featured?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -98,6 +100,7 @@ export type Database = {
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
           view_count?: number;
+          is_featured?: boolean;
           updated_at?: string;
         };
         Relationships: [];

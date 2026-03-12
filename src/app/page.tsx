@@ -370,6 +370,16 @@ export default async function Home({
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
+  // Featured topic (for hero banner)
+  const { data: featuredData } = await supabase
+    .from("topics")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
+    .eq("is_featured", true)
+    .eq("status", "active")
+    .limit(1)
+    .single();
+  const featuredTopic: Topic | null = featuredData ?? null;
+
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
@@ -528,8 +538,8 @@ export default async function Home({
     // "hot" — default: keep created_at desc order from query
   }
 
-  // Hero banner topic = first in display list
-  const heroBannerTopic = displayTopics[0] ?? null;
+  // Hero banner topic = featured topic, or fallback to first in display list
+  const heroBannerTopic = featuredTopic ?? displayTopics[0] ?? null;
 
   return (
     <main className="min-h-screen">

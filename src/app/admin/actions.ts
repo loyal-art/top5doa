@@ -258,6 +258,7 @@ export async function getTopics(): Promise<{
     card_image_url: string | null;
     card_video_url: string | null;
     video_url: string | null;
+    is_featured: boolean;
   }> | null;
   error: string | null;
 }> {
@@ -266,7 +267,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url")
+    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url, is_featured")
     .order("title");
 
   if (error) return { data: null, error: error.message };
@@ -284,10 +285,20 @@ export async function updateTopic(
     card_image_url: string | null;
     card_video_url: string | null;
     video_url: string | null;
+    is_featured: boolean;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
   if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  // If setting this topic as featured, unset all other featured topics first
+  if (updates.is_featured) {
+    await supabase
+      .from("topics")
+      .update({ is_featured: false })
+      .neq("id", id)
+      .eq("is_featured", true);
+  }
 
   const { error } = await supabase.from("topics").update(updates).eq("id", id);
 
