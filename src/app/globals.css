@@ -153,10 +153,10 @@
 
 @keyframes brandGlow {
   0%, 100% {
-    text-shadow: 0 0 8px rgba(232, 255, 0, 0.4);
+    text-shadow: 0 0 8px rgba(255, 45, 138, 0.4);
   }
   50% {
-    text-shadow: 0 0 20px rgba(232, 255, 0, 0.9);
+    text-shadow: 0 0 20px rgba(255, 45, 138, 0.9);
   }
 }
 

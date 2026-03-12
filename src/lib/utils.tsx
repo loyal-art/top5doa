@@ -17,7 +17,7 @@ export function brandHighlight(title: string): React.ReactNode {
   return parts.map((part, i) => {
     if (part === "TOP" || part === "5") {
       return (
-        <span key={i} className="brand-glow text-white font-bold">
+        <span key={i} className="brand-glow text-pink-400 font-bold">
           {part}
         </span>
       );
