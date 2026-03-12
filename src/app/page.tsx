@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ShareButton } from "@/components/share-button";
+import { SubmitTopicCTA } from "@/components/submit-topic-cta";
+import { SuggestedTopicsPanel } from "@/components/suggested-topics-panel";
+import type { SuggestionRow } from "@/components/suggested-topics-panel";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
+import { brandHighlight } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,15 +27,16 @@ type GlobalRanking = { subject_id: string; avg_score: number };
 
 const NAV_TABS = [
   { label: "ALL", value: "all" },
-  { label: "NFL", value: "nfl" },
-  { label: "NBA", value: "nba" },
-  { label: "MLB", value: "mlb" },
-  { label: "MUSIC", value: "music" },
-  { label: "MOVIES", value: "movies" },
-  { label: "GAMING", value: "gaming" },
-  { label: "COMBAT", value: "combat" },
-  { label: "CULTURE", value: "culture" },
-  { label: "FASHION", value: "fashion" },
+  { label: "🏈 NFL", value: "nfl" },
+  { label: "🏀 NBA", value: "nba" },
+  { label: "⚾ MLB", value: "mlb" },
+  { label: "🎵 MUSIC", value: "music" },
+  { label: "🎬 MOVIES", value: "movies" },
+  { label: "🎮 GAMING", value: "gaming" },
+  { label: "🥊 COMBAT", value: "combat" },
+  { label: "🌍 CULTURE", value: "culture" },
+  { label: "👗 FASHION", value: "fashion" },
+  { label: "🏆 SPORTS", value: "sports" },
 ] as const;
 
 const SORT_TABS = [
@@ -45,18 +50,6 @@ const BROWSE_LINKS = [
   { label: "Featured", href: "/" },
   { label: "New Topics", href: "/?sort=new" },
   { label: "My Voted", href: "/?browse=voted" },
-];
-
-const SIDEBAR_CATEGORIES = [
-  { label: "NFL", emoji: "🏈" },
-  { label: "NBA", emoji: "🏀" },
-  { label: "MLB", emoji: "⚾" },
-  { label: "Music", emoji: "🎵" },
-  { label: "Movies", emoji: "🎬" },
-  { label: "Gaming", emoji: "🎮" },
-  { label: "Combat", emoji: "🥊" },
-  { label: "Culture", emoji: "🌐" },
-  { label: "Fashion", emoji: "👗" },
 ];
 
 // Category accent colors — keyed on lowercase category name
@@ -130,7 +123,7 @@ function ComingSoonCard({
             })}
           </div>
           <h3 className="font-display text-xl sm:text-2xl tracking-wide text-neutral-500 leading-tight">
-            {topic.title.toUpperCase()}
+            {brandHighlight(topic.title)}
           </h3>
         </div>
 
@@ -141,90 +134,6 @@ function ComingSoonCard({
         >
           GET NOTIFIED
         </Link>
-      </div>
-    </div>
-  );
-}
-
-// ─── Hero Feed Banner ─────────────────────────────────────────────────────────
-
-function HeroBanner({
-  topic,
-  attributeCount,
-  viewCount,
-}: {
-  topic: Topic;
-  attributeCount: number;
-  viewCount: number;
-}) {
-  const accentColor = categoryColor(topic.category[0] ?? "");
-
-  return (
-    <div className="relative rounded-2xl overflow-hidden border border-brand-border mb-5">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-surface via-brand-surface to-brand-bg" />
-      {/* Accent glow */}
-      <div
-        className="absolute top-0 left-0 w-72 h-40 rounded-full blur-[80px] opacity-20 pointer-events-none"
-        style={{ backgroundColor: "#e8ff00" }}
-      />
-      <div
-        className="absolute bottom-0 right-0 w-48 h-32 rounded-full blur-[60px] opacity-10 pointer-events-none"
-        style={{ backgroundColor: accentColor }}
-      />
-
-      <div className="relative p-6 sm:p-8">
-        {/* Label + Category */}
-        <div className="flex items-center gap-3 flex-wrap mb-4">
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
-            ★ FEATURED DEBATE
-          </span>
-          {topic.category.map((cat) => {
-            const color = categoryColor(cat);
-            return (
-              <span key={cat} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider" style={{ color }}>
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                {cat}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Title */}
-        <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-white leading-[0.9] mb-3">
-          {topic.title.toUpperCase()}
-        </h2>
-
-        {/* Description */}
-        {topic.description && (
-          <p className="text-sm font-body text-neutral-400 leading-relaxed max-w-xl mb-5 line-clamp-2 break-words">
-            {topic.description}
-          </p>
-        )}
-
-        {/* Stats + CTA */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura animate-pulse" />
-              {formatCount(viewCount)} views
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-border" />
-              {attributeCount} attributes
-            </span>
-          </div>
-
-          <Link
-            href={`/topics/${topic.slug}`}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 ml-auto"
-          >
-            MAKE YOUR LIST
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </Link>
-        </div>
       </div>
     </div>
   );
@@ -352,7 +261,7 @@ function TopicCard({
 
         {/* Title */}
         <h3 className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300 leading-tight">
-          {topic.title.toUpperCase()}
+          {brandHighlight(topic.title)}
         </h3>
 
         {/* Attribute chips */}
@@ -451,6 +360,16 @@ export default async function Home({
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
+  // Featured topic (for hero banner)
+  const { data: featuredData } = await supabase
+    .from("topics")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
+    .eq("is_featured", true)
+    .eq("status", "active")
+    .limit(1)
+    .single();
+  const featuredTopic: Topic | null = featuredData ?? null;
+
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
@@ -459,15 +378,63 @@ export default async function Home({
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
 
-  // Current user's username for the alert preferences link
+  // Current user's username + premium status
   let currentUsername: string | null = null;
+  let isPremium = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("username")
+      .select("username, is_premium")
       .eq("id", user.id)
       .single();
     currentUsername = profile?.username ?? null;
+    isPremium = profile?.is_premium ?? false;
+  }
+
+  // ── Suggested topics ──────────────────────────────────────────────────────
+  const { data: suggestionsRaw, count: suggestionsCount } = await supabase
+    .from("topic_suggestions")
+    .select("id, title, description, categories, vote_count, user_id, expires_at", { count: "exact" })
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .order("vote_count", { ascending: false })
+    .limit(5);
+
+  const suggestionRows = suggestionsRaw ?? [];
+  const submitterIds = [...new Set(suggestionRows.map((s) => s.user_id))];
+  let submitterMap: Record<string, { username: string; display_name: string }> = {};
+  if (submitterIds.length > 0) {
+    const { data: submitters } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", submitterIds);
+    (submitters ?? []).forEach((p) => {
+      submitterMap[p.id] = { username: p.username, display_name: p.display_name };
+    });
+  }
+
+  const top5Suggestions: SuggestionRow[] = suggestionRows.map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    categories: s.categories,
+    vote_count: s.vote_count,
+    user_id: s.user_id,
+    submitter_username: submitterMap[s.user_id]?.username ?? null,
+    submitter_display_name: submitterMap[s.user_id]?.display_name ?? null,
+    expires_at: s.expires_at,
+  }));
+  const totalSuggestionsCount = suggestionsCount ?? top5Suggestions.length;
+
+  // Fetch which suggestions the current user has voted on
+  let suggestionVotedIds: string[] = [];
+  if (user && top5Suggestions.length > 0) {
+    const { data: myVotes } = await supabase
+      .from("topic_suggestion_votes")
+      .select("suggestion_id")
+      .eq("user_id", user.id)
+      .in("suggestion_id", top5Suggestions.map((s) => s.id));
+    suggestionVotedIds = (myVotes ?? []).map((v) => v.suggestion_id);
   }
 
   const feedTopics: Topic[] = topics ?? [];
@@ -561,8 +528,8 @@ export default async function Home({
     // "hot" — default: keep created_at desc order from query
   }
 
-  // Hero banner topic = first in display list
-  const heroBannerTopic = displayTopics[0] ?? null;
+  // Hero banner topic = featured topic, or fallback to first in display list
+  const heroBannerTopic = featuredTopic ?? displayTopics[0] ?? null;
 
   return (
     <main className="min-h-screen">
@@ -573,23 +540,117 @@ export default async function Home({
         <div className="absolute bottom-0 right-0 w-[300px] h-[200px] bg-brand-aura/5 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 py-14 sm:py-20 relative">
-          <div className="max-w-2xl">
-            <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
-              DEBATE THE
-              <br />
-              <span className="text-brand-accent">GREATEST</span>
-              <br />
-              OF ALL TIME
-            </h1>
-            <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
-              Rank what matters. Score the legends. See how your top 5 stacks up against the world.
-            </p>
-            <div className="flex items-center gap-3 mt-8">
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                {feedTopics.length} active debates
-              </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left: headline */}
+            <div>
+              <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
+                DEBATE THE
+                <br />
+                <span className="text-brand-accent">GREATEST</span>
+                <br />
+                OF ALL TIME
+              </h1>
+              <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
+                Rank what matters. Score the legends. See how your top 5 stacks up against the world.
+              </p>
+              <div className="flex items-center gap-3 mt-8">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+                  {feedTopics.length} active debates
+                </span>
+              </div>
             </div>
+
+            {/* Right: featured topic card */}
+            {heroBannerTopic && (
+              <div className="relative rounded-2xl overflow-hidden border border-brand-border aspect-[16/10]">
+                {/* Background media */}
+                {(() => {
+                  const videoId = heroBannerTopic.card_video_url
+                    ? extractYouTubeId(heroBannerTopic.card_video_url)
+                    : null;
+                  if (videoId) {
+                    return (
+                      <>
+                        <div className="absolute inset-0 hidden md:block pointer-events-none">
+                          <iframe
+                            src={youtubeBackgroundSrc(videoId)}
+                            className="absolute inset-0 w-full h-full"
+                            style={{ border: 0, transform: "scale(1.5)" }}
+                            allow="autoplay; encrypted-media"
+                            tabIndex={-1}
+                            title="Featured topic background"
+                          />
+                        </div>
+                        {heroBannerTopic.card_image_url && (
+                          <img
+                            src={heroBannerTopic.card_image_url}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none md:hidden"
+                          />
+                        )}
+                      </>
+                    );
+                  }
+                  if (heroBannerTopic.cover_image_url || heroBannerTopic.card_image_url) {
+                    return (
+                      <img
+                        src={(heroBannerTopic.cover_image_url ?? heroBannerTopic.card_image_url)!}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      />
+                    );
+                  }
+                  return (
+                    <div className="absolute inset-0 bg-gradient-to-br from-brand-surface to-brand-bg" />
+                  );
+                })()}
+                {/* Dark gradient overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%)",
+                  }}
+                />
+                {/* Content */}
+                <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-6">
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+                      ★ FEATURED
+                    </span>
+                    {heroBannerTopic.category.map((cat) => {
+                      const color = categoryColor(cat);
+                      return (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 border border-white/10 text-xs font-mono uppercase tracking-wider"
+                          style={{ color }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          {cat}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight mb-4">
+                    {brandHighlight(heroBannerTopic.title)}
+                  </h2>
+                  <Link
+                    href={`/topics/${heroBannerTopic.slug}`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 self-start"
+                  >
+                    MAKE YOUR LIST
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -621,6 +682,39 @@ export default async function Home({
         </div>
       </nav>
 
+      {/* ── How It Works (guests only) ── */}
+      {!user && (
+        <section className="border-b border-brand-border bg-brand-bg">
+          <div className="max-w-5xl mx-auto px-4 py-10 sm:py-12">
+            <h2 className="font-display text-xs tracking-[0.25em] text-neutral-500 text-center mb-8">
+              HOW IT WORKS
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+              {[
+                { num: "1", title: "Pick a Debate", desc: "Choose a topic that gets you fired up" },
+                { num: "2", title: "Rank & Score", desc: "Rate what matters most, then score every contender" },
+                { num: "3", title: "See Your Top 5", desc: "Lock in your list and see how the world voted" },
+              ].map((step) => (
+                <div key={step.num} className="flex flex-col items-center text-center sm:items-start sm:text-left">
+                  <span
+                    className="font-display text-3xl leading-none mb-2"
+                    style={{ color: "#e8ff00" }}
+                  >
+                    {step.num}
+                  </span>
+                  <h3 className="font-display text-sm tracking-widest text-white mb-1">
+                    {step.title.toUpperCase()}
+                  </h3>
+                  <p className="text-sm font-body text-neutral-500 leading-relaxed">
+                    {step.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── 3-Column Layout ── */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_240px] gap-6 items-start">
@@ -647,95 +741,7 @@ export default async function Home({
               </nav>
             </div>
 
-            {/* Categories */}
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
-              <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
-                CATEGORIES
-              </h3>
-              <nav className="flex flex-col gap-0.5">
-                {SIDEBAR_CATEGORIES.map((cat) => {
-                  const isActive = activeCat === cat.label.toLowerCase();
-                  return (
-                    <Link
-                      key={cat.label}
-                      href={`/?cat=${cat.label.toLowerCase()}&sort=${activeSort}`}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body transition-all duration-150
-                        ${isActive
-                          ? "text-brand-accent bg-brand-accent/5 border border-brand-accent/20"
-                          : "text-neutral-400 hover:text-white hover:bg-white/5"
-                        }
-                      `}
-                    >
-                      <span className="text-base leading-none">{cat.emoji}</span>
-                      {cat.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
-
-          {/* ── MAIN FEED ── */}
-          <section className="min-w-0">
-
-            {/* Sort Buttons */}
-            <div className="flex items-center gap-2 mb-5">
-              {SORT_TABS.map((tab) => {
-                const isActive = activeSort === tab.value;
-                return (
-                  <Link
-                    key={tab.value}
-                    href={`/?cat=${activeCat}&sort=${tab.value}`}
-                    className={`
-                      px-5 py-2 rounded-lg font-display text-sm tracking-widest transition-all duration-200
-                      ${isActive
-                        ? "bg-brand-accent text-black"
-                        : "bg-brand-surface border border-brand-border text-neutral-400 hover:text-white hover:border-neutral-600"
-                      }
-                    `}
-                  >
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </div>
-
-            {displayTopics.length > 0 ? (
-              <div className="flex flex-col gap-4">
-                {/* Hero feed banner — most recent topic */}
-                {heroBannerTopic && (
-                  <HeroBanner
-                    topic={heroBannerTopic}
-                    attributeCount={(attributesByTopic[heroBannerTopic.id] ?? []).length}
-                    viewCount={heroBannerTopic.view_count ?? 0}
-                  />
-                )}
-
-                {/* Topic cards */}
-                {displayTopics.map((topic) => (
-                  <TopicCard
-                    key={topic.id}
-                    topic={topic}
-                    attributes={attributesByTopic[topic.id] ?? []}
-                    hasVoted={votedTopicIds.has(topic.id)}
-                    top3={globalTop3ByTopic[topic.id] ?? []}
-                    viewCount={topic.view_count ?? 0}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 rounded-2xl border border-brand-border bg-brand-surface">
-                <p className="font-display text-2xl text-neutral-600">NO ACTIVE DEBATES YET</p>
-                <p className="text-sm text-neutral-600 mt-2 font-body">Check back soon — debates are coming.</p>
-              </div>
-            )}
-          </section>
-
-          {/* ── RIGHT SIDEBAR ── */}
-          <aside className="hidden lg:flex flex-col gap-4 sticky top-[113px]">
-
-            {/* Trending Now — real data, sorted by voter count */}
+            {/* Trending Now */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
               <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
                 TRENDING NOW
@@ -768,6 +774,69 @@ export default async function Home({
               )}
             </div>
 
+          </aside>
+
+          {/* ── MAIN FEED ── */}
+          <section className="min-w-0">
+
+            {/* Sort Buttons */}
+            <div className="flex items-center gap-2 mb-5">
+              {SORT_TABS.map((tab) => {
+                const isActive = activeSort === tab.value;
+                return (
+                  <Link
+                    key={tab.value}
+                    href={`/?cat=${activeCat}&sort=${tab.value}`}
+                    className={`
+                      px-5 py-2 rounded-lg font-display text-sm tracking-widest transition-all duration-200
+                      ${isActive
+                        ? "bg-brand-accent text-black"
+                        : "bg-brand-surface border border-brand-border text-neutral-400 hover:text-white hover:border-neutral-600"
+                      }
+                    `}
+                  >
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {displayTopics.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {/* Topic cards */}
+                {displayTopics.map((topic) => (
+                  <TopicCard
+                    key={topic.id}
+                    topic={topic}
+                    attributes={attributesByTopic[topic.id] ?? []}
+                    hasVoted={votedTopicIds.has(topic.id)}
+                    top3={globalTop3ByTopic[topic.id] ?? []}
+                    viewCount={topic.view_count ?? 0}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 rounded-2xl border border-brand-border bg-brand-surface">
+                <p className="font-display text-2xl text-neutral-600">NO ACTIVE DEBATES YET</p>
+                <p className="text-sm text-neutral-600 mt-2 font-body">Check back soon — debates are coming.</p>
+              </div>
+            )}
+          </section>
+
+          {/* ── RIGHT SIDEBAR ── */}
+          <aside className="hidden lg:flex flex-col gap-4 sticky top-[113px]">
+
+            {/* Suggest Topic CTA */}
+            <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
+
+            {/* Suggested Topics */}
+            <SuggestedTopicsPanel
+              suggestions={top5Suggestions}
+              votedIds={suggestionVotedIds}
+              userId={user?.id ?? null}
+              totalCount={totalSuggestionsCount}
+            />
+
             {/* Coming Soon */}
             {comingSoonTopics.length > 0 && (
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
@@ -790,25 +859,6 @@ export default async function Home({
               </div>
             )}
 
-            {/* Submit Topic CTA — Premium only */}
-            <div className="rounded-xl border border-brand-accent/20 bg-brand-surface p-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-brand-accent/5 rounded-full blur-2xl pointer-events-none" />
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-xs font-mono text-brand-accent mb-3">
-                ★ PREMIUM
-              </span>
-              <h3 className="font-display text-xl tracking-wide text-white leading-tight mb-1">
-                SUBMIT A TOPIC
-              </h3>
-              <p className="text-xs font-body text-neutral-500 leading-relaxed mb-4">
-                Have a debate worth having? Premium members can submit topics for the community.
-              </p>
-              <Link
-                href="/premium"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
-              >
-                UPGRADE TO SUBMIT
-              </Link>
-            </div>
           </aside>
 
         </div>

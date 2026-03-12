@@ -107,10 +107,26 @@ export function ProfileClient({
       setIsFollowing(false);
       setFollowCount((c) => Math.max(0, c - 1));
     } else {
-      await supabase.from("follows").insert({
+      const { error } = await supabase.from("follows").insert({
         follower_id: viewerId,
         following_id: profile.id,
       });
+      if (!error) {
+        // Fetch follower's display name and insert a notification
+        const { data: follower } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", viewerId)
+          .single();
+        if (follower) {
+          await supabase.from("notifications").insert({
+            user_id: profile.id,
+            type: "follow",
+            title: "New Follower",
+            message: `${follower.display_name} started following you`,
+          });
+        }
+      }
       setIsFollowing(true);
       setFollowCount((c) => c + 1);
     }

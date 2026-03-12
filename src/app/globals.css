@@ -149,6 +149,21 @@
   animation: particle-burst 0.8s ease-out forwards;
 }
 
+/* ---------- Brand glow pulse ---------- */
+
+@keyframes brandGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 40px rgba(255, 215, 0, 0.7), 0 0 60px rgba(255, 215, 0, 0.4);
+  }
+}
+
+.brand-glow {
+  animation: brandGlow 2s ease-in-out infinite;
+}
+
 /* ============================================================
    Brand utilities
    ============================================================ */

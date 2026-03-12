@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { brandHighlight } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ username: string; topicSlug: string }>;
@@ -109,7 +110,7 @@ export default async function SharedListPage({ params }: PageProps) {
             {topic.category?.join(" / ")}
           </span>
           <h1 className="font-display text-3xl sm:text-4xl tracking-wide text-white leading-tight mt-1 break-words">
-            {topic.title.toUpperCase()}
+            {brandHighlight(topic.title)}
           </h1>
         </div>
 

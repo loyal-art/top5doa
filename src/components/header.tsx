@@ -147,7 +147,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-bg/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
         <Link href="/" className="flex items-center gap-1.5 group">
-          <span className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors">
+          <span className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors brand-glow">
             TOP5
           </span>
           <span className="font-display text-2xl tracking-wide text-brand-accent">
@@ -158,6 +158,14 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
+              {/* Feed link */}
+              <Link
+                href="/feed"
+                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+              >
+                FEED
+              </Link>
+
               {/* ── Notification bell ──────────────────────────────────── */}
               <div className="relative" ref={notifRef}>
                 <button
@@ -293,8 +301,10 @@ export function Header() {
               {/* Profile link */}
               <Link
                 href={username ? `/profile/${username}` : "/profile"}
-                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+                className="text-sm font-mono transition-colors hover:opacity-80 flex items-center gap-1.5"
+                style={{ color: "#e8ff00", textShadow: "0 0 8px rgba(232, 255, 0, 0.6)" }}
               >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-accent shadow-[0_0_6px_rgba(232,255,0,0.6)]" />
                 {username ? `@${username}` : "Profile"}
               </Link>
 

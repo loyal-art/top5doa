@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTopic,
+  createTopicWithContent,
   addSubject,
   addAttribute,
   addSubjectsBulk,
@@ -48,6 +49,7 @@ type TopicRow = {
   card_image_url: string | null;
   card_video_url: string | null;
   video_url: string | null;
+  is_featured: boolean;
 };
 
 const ALL_CATEGORIES = [
@@ -968,6 +970,7 @@ function EditTopicForm({
     card_image_url: topic.card_image_url ?? "",
     card_video_url: topic.card_video_url ?? "",
     video_url: topic.video_url ?? "",
+    is_featured: topic.is_featured,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -989,6 +992,7 @@ function EditTopicForm({
       card_image_url: fields.card_image_url || null,
       card_video_url: fields.card_video_url || null,
       video_url: fields.video_url || null,
+      is_featured: fields.is_featured,
     });
 
     if (result.error) {
@@ -1005,6 +1009,7 @@ function EditTopicForm({
         card_image_url: fields.card_image_url || null,
         card_video_url: fields.card_video_url || null,
         video_url: fields.video_url || null,
+        is_featured: fields.is_featured,
       });
     }
   }
@@ -1068,6 +1073,17 @@ function EditTopicForm({
           <option value="active">Active</option>
           <option value="archived">Archived</option>
         </select>
+      </div>
+      <div>
+        <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+          <input
+            type="checkbox"
+            checked={fields.is_featured}
+            onChange={(e) => setFields((f) => ({ ...f, is_featured: e.target.checked }))}
+            className="accent-[#e8ff00] w-3.5 h-3.5"
+          />
+          Featured (shown in hero banner)
+        </label>
       </div>
       <div>
         <label className={labelClass}>Cover Image URL</label>
@@ -1202,9 +1218,396 @@ function ManageTopicsSection() {
   );
 }
 
+// ── AI Topic Builder ─────────────────────────────────────────────────────────
+
+type AiSubject = { name: string; description: string; era: string | null };
+type AiAttribute = { name: string; description: string };
+
+function AiTopicBuilder() {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState("active");
+
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  // AI-generated results (editable)
+  const [subjects, setSubjects] = useState<AiSubject[]>([]);
+  const [attributes, setAttributes] = useState<AiAttribute[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false);
+
+  const [creating, setCreating] = useState(false);
+  const [createMessage, setCreateMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  function handleTitleChange(val: string) {
+    setTitle(val);
+    setSlug(slugify(val));
+  }
+
+  function toggleCategory(cat: string) {
+    setCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  }
+
+  async function handleGenerate() {
+    if (!title.trim()) return;
+    setGenerating(true);
+    setGenError(null);
+
+    try {
+      const res = await fetch("/api/ai/generate-topic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), categories }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setGenError(data.error ?? `Request failed (${res.status})`);
+        setGenerating(false);
+        return;
+      }
+
+      const data = await res.json();
+      setSubjects(
+        (data.subjects ?? []).map((s: AiSubject) => ({
+          name: s.name ?? "",
+          description: s.description ?? "",
+          era: s.era ?? null,
+        }))
+      );
+      setAttributes(
+        (data.attributes ?? []).map((a: AiAttribute) => ({
+          name: a.name ?? "",
+          description: a.description ?? "",
+        }))
+      );
+      setHasGenerated(true);
+    } catch (err) {
+      setGenError("Network error — check your connection and try again.");
+    }
+    setGenerating(false);
+  }
+
+  // Subject editing helpers
+  function updateSubjectField(idx: number, field: keyof AiSubject, value: string) {
+    setSubjects((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, [field]: value || (field === "era" ? null : "") } : s))
+    );
+  }
+  function removeSubject(idx: number) {
+    setSubjects((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function addNewSubject() {
+    setSubjects((prev) => [...prev, { name: "", description: "", era: null }]);
+  }
+
+  // Attribute editing helpers
+  function updateAttributeField(idx: number, field: keyof AiAttribute, value: string) {
+    setAttributes((prev) =>
+      prev.map((a, i) => (i === idx ? { ...a, [field]: value } : a))
+    );
+  }
+  function removeAttribute(idx: number) {
+    setAttributes((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function addNewAttribute() {
+    setAttributes((prev) => [...prev, { name: "", description: "" }]);
+  }
+
+  async function handleCreate() {
+    if (!title.trim() || !slug.trim()) {
+      setCreateMessage({ type: "error", text: "Title and slug are required." });
+      return;
+    }
+    const validSubjects = subjects.filter((s) => s.name.trim());
+    const validAttrs = attributes.filter((a) => a.name.trim());
+    if (validSubjects.length === 0) {
+      setCreateMessage({ type: "error", text: "At least one subject is required." });
+      return;
+    }
+
+    setCreating(true);
+    setCreateMessage(null);
+
+    const result = await createTopicWithContent({
+      title: title.trim(),
+      slug: slug.trim(),
+      category: categories,
+      description: description.trim() || null,
+      status,
+      subjects: validSubjects.map((s) => ({
+        name: s.name.trim(),
+        description: s.description.trim() || null,
+        era: s.era?.trim() || null,
+      })),
+      attributes: validAttrs.map((a) => ({
+        name: a.name.trim(),
+        description: a.description.trim() || null,
+      })),
+    });
+
+    if (result.error) {
+      setCreateMessage({ type: "error", text: result.error });
+    } else {
+      setCreateMessage({
+        type: "success",
+        text: `Topic created with ${validSubjects.length} subjects and ${validAttrs.length} attributes!`,
+      });
+      // Reset form
+      setTitle("");
+      setSlug("");
+      setCategories([]);
+      setDescription("");
+      setSubjects([]);
+      setAttributes([]);
+      setHasGenerated(false);
+      router.refresh();
+    }
+    setCreating(false);
+  }
+
+  return (
+    <section className="border border-brand-accent/30 rounded-2xl p-6 bg-brand-accent/[0.02]">
+      <div className="flex items-center gap-3 mb-6">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+          AI
+        </span>
+        <h2 className="font-display text-2xl tracking-wide">AI TOPIC BUILDER</h2>
+      </div>
+
+      {/* Step 1: Title + Categories */}
+      <div className="space-y-4 max-w-2xl">
+        <div>
+          <label className={labelClass}>Topic Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            className={inputClass}
+            placeholder="Top 5 Greatest Quarterbacks of All Time"
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Slug</label>
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            className={inputClass}
+            placeholder="top-5-greatest-quarterbacks"
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Categories</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {ALL_CATEGORIES.map((cat) => (
+              <label
+                key={cat}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={categories.includes(cat)}
+                  onChange={() => toggleCategory(cat)}
+                  className="accent-[#e8ff00] w-3.5 h-3.5"
+                />
+                {cat}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelClass}>Description (optional)</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className={`${inputClass} resize-none`}
+            placeholder="Who are the greatest quarterbacks to ever play the game?"
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="coming_soon">Coming Soon</option>
+          </select>
+        </div>
+
+        {/* Generate button */}
+        <button
+          onClick={handleGenerate}
+          disabled={generating || !title.trim()}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent font-mono font-bold hover:bg-brand-accent/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {generating ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Generating...
+            </>
+          ) : (
+            "Generate with AI"
+          )}
+        </button>
+
+        {genError && (
+          <p className="text-sm font-mono text-brand-red">{genError}</p>
+        )}
+      </div>
+
+      {/* Step 2: Review generated content */}
+      {hasGenerated && (
+        <div className="mt-8 space-y-6 border-t border-brand-border pt-6">
+          <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+            Review &amp; Edit Generated Content
+          </p>
+
+          {/* Subjects */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-lg tracking-wide">
+                SUBJECTS ({subjects.length})
+              </h3>
+              <button
+                type="button"
+                onClick={addNewSubject}
+                className="px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-brand-accent hover:border-brand-accent/40 transition-colors"
+              >
+                + Add Subject
+              </button>
+            </div>
+            <div className="space-y-2 max-w-2xl">
+              {subjects.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex gap-2 items-start p-3 rounded-xl border border-brand-border bg-brand-surface"
+                >
+                  <div className="flex-1 space-y-2">
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={s.name}
+                        onChange={(e) => updateSubjectField(i, "name", e.target.value)}
+                        className={inputClass}
+                        placeholder="Name"
+                      />
+                      <input
+                        type="text"
+                        value={s.era ?? ""}
+                        onChange={(e) => updateSubjectField(i, "era", e.target.value)}
+                        className={`${inputClass} w-32`}
+                        placeholder="Era"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={s.description}
+                      onChange={(e) => updateSubjectField(i, "description", e.target.value)}
+                      className={inputClass}
+                      placeholder="Description"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeSubject(i)}
+                    className="flex-shrink-0 mt-2 w-8 h-8 flex items-center justify-center rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Attributes */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-lg tracking-wide">
+                ATTRIBUTES ({attributes.length})
+              </h3>
+              <button
+                type="button"
+                onClick={addNewAttribute}
+                className="px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-brand-accent hover:border-brand-accent/40 transition-colors"
+              >
+                + Add Attribute
+              </button>
+            </div>
+            <div className="space-y-2 max-w-2xl">
+              {attributes.map((a, i) => (
+                <div
+                  key={i}
+                  className="flex gap-2 items-start p-3 rounded-xl border border-brand-border bg-brand-surface"
+                >
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={a.name}
+                      onChange={(e) => updateAttributeField(i, "name", e.target.value)}
+                      className={inputClass}
+                      placeholder="Name"
+                    />
+                    <input
+                      type="text"
+                      value={a.description}
+                      onChange={(e) => updateAttributeField(i, "description", e.target.value)}
+                      className={inputClass}
+                      placeholder="Description"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeAttribute(i)}
+                    className="flex-shrink-0 mt-2 w-8 h-8 flex items-center justify-center rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Create button */}
+          <div className="pt-2">
+            <StatusMessage message={createMessage} />
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="mt-3 px-8 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {creating ? "Creating Topic..." : "Create Topic with All Content"}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AdminForms({ topics }: { topics: Topic[] }) {
   return (
     <div className="space-y-10">
+      <AiTopicBuilder />
       <CreateTopicForm />
       <ManageTopicsSection />
       <AddSubjectForm topics={topics} />

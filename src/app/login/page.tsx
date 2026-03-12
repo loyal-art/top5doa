@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,16 +32,38 @@ export default function LoginPage() {
     }
   }
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
   async function handleOAuthLogin(provider: "google" | "facebook") {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: true,
+        redirectTo: window.location.origin + "/auth/callback",
       },
     });
     if (error) {
       setError(error.message);
+      return;
     }
+
+    const popup = window.open(data.url, `${provider}-auth`, "width=500,height=600");
+
+    pollRef.current = setInterval(async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        popup?.close();
+        router.push("/");
+        router.refresh();
+      }
+    }, 500);
   }
 
   return (

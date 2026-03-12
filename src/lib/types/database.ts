@@ -67,6 +67,7 @@ export type Database = {
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count: number;
+          is_featured: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -83,6 +84,7 @@ export type Database = {
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
           view_count?: number;
+          is_featured?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -98,6 +100,7 @@ export type Database = {
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
           view_count?: number;
+          is_featured?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -514,6 +517,59 @@ export type Database = {
           message?: string;
           topic_id?: string | null;
           read?: boolean;
+        };
+        Relationships: [];
+      };
+      topic_suggestions: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          categories: string[];
+          status: string;
+          vote_count: number;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          description: string;
+          categories?: string[];
+          status?: string;
+          vote_count?: number;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          title?: string;
+          description?: string;
+          categories?: string[];
+          status?: string;
+          vote_count?: number;
+          expires_at?: string;
+        };
+        Relationships: [];
+      };
+      topic_suggestion_votes: {
+        Row: {
+          id: string;
+          suggestion_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          suggestion_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          suggestion_id?: string;
+          user_id?: string;
         };
         Relationships: [];
       };
