@@ -830,6 +830,9 @@ export default async function Home({
           {/* ── RIGHT SIDEBAR ── */}
           <aside className="hidden lg:flex flex-col gap-4 sticky top-[113px]">
 
+            {/* Suggest Topic CTA */}
+            <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
+
             {/* Suggested Topics */}
             <SuggestedTopicsPanel
               suggestions={top5Suggestions}
@@ -893,8 +896,6 @@ export default async function Home({
               </div>
             )}
 
-            {/* Submit Topic CTA */}
-            <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
           </aside>
 
         </div>
