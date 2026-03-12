@@ -27,15 +27,16 @@ type GlobalRanking = { subject_id: string; avg_score: number };
 
 const NAV_TABS = [
   { label: "ALL", value: "all" },
-  { label: "NFL", value: "nfl" },
-  { label: "NBA", value: "nba" },
-  { label: "MLB", value: "mlb" },
-  { label: "MUSIC", value: "music" },
-  { label: "MOVIES", value: "movies" },
-  { label: "GAMING", value: "gaming" },
-  { label: "COMBAT", value: "combat" },
-  { label: "CULTURE", value: "culture" },
-  { label: "FASHION", value: "fashion" },
+  { label: "🏈 NFL", value: "nfl" },
+  { label: "🏀 NBA", value: "nba" },
+  { label: "⚾ MLB", value: "mlb" },
+  { label: "🎵 MUSIC", value: "music" },
+  { label: "🎬 MOVIES", value: "movies" },
+  { label: "🎮 GAMING", value: "gaming" },
+  { label: "🥊 COMBAT", value: "combat" },
+  { label: "🌍 CULTURE", value: "culture" },
+  { label: "👗 FASHION", value: "fashion" },
+  { label: "🏆 SPORTS", value: "sports" },
 ] as const;
 
 const SORT_TABS = [
@@ -49,18 +50,6 @@ const BROWSE_LINKS = [
   { label: "Featured", href: "/" },
   { label: "New Topics", href: "/?sort=new" },
   { label: "My Voted", href: "/?browse=voted" },
-];
-
-const SIDEBAR_CATEGORIES = [
-  { label: "NFL", emoji: "🏈" },
-  { label: "NBA", emoji: "🏀" },
-  { label: "MLB", emoji: "⚾" },
-  { label: "Music", emoji: "🎵" },
-  { label: "Movies", emoji: "🎬" },
-  { label: "Gaming", emoji: "🎮" },
-  { label: "Combat", emoji: "🥊" },
-  { label: "Culture", emoji: "🌐" },
-  { label: "Fashion", emoji: "👗" },
 ];
 
 // Category accent colors — keyed on lowercase category name
@@ -752,33 +741,39 @@ export default async function Home({
               </nav>
             </div>
 
-            {/* Categories */}
+            {/* Trending Now */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
               <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
-                CATEGORIES
+                TRENDING NOW
               </h3>
-              <nav className="flex flex-col gap-0.5">
-                {SIDEBAR_CATEGORIES.map((cat) => {
-                  const isActive = activeCat === cat.label.toLowerCase();
-                  return (
-                    <Link
-                      key={cat.label}
-                      href={`/?cat=${cat.label.toLowerCase()}&sort=${activeSort}`}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body transition-all duration-150
-                        ${isActive
-                          ? "text-brand-accent bg-brand-accent/5 border border-brand-accent/20"
-                          : "text-neutral-400 hover:text-white hover:bg-white/5"
-                        }
-                      `}
-                    >
-                      <span className="text-base leading-none">{cat.emoji}</span>
-                      {cat.label}
-                    </Link>
-                  );
-                })}
-              </nav>
+              {trendingTopics.length > 0 ? (
+                <ol className="flex flex-col gap-0.5">
+                  {trendingTopics.map((topic, i) => (
+                    <li key={topic.id}>
+                      <Link
+                        href={`/topics/${topic.slug}`}
+                        className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150"
+                      >
+                        <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-body text-neutral-300 truncate">
+                            {topic.title}
+                          </p>
+                          <p className="text-xs font-mono text-neutral-600 mt-0.5">
+                            {formatCount(topic.view_count ?? 0)} views
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs font-mono text-neutral-700 px-2">No debates yet</p>
+              )}
             </div>
+
           </aside>
 
           {/* ── MAIN FEED ── */}
@@ -841,39 +836,6 @@ export default async function Home({
               userId={user?.id ?? null}
               totalCount={totalSuggestionsCount}
             />
-
-            {/* Trending Now — real data, sorted by voter count */}
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
-              <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
-                TRENDING NOW
-              </h3>
-              {trendingTopics.length > 0 ? (
-                <ol className="flex flex-col gap-0.5">
-                  {trendingTopics.map((topic, i) => (
-                    <li key={topic.id}>
-                      <Link
-                        href={`/topics/${topic.slug}`}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150"
-                      >
-                        <span className="font-display text-lg leading-none text-neutral-600 w-5 text-right flex-shrink-0">
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-body text-neutral-300 truncate">
-                            {topic.title}
-                          </p>
-                          <p className="text-xs font-mono text-neutral-600 mt-0.5">
-                            {formatCount(topic.view_count ?? 0)} views
-                          </p>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="text-xs font-mono text-neutral-700 px-2">No debates yet</p>
-              )}
-            </div>
 
             {/* Coming Soon */}
             {comingSoonTopics.length > 0 && (
