@@ -71,7 +71,7 @@ export function SubmitTopicCTA({
     setSubmitting(false);
 
     if (insertError) {
-      setError("Failed to submit. Please try again.");
+      setError("Failed to suggest. Please try again.");
       return;
     }
 
@@ -98,10 +98,10 @@ export function SubmitTopicCTA({
           ★ PREMIUM
         </span>
         <h3 className="font-display text-xl tracking-wide text-white leading-tight mb-1">
-          SUBMIT A TOPIC
+          SUGGEST A TOPIC
         </h3>
         <p className="text-xs font-body text-neutral-500 leading-relaxed mb-4">
-          Have a debate worth having? Premium members can submit topics for the community.
+          Have a debate worth having? Premium members can suggest topics for the community.
         </p>
 
         {!userId ? (
@@ -109,21 +109,21 @@ export function SubmitTopicCTA({
             href="/login"
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
           >
-            SUBMIT A TOPIC
+            SUGGEST A TOPIC
           </Link>
         ) : isPremium ? (
           <button
             onClick={handleOpen}
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
           >
-            SUBMIT A TOPIC
+            SUGGEST A TOPIC
           </button>
         ) : (
           <Link
             href="/premium"
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
           >
-            UPGRADE TO SUBMIT
+            UPGRADE TO SUGGEST
           </Link>
         )}
       </div>
@@ -136,7 +136,7 @@ export function SubmitTopicCTA({
         >
           <div className="w-full max-w-md rounded-2xl border border-brand-border bg-brand-bg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-2xl tracking-wide">SUBMIT A TOPIC</h2>
+              <h2 className="font-display text-2xl tracking-wide">SUGGEST A TOPIC</h2>
               <button
                 onClick={handleClose}
                 className="text-neutral-500 hover:text-white transition-colors"
@@ -149,7 +149,7 @@ export function SubmitTopicCTA({
 
             {success ? (
               <div className="py-8 text-center space-y-2">
-                <p className="font-display text-xl text-brand-accent">TOPIC SUBMITTED</p>
+                <p className="font-display text-xl text-brand-accent">TOPIC SUGGESTED</p>
                 <p className="text-sm text-neutral-400 font-body">
                   Your suggestion is pending review. Thanks for contributing!
                 </p>
@@ -227,7 +227,7 @@ export function SubmitTopicCTA({
                   disabled={submitting}
                   className="w-full py-2.5 rounded-lg bg-brand-accent text-black text-sm font-display tracking-widest hover:bg-brand-accent/90 transition-colors disabled:opacity-50"
                 >
-                  {submitting ? "SUBMITTING..." : "SUBMIT TOPIC"}
+                  {submitting ? "SUGGESTING..." : "SUGGEST TOPIC"}
                 </button>
               </form>
             )}
