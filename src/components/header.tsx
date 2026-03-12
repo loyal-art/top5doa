@@ -301,8 +301,10 @@ export function Header() {
               {/* Profile link */}
               <Link
                 href={username ? `/profile/${username}` : "/profile"}
-                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+                className="text-sm font-mono transition-colors hover:opacity-80 flex items-center gap-1.5"
+                style={{ color: "#e8ff00", textShadow: "0 0 8px rgba(232, 255, 0, 0.6)" }}
               >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-accent shadow-[0_0_6px_rgba(232,255,0,0.6)]" />
                 {username ? `@${username}` : "Profile"}
               </Link>
 
