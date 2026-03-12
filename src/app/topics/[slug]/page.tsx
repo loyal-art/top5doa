@@ -7,6 +7,7 @@ import { ViewCounter } from "./view-counter";
 import { ScrollToTop } from "./scroll-to-top";
 import { WatchVideoButton } from "./watch-video-button";
 import { extractYouTubeId, youtubeBackgroundSrc, youtubePipSrc } from "@/lib/youtube";
+import { brandHighlight } from "@/lib/utils";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
@@ -142,7 +143,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl tracking-wide text-white">
-            {topic.title.toUpperCase()}
+            {brandHighlight(topic.title)}
           </h1>
           {topic.description && (
             <p className="text-neutral-400 mt-3 max-w-2xl font-body leading-relaxed break-words">

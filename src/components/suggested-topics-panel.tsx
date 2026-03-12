@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { brandHighlight } from "@/lib/utils";
 
 export type SuggestionRow = {
   id: string;
@@ -186,7 +187,7 @@ function SuggestionPipPanel({
       {/* Content */}
       <div className="p-4 space-y-3">
         <h3 className="font-display text-xl tracking-wide text-white leading-tight">
-          {suggestion.title.toUpperCase()}
+          {brandHighlight(suggestion.title)}
         </h3>
 
         {suggestion.description && (
