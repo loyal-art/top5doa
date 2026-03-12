@@ -146,13 +146,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-bg/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
-        <Link href="/" className="flex items-center gap-1.5 group">
-          <span className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors brand-glow">
-            TOP5
-          </span>
-          <span className="font-display text-2xl tracking-wide text-brand-accent">
-            DOA
-          </span>
+        <Link href="/" className="flex items-center">
+          <img src="/images/logo-header.png" alt="Top5DOA" style={{ height: "36px", width: "auto" }} />
         </Link>
 
         <nav className="flex items-center gap-4">

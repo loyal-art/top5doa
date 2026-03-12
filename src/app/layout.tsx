@@ -5,6 +5,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Top5DOA",
   description: "Debate the greatest of all time across any category",
+  icons: {
+    icon: "/images/logo-icon.png",
+  },
 };
 
 export default function RootLayout({
