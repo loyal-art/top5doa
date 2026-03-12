@@ -149,90 +149,6 @@ function ComingSoonCard({
   );
 }
 
-// ─── Hero Feed Banner ─────────────────────────────────────────────────────────
-
-function HeroBanner({
-  topic,
-  attributeCount,
-  viewCount,
-}: {
-  topic: Topic;
-  attributeCount: number;
-  viewCount: number;
-}) {
-  const accentColor = categoryColor(topic.category[0] ?? "");
-
-  return (
-    <div className="relative rounded-2xl overflow-hidden border border-brand-border mb-5">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-surface via-brand-surface to-brand-bg" />
-      {/* Accent glow */}
-      <div
-        className="absolute top-0 left-0 w-72 h-40 rounded-full blur-[80px] opacity-20 pointer-events-none"
-        style={{ backgroundColor: "#e8ff00" }}
-      />
-      <div
-        className="absolute bottom-0 right-0 w-48 h-32 rounded-full blur-[60px] opacity-10 pointer-events-none"
-        style={{ backgroundColor: accentColor }}
-      />
-
-      <div className="relative p-6 sm:p-8">
-        {/* Label + Category */}
-        <div className="flex items-center gap-3 flex-wrap mb-4">
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
-            ★ FEATURED DEBATE
-          </span>
-          {topic.category.map((cat) => {
-            const color = categoryColor(cat);
-            return (
-              <span key={cat} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-xs font-mono uppercase tracking-wider" style={{ color }}>
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                {cat}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Title */}
-        <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-white leading-[0.9] mb-3">
-          {topic.title.toUpperCase()}
-        </h2>
-
-        {/* Description */}
-        {topic.description && (
-          <p className="text-sm font-body text-neutral-400 leading-relaxed max-w-xl mb-5 line-clamp-2 break-words">
-            {topic.description}
-          </p>
-        )}
-
-        {/* Stats + CTA */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-aura animate-pulse" />
-              {formatCount(viewCount)} views
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-border" />
-              {attributeCount} attributes
-            </span>
-          </div>
-
-          <Link
-            href={`/topics/${topic.slug}`}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 ml-auto"
-          >
-            MAKE YOUR LIST
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Topic Card ───────────────────────────────────────────────────────────────
 
 function TopicCard({
@@ -624,26 +540,148 @@ export default async function Home({
         <div className="absolute bottom-0 right-0 w-[300px] h-[200px] bg-brand-aura/5 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 py-14 sm:py-20 relative">
-          <div className="max-w-2xl">
-            <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
-              DEBATE THE
-              <br />
-              <span className="text-brand-accent">GREATEST</span>
-              <br />
-              OF ALL TIME
-            </h1>
-            <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
-              Rank what matters. Score the legends. See how your top 5 stacks up against the world.
-            </p>
-            <div className="flex items-center gap-3 mt-8">
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                {feedTopics.length} active debates
-              </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left: headline */}
+            <div>
+              <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
+                DEBATE THE
+                <br />
+                <span className="text-brand-accent">GREATEST</span>
+                <br />
+                OF ALL TIME
+              </h1>
+              <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
+                Rank what matters. Score the legends. See how your top 5 stacks up against the world.
+              </p>
+              <div className="flex items-center gap-3 mt-8">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+                  {feedTopics.length} active debates
+                </span>
+              </div>
             </div>
-            <p className="font-body text-xs tracking-wide text-neutral-400 mt-4">
-              1. Pick a Debate &bull; 2. Rank &amp; Score &bull; 3. See Your Top 5
-            </p>
+
+            {/* Right: featured topic card */}
+            {heroBannerTopic && (
+              <div className="relative rounded-2xl overflow-hidden border border-brand-border aspect-[16/10]">
+                {/* Background media */}
+                {(() => {
+                  const videoId = heroBannerTopic.card_video_url
+                    ? extractYouTubeId(heroBannerTopic.card_video_url)
+                    : null;
+                  if (videoId) {
+                    return (
+                      <>
+                        <div className="absolute inset-0 hidden md:block pointer-events-none">
+                          <iframe
+                            src={youtubeBackgroundSrc(videoId)}
+                            className="absolute inset-0 w-full h-full"
+                            style={{ border: 0, transform: "scale(1.5)" }}
+                            allow="autoplay; encrypted-media"
+                            tabIndex={-1}
+                            title="Featured topic background"
+                          />
+                        </div>
+                        {heroBannerTopic.card_image_url && (
+                          <img
+                            src={heroBannerTopic.card_image_url}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none md:hidden"
+                          />
+                        )}
+                      </>
+                    );
+                  }
+                  if (heroBannerTopic.cover_image_url || heroBannerTopic.card_image_url) {
+                    return (
+                      <img
+                        src={(heroBannerTopic.cover_image_url ?? heroBannerTopic.card_image_url)!}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      />
+                    );
+                  }
+                  return (
+                    <div className="absolute inset-0 bg-gradient-to-br from-brand-surface to-brand-bg" />
+                  );
+                })()}
+                {/* Dark gradient overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%)",
+                  }}
+                />
+                {/* Content */}
+                <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-6">
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+                      ★ FEATURED
+                    </span>
+                    {heroBannerTopic.category.map((cat) => {
+                      const color = categoryColor(cat);
+                      return (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 border border-white/10 text-xs font-mono uppercase tracking-wider"
+                          style={{ color }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          {cat}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight mb-4">
+                    {heroBannerTopic.title.toUpperCase()}
+                  </h2>
+                  <Link
+                    href={`/topics/${heroBannerTopic.slug}`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 self-start"
+                  >
+                    MAKE YOUR LIST
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How It Works ── */}
+      <section className="border-b border-brand-border bg-brand-bg">
+        <div className="max-w-5xl mx-auto px-4 py-10 sm:py-12">
+          <h2 className="font-display text-xs tracking-[0.25em] text-neutral-500 text-center mb-8">
+            HOW IT WORKS
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+            {[
+              { num: "1", title: "Pick a Debate", desc: "Choose a topic that gets you fired up" },
+              { num: "2", title: "Rank & Score", desc: "Rate what matters most, then score every contender" },
+              { num: "3", title: "See Your Top 5", desc: "Lock in your list and see how the world voted" },
+            ].map((step) => (
+              <div key={step.num} className="flex flex-col items-center text-center sm:items-start sm:text-left">
+                <span
+                  className="font-display text-3xl leading-none mb-2"
+                  style={{ color: "#e8ff00" }}
+                >
+                  {step.num}
+                </span>
+                <h3 className="font-display text-sm tracking-widest text-white mb-1">
+                  {step.title.toUpperCase()}
+                </h3>
+                <p className="text-sm font-body text-neutral-500 leading-relaxed">
+                  {step.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -757,15 +795,6 @@ export default async function Home({
 
             {displayTopics.length > 0 ? (
               <div className="flex flex-col gap-4">
-                {/* Hero feed banner — most recent topic */}
-                {heroBannerTopic && (
-                  <HeroBanner
-                    topic={heroBannerTopic}
-                    attributeCount={(attributesByTopic[heroBannerTopic.id] ?? []).length}
-                    viewCount={heroBannerTopic.view_count ?? 0}
-                  />
-                )}
-
                 {/* Topic cards */}
                 {displayTopics.map((topic) => (
                   <TopicCard
