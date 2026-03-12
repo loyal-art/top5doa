@@ -147,7 +147,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-bg/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
         <Link href="/" className="flex items-center">
-          <img src="/images/logo-header.png" alt="Top5DOA" style={{ height: "48px", width: "auto" }} />
+          <img src="/images/logo-full.png" alt="Top5DOA" style={{ height: "64px", width: "auto" }} />
         </Link>
 
         <nav className="flex items-center gap-4">
