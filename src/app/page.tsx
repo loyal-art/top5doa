@@ -830,6 +830,14 @@ export default async function Home({
           {/* ── RIGHT SIDEBAR ── */}
           <aside className="hidden lg:flex flex-col gap-4 sticky top-[113px]">
 
+            {/* Suggested Topics */}
+            <SuggestedTopicsPanel
+              suggestions={top5Suggestions}
+              votedIds={suggestionVotedIds}
+              userId={user?.id ?? null}
+              totalCount={totalSuggestionsCount}
+            />
+
             {/* Trending Now — real data, sorted by voter count */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
               <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500 mb-3 px-1">
@@ -884,14 +892,6 @@ export default async function Home({
                 </div>
               </div>
             )}
-
-            {/* Suggested Topics */}
-            <SuggestedTopicsPanel
-              suggestions={top5Suggestions}
-              votedIds={suggestionVotedIds}
-              userId={user?.id ?? null}
-              totalCount={totalSuggestionsCount}
-            />
 
             {/* Submit Topic CTA */}
             <SubmitTopicCTA userId={user?.id ?? null} isPremium={isPremium} />
