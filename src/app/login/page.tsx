@@ -35,13 +35,6 @@ export default function LoginPage() {
   async function handleOAuthLogin(provider: "google" | "facebook") {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
     });
     if (error) {
       setError(error.message);
