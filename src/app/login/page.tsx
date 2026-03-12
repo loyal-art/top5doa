@@ -43,7 +43,10 @@ export default function LoginPage() {
   async function handleOAuthLogin(provider: "google" | "facebook") {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { skipBrowserRedirect: true },
+      options: {
+        skipBrowserRedirect: true,
+        redirectTo: window.location.origin + "/auth/callback",
+      },
     });
     if (error) {
       setError(error.message);
