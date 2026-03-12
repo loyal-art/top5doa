@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Top5DOA",
   description: "Debate the greatest of all time across any category",
   icons: {
-    icon: "/images/logo-icon.png",
+    icon: "/images/logo-header.png",
   },
 };
 
