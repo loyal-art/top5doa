@@ -6,6 +6,7 @@ import { SuggestedTopicsPanel } from "@/components/suggested-topics-panel";
 import type { SuggestionRow } from "@/components/suggested-topics-panel";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 import { brandHighlight } from "@/lib/utils";
+import { TopicFeed } from "@/components/topic-feed";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -801,26 +802,18 @@ export default async function Home({
               })}
             </div>
 
-            {displayTopics.length > 0 ? (
-              <div className="flex flex-col gap-4">
-                {/* Topic cards */}
-                {displayTopics.map((topic) => (
-                  <TopicCard
-                    key={topic.id}
-                    topic={topic}
-                    attributes={attributesByTopic[topic.id] ?? []}
-                    hasVoted={votedTopicIds.has(topic.id)}
-                    top3={globalTop3ByTopic[topic.id] ?? []}
-                    viewCount={topic.view_count ?? 0}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 rounded-2xl border border-brand-border bg-brand-surface">
-                <p className="font-display text-2xl text-neutral-600">NO ACTIVE DEBATES YET</p>
-                <p className="text-sm text-neutral-600 mt-2 font-body">Check back soon — debates are coming.</p>
-              </div>
-            )}
+            <TopicFeed titles={displayTopics.map((t) => t.title)}>
+              {displayTopics.map((topic) => (
+                <TopicCard
+                  key={topic.id}
+                  topic={topic}
+                  attributes={attributesByTopic[topic.id] ?? []}
+                  hasVoted={votedTopicIds.has(topic.id)}
+                  top3={globalTop3ByTopic[topic.id] ?? []}
+                  viewCount={topic.view_count ?? 0}
+                />
+              ))}
+            </TopicFeed>
           </section>
 
           {/* ── RIGHT SIDEBAR ── */}
