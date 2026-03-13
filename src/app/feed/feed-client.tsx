@@ -168,13 +168,13 @@ export function FeedClient({
     const subjectIds = [...new Set(page.flatMap((l) => l.rows.map((r) => r.subject_id)))];
 
     const [profilesRes, topicsRes, subjectsRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name").in("id", userIds),
+      supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", userIds),
       supabase.from("topics").select("id, title, slug").in("id", topicIds),
       supabase.from("subjects").select("id, name").in("id", subjectIds),
     ]);
 
     const profileMap = Object.fromEntries(
-      (profilesRes.data ?? []).map((p) => [p.id, { username: p.username, displayName: p.display_name }])
+      (profilesRes.data ?? []).map((p) => [p.id, { username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url }])
     );
     const topicMap = Object.fromEntries(
       (topicsRes.data ?? []).map((t) => [t.id, { title: t.title, slug: t.slug }])
@@ -188,6 +188,7 @@ export function FeedClient({
       userId: l.userId,
       displayName: profileMap[l.userId]?.displayName ?? "Unknown",
       username: profileMap[l.userId]?.username ?? "",
+      avatarUrl: profileMap[l.userId]?.avatarUrl ?? null,
       topicId: l.topicId,
       topicTitle: topicMap[l.topicId]?.title ?? "Unknown Topic",
       topicSlug: topicMap[l.topicId]?.slug ?? "",
