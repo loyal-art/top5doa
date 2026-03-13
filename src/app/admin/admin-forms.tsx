@@ -15,6 +15,9 @@ import {
   updateAttribute,
   getTopics,
   updateTopic,
+  getTopicSuggestions,
+  updateSuggestionStatus,
+  deleteSuggestion,
 } from "./actions";
 
 interface Topic {
@@ -1604,12 +1607,177 @@ function AiTopicBuilder() {
   );
 }
 
+// ── Manage Suggestions ────────────────────────────────────────────────────────
+
+type SuggestionRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  categories: string[];
+  vote_count: number;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  user_id: string;
+  submitter_username: string | null;
+};
+
+function ManageSuggestionsSection() {
+  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
+    const result = await getTopicSuggestions();
+    if (result.error) {
+      setLoadError(result.error);
+    } else {
+      setSuggestions(result.data ?? []);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleStatus(id: string, status: "approved" | "rejected") {
+    setActionLoading(id);
+    const result = await updateSuggestionStatus(id, status);
+    if (result.error) {
+      alert(result.error);
+    } else {
+      setSuggestions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status } : s))
+      );
+    }
+    setActionLoading(null);
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this suggestion permanently?")) return;
+    setActionLoading(id);
+    const result = await deleteSuggestion(id);
+    if (result.error) {
+      alert(result.error);
+    } else {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id));
+    }
+    setActionLoading(null);
+  }
+
+  function daysRemaining(expiresAt: string): number {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }
+
+  function formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  const statusColor: Record<string, string> = {
+    pending: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+    approved: "text-brand-accent bg-brand-accent/10 border-brand-accent/30",
+    rejected: "text-brand-red bg-brand-red/10 border-brand-red/30",
+  };
+
+  return (
+    <section className="border border-brand-border rounded-2xl p-6">
+      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE SUGGESTIONS</h2>
+
+      {loading && <p className="text-sm font-mono text-neutral-500">Loading...</p>}
+      {loadError && <p className="text-sm font-mono text-brand-red">{loadError}</p>}
+      {!loading && !loadError && suggestions.length === 0 && (
+        <p className="text-neutral-500 font-body">No suggestions yet.</p>
+      )}
+
+      {suggestions.length > 0 && (
+        <ul className="space-y-2">
+          {suggestions.map((s) => {
+            const days = daysRemaining(s.expires_at);
+            const isActioning = actionLoading === s.id;
+            return (
+              <li key={s.id} className="rounded-xl border border-brand-border p-4 space-y-3">
+                {/* Top row: title + status */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-body text-white text-lg leading-tight">{s.title}</h3>
+                    {s.description && (
+                      <p className="text-sm font-body text-neutral-400 mt-1 line-clamp-2">{s.description}</p>
+                    )}
+                  </div>
+                  <span
+                    className={`shrink-0 px-2.5 py-0.5 rounded-md border text-xs font-mono uppercase tracking-wider ${statusColor[s.status] ?? "text-neutral-500 bg-neutral-500/10 border-neutral-500/30"}`}
+                  >
+                    {s.status}
+                  </span>
+                </div>
+
+                {/* Meta row */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-neutral-500">
+                  <span>by <span className="text-neutral-300">{s.submitter_username ?? "unknown"}</span></span>
+                  <span>{s.vote_count} vote{s.vote_count !== 1 ? "s" : ""}</span>
+                  <span>{s.categories.join(", ")}</span>
+                  <span className={days <= 2 ? "text-brand-red" : ""}>
+                    {days > 0 ? `${days}d remaining` : "expired"}
+                  </span>
+                  <span>{formatDate(s.created_at)}</span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-2">
+                  {s.status !== "approved" && (
+                    <button
+                      type="button"
+                      disabled={isActioning}
+                      onClick={() => handleStatus(s.id, "approved")}
+                      className="px-3 py-1.5 rounded-lg border border-brand-accent/40 text-brand-accent font-mono text-xs hover:bg-brand-accent/10 hover:border-brand-accent transition-colors disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {s.status !== "rejected" && (
+                    <button
+                      type="button"
+                      disabled={isActioning}
+                      onClick={() => handleStatus(s.id, "rejected")}
+                      className="px-3 py-1.5 rounded-lg border border-yellow-400/40 text-yellow-400 font-mono text-xs hover:bg-yellow-400/10 hover:border-yellow-400 transition-colors disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isActioning}
+                    onClick={() => handleDelete(s.id)}
+                    className="px-3 py-1.5 rounded-lg border border-brand-red/40 text-brand-red font-mono text-xs hover:bg-brand-red/10 hover:border-brand-red transition-colors disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function AdminForms({ topics }: { topics: Topic[] }) {
   return (
     <div className="space-y-10">
       <AiTopicBuilder />
       <CreateTopicForm />
       <ManageTopicsSection />
+      <ManageSuggestionsSection />
       <AddSubjectForm topics={topics} />
       <AddAttributeForm topics={topics} />
       <ManageSubjectsSection topics={topics} />

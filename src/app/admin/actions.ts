@@ -376,3 +376,84 @@ export async function createTopicWithContent(data: {
   revalidatePath("/");
   return { error: null, topicId };
 }
+
+export async function getTopicSuggestions(): Promise<{
+  data: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    categories: string[];
+    vote_count: number;
+    status: string;
+    expires_at: string;
+    created_at: string;
+    user_id: string;
+    submitter_username: string | null;
+  }> | null;
+  error: string | null;
+}> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { data: null, error: authError ?? "Auth failed" };
+
+  const { data, error } = await supabase
+    .from("topic_suggestions")
+    .select("id, title, description, categories, vote_count, status, expires_at, created_at, user_id")
+    .order("created_at", { ascending: false });
+
+  if (error) return { data: null, error: error.message };
+
+  // Fetch submitter usernames
+  const userIds = [...new Set((data ?? []).map((s) => s.user_id))];
+  let usernameMap: Record<string, string> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", userIds);
+    (profiles ?? []).forEach((p) => {
+      usernameMap[p.id] = p.username;
+    });
+  }
+
+  const rows = (data ?? []).map((s) => ({
+    ...s,
+    submitter_username: usernameMap[s.user_id] ?? null,
+  }));
+
+  return { data: rows, error: null };
+}
+
+export async function updateSuggestionStatus(
+  id: string,
+  status: "approved" | "rejected"
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const { error } = await supabase
+    .from("topic_suggestions")
+    .update({ status })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function deleteSuggestion(
+  id: string
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  const { error } = await supabase
+    .from("topic_suggestions")
+    .delete()
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
