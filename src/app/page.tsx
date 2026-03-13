@@ -443,6 +443,7 @@ export default async function Home({
 
   // ── Parallel data fetches ──────────────────────────────────────────────────
   let subjectMap: Record<string, string> = {};
+  let subjectsByTopic: Record<string, string[]> = {};
   let attributesByTopic: Record<string, { id: string; name: string }[]> = {};
   let votedTopicIds: Set<string> = new Set();
   let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
@@ -468,9 +469,11 @@ export default async function Home({
       ),
     ]);
 
-    // Subject id → name map
+    // Subject id → name map + subjects grouped by topic
     (subjectsRes.data ?? []).forEach((s: { id: string; topic_id: string; name: string }) => {
       subjectMap[s.id] = s.name;
+      if (!subjectsByTopic[s.topic_id]) subjectsByTopic[s.topic_id] = [];
+      subjectsByTopic[s.topic_id].push(s.name);
     });
 
     // Attributes grouped by topic
@@ -802,7 +805,7 @@ export default async function Home({
               })}
             </div>
 
-            <TopicFeed titles={displayTopics.map((t) => t.title)}>
+            <TopicFeed titles={displayTopics.map((t) => t.title)} subjectNames={displayTopics.map((t) => subjectsByTopic[t.id] ?? [])}>
               {displayTopics.map((topic) => (
                 <TopicCard
                   key={topic.id}

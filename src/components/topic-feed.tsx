@@ -7,9 +7,10 @@ const PAGE_SIZE = 12;
 type TopicFeedProps = {
   children: React.ReactNode;
   titles: string[];
+  subjectNames?: string[][];
 };
 
-export function TopicFeed({ children, titles }: TopicFeedProps) {
+export function TopicFeed({ children, titles, subjectNames }: TopicFeedProps) {
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -20,9 +21,14 @@ export function TopicFeed({ children, titles }: TopicFeedProps) {
     const q = search.toLowerCase().trim();
     if (!q) return titles.map((_, i) => i);
     return titles
-      .map((title, i) => (title.toLowerCase().includes(q) ? i : -1))
+      .map((title, i) => {
+        if (title.toLowerCase().includes(q)) return i;
+        const subjects = subjectNames?.[i];
+        if (subjects?.some((s) => s.toLowerCase().includes(q))) return i;
+        return -1;
+      })
       .filter((i) => i !== -1);
-  }, [search, titles]);
+  }, [search, titles, subjectNames]);
 
   const paginatedIndices = matchingIndices.slice(0, visibleCount);
   const hasMore = matchingIndices.length > visibleCount;
@@ -54,7 +60,7 @@ export function TopicFeed({ children, titles }: TopicFeedProps) {
           type="text"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search topics..."
+          placeholder="Search topics or subjects..."
           className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-brand-surface border border-brand-border text-white font-body text-sm placeholder-neutral-600 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
         />
         {search && (
