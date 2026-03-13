@@ -163,6 +163,14 @@ export function Header() {
                 FEED
               </Link>
 
+              {/* Hot Takes link */}
+              <Link
+                href="/hot-takes"
+                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+              >
+                HOT TAKES
+              </Link>
+
               {/* ── Notification bell ──────────────────────────────────── */}
               <div className="relative" ref={notifRef}>
                 <button

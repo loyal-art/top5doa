@@ -229,6 +229,65 @@ export function TopicVotingFlow({
   const shareMenuBottomRef = useRef<HTMLDivElement>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Hot Take state
+  const [hotTakeOpen, setHotTakeOpen] = useState(false);
+  const [hotTakeTarget, setHotTakeTarget] = useState<{
+    type: "subject" | "attribute";
+    id: string;
+    name: string;
+  } | null>(null);
+  const [hotTakeText, setHotTakeText] = useState("");
+  const [hotTakeExistingId, setHotTakeExistingId] = useState<string | null>(null);
+  const [hotTakeSaving, setHotTakeSaving] = useState(false);
+
+  async function openHotTake(targetType: "subject" | "attribute", targetId: string, targetName: string) {
+    setHotTakeTarget({ type: targetType, id: targetId, name: targetName });
+    setHotTakeText("");
+    setHotTakeExistingId(null);
+    setHotTakeOpen(true);
+    if (!userId) return;
+    // Check for existing take
+    const col = targetType === "subject" ? "subject_id" : "attribute_id";
+    const { data } = await supabase
+      .from("hot_takes")
+      .select("id, content")
+      .eq("user_id", userId)
+      .eq("topic_id", topic.id)
+      .eq(col, targetId)
+      .maybeSingle();
+    if (data) {
+      setHotTakeText(data.content);
+      setHotTakeExistingId(data.id);
+    }
+  }
+
+  async function submitHotTake() {
+    if (!userId || !hotTakeTarget || !hotTakeText.trim() || hotTakeText.length > 280) return;
+    setHotTakeSaving(true);
+
+    if (hotTakeExistingId) {
+      await supabase.from("hot_takes").update({ content: hotTakeText.trim() }).eq("id", hotTakeExistingId);
+    } else {
+      await supabase.from("hot_takes").insert({
+        user_id: userId,
+        topic_id: topic.id,
+        content: hotTakeText.trim(),
+        subject_id: hotTakeTarget.type === "subject" ? hotTakeTarget.id : null,
+        attribute_id: hotTakeTarget.type === "attribute" ? hotTakeTarget.id : null,
+      });
+    }
+    setHotTakeSaving(false);
+    setHotTakeOpen(false);
+  }
+
+  async function deleteHotTake() {
+    if (!hotTakeExistingId) return;
+    setHotTakeSaving(true);
+    await supabase.from("hot_takes").delete().eq("id", hotTakeExistingId);
+    setHotTakeSaving(false);
+    setHotTakeOpen(false);
+  }
+
   // Selected subjects for the "select" step — IDs of subjects the user wants to score
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(
     () => new Set(subjects.map((s) => s.id)),
@@ -832,6 +891,56 @@ export function TopicVotingFlow({
   return (
     <div className="space-y-8">
       <PipPanel content={pipContent} onClose={() => setPipContent(null)} />
+
+      {/* Hot Take PiP Panel */}
+      {hotTakeOpen && hotTakeTarget && (
+        <div className="fixed right-6 bottom-6 z-[9999] w-[340px] rounded-xl overflow-hidden shadow-2xl border border-neutral-700 bg-neutral-900 flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700">
+            <span className="text-xs font-mono text-brand-accent tracking-widest uppercase">
+              HOT TAKE — {hotTakeTarget.name}
+            </span>
+            <button
+              onClick={() => setHotTakeOpen(false)}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-4 space-y-3">
+            <textarea
+              value={hotTakeText}
+              onChange={(e) => setHotTakeText(e.target.value.slice(0, 280))}
+              placeholder="Drop your hot take..."
+              rows={3}
+              className="w-full rounded-lg bg-brand-bg border border-brand-border px-3 py-2 text-sm font-body text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-brand-accent"
+            />
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-mono ${hotTakeText.length > 260 ? "text-red-400" : "text-neutral-600"}`}>
+                {hotTakeText.length}/280
+              </span>
+              <div className="flex items-center gap-2">
+                {hotTakeExistingId && (
+                  <button
+                    onClick={deleteHotTake}
+                    disabled={hotTakeSaving}
+                    className="px-3 py-1.5 rounded-lg text-xs font-mono text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                )}
+                <button
+                  onClick={submitHotTake}
+                  disabled={hotTakeSaving || !hotTakeText.trim() || hotTakeText.length > 280}
+                  className="px-4 py-1.5 rounded-lg text-xs font-mono font-bold bg-brand-accent text-brand-bg hover:bg-brand-accent/90 transition-colors disabled:opacity-50"
+                >
+                  {hotTakeSaving ? "..." : hotTakeExistingId ? "Update" : "Submit"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step Indicator + Top Share Button */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 sm:gap-2">
@@ -1062,7 +1171,7 @@ export function TopicVotingFlow({
                       className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                     />
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-mono text-neutral-200 uppercase tracking-wider">
                       {subject.name}
                     </p>
@@ -1070,6 +1179,15 @@ export function TopicVotingFlow({
                       <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
                     )}
                   </div>
+                  {userId && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openHotTake("subject", subject.id, subject.name); }}
+                      className="flex-shrink-0 px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                    >
+                      HOT TAKE
+                    </button>
+                  )}
                 </button>
               );
             })}
@@ -1147,6 +1265,15 @@ export function TopicVotingFlow({
                       {currentSubject.name.toUpperCase()}
                     </h2>
                     <SubjectLinks subject={currentSubject} topicTitle={topic.title} onOpen={openPip} />
+                    {userId && (
+                      <button
+                        type="button"
+                        onClick={() => openHotTake("subject", currentSubject.id, currentSubject.name)}
+                        className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                      >
+                        HOT TAKE
+                      </button>
+                    )}
                   </div>
                   {currentSubject.era && (
                     <p className="text-neutral-500 text-sm font-mono mt-1">{currentSubject.era}</p>
@@ -1189,9 +1316,20 @@ export function TopicVotingFlow({
                           {attr.name}
                         </span>
                       </label>
-                      <span className="text-xs font-mono text-neutral-600">
-                        {weights[idx] ?? 0}% weight
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-neutral-600">
+                          {weights[idx] ?? 0}% weight
+                        </span>
+                        {userId && (
+                          <button
+                            type="button"
+                            onClick={() => openHotTake("attribute", attr.id, attr.name)}
+                            className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                          >
+                            HOT TAKE
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <SubjectScoreSlider
                       value={scores[currentSubject.id]?.[attr.id] ?? 50}
@@ -1277,13 +1415,24 @@ export function TopicVotingFlow({
                       )}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-mono text-neutral-600">
-                      Attribute {currentAttrIdx + 1} of {rankedAttributes.length}
-                    </p>
-                    <p className="text-sm font-mono font-bold text-brand-accent mt-0.5">
-                      {weights[currentAttrIdx] ?? 0}% weight
-                    </p>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {userId && (
+                      <button
+                        type="button"
+                        onClick={() => openHotTake("attribute", currentAttr.id, currentAttr.name)}
+                        className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                      >
+                        HOT TAKE
+                      </button>
+                    )}
+                    <div className="text-right">
+                      <p className="text-xs font-mono text-neutral-600">
+                        Attribute {currentAttrIdx + 1} of {rankedAttributes.length}
+                      </p>
+                      <p className="text-sm font-mono font-bold text-brand-accent mt-0.5">
+                        {weights[currentAttrIdx] ?? 0}% weight
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1307,6 +1456,15 @@ export function TopicVotingFlow({
                           <p className="text-sm text-neutral-400 break-words mt-0.5">{subject.description}</p>
                         )}
                       </div>
+                      {userId && (
+                        <button
+                          type="button"
+                          onClick={() => openHotTake("subject", subject.id, subject.name)}
+                          className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                        >
+                          HOT TAKE
+                        </button>
+                      )}
                     </div>
                     <SubjectScoreSlider
                       value={scores[subject.id]?.[currentAttr.id] ?? 50}
