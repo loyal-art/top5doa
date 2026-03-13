@@ -228,13 +228,22 @@ export function ProfileClient({
           {/* Top row: avatar · identity · action button */}
           <div className="flex items-start gap-5">
 
-            {/* Avatar placeholder — shows initials */}
-            <div
-              className="w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center
-                         bg-brand-accent/10 border-2 border-brand-accent/30"
-            >
-              <span className="font-display text-2xl text-brand-accent">{initials}</span>
-            </div>
+            {/* Avatar */}
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.avatar_url}
+                alt={profile.display_name}
+                className="w-20 h-20 rounded-full object-cover flex-shrink-0 border-2 border-brand-accent/30"
+              />
+            ) : (
+              <div
+                className="w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center
+                           bg-brand-accent/10 border-2 border-brand-accent/30"
+              >
+                <span className="font-display text-2xl text-brand-accent">{initials}</span>
+              </div>
+            )}
 
             {/* Name + @username + badges */}
             <div className="flex-1 min-w-0 pt-1">

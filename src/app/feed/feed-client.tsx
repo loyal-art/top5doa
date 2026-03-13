@@ -34,9 +34,14 @@ function FeedCard({ item }: { item: FeedItem }) {
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
         <Link
           href={`/profile/${item.username}`}
-          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10 border border-brand-accent/30 hover:border-brand-accent transition-colors"
+          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10 border border-brand-accent/30 hover:border-brand-accent transition-colors overflow-hidden"
         >
-          <span className="font-display text-sm text-brand-accent">{initials}</span>
+          {item.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <span className="font-display text-sm text-brand-accent">{initials}</span>
+          )}
         </Link>
         <div className="flex-1 min-w-0">
           <Link

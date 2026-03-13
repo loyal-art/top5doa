@@ -44,6 +44,32 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // Ensure profile has an avatar_url — pull from Google metadata or generate via DiceBear
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("avatar_url, username")
+            .eq("id", user.id)
+            .single();
+
+          if (profile && !profile.avatar_url) {
+            const googleAvatar = user.user_metadata?.avatar_url
+              ?? user.user_metadata?.picture
+              ?? null;
+            const avatarUrl = googleAvatar
+              ?? `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(profile.username ?? user.id)}`;
+            await supabase
+              .from("profiles")
+              .update({ avatar_url: avatarUrl })
+              .eq("id", user.id);
+          }
+        }
+      } catch {
+        // Non-blocking — don't fail the auth flow for avatar issues
+      }
+
       const response = NextResponse.redirect(`${origin}${next}`);
       for (const { name, value, options } of cookiesToSet) {
         response.cookies.set(name, value, options);

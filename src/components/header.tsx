@@ -29,6 +29,7 @@ function relativeTime(dateStr: string): string {
 export function Header() {
   const [user, setUser] = useState<User | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -40,10 +41,11 @@ export function Header() {
   async function fetchUsername(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("username, is_admin")
+      .select("username, is_admin, avatar_url")
       .eq("id", userId)
       .single();
     setUsername(data?.username ?? null);
+    setAvatarUrl(data?.avatar_url ?? null);
     setIsAdmin(data?.is_admin === true);
   }
 
@@ -299,7 +301,12 @@ export function Header() {
                 className="text-sm font-mono transition-colors hover:opacity-80 flex items-center gap-1.5"
                 style={{ color: "#e8ff00", textShadow: "0 0 8px rgba(232, 255, 0, 0.6)" }}
               >
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-accent shadow-[0_0_6px_rgba(232,255,0,0.6)]" />
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-accent shadow-[0_0_6px_rgba(232,255,0,0.6)]" />
+                )}
                 {username ? `@${username}` : "Profile"}
               </Link>
 
