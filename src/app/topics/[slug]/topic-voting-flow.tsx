@@ -170,7 +170,7 @@ function SubjectLinks({
 }
 
 
-type Step = "rank" | "select" | "score" | "results";
+type Step = "rank" | "select" | "score" | "results" | "share";
 type VoteMode = "by-subject" | "by-attribute";
 
 const STEP_META: Record<Step, { num: number; label: string }> = {
@@ -178,6 +178,7 @@ const STEP_META: Record<Step, { num: number; label: string }> = {
   select: { num: 2, label: "SELECT SUBJECTS" },
   score: { num: 3, label: "SCORE SUBJECTS" },
   results: { num: 4, label: "YOUR TOP 5" },
+  share: { num: 5, label: "SHARE YOUR TOP 5" },
 };
 
 const MIN_SELECTED_SUBJECTS = 5;
@@ -719,15 +720,36 @@ export function TopicVotingFlow({
       <PipPanel content={pipContent} onClose={() => setPipContent(null)} />
       {/* Step Indicator */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {(["rank", "select", "score", "results"] as const).map((s, i) => {
-          const stepOrder = { rank: 0, select: 1, score: 2, results: 3 } as const;
-          const isActive = step === s;
-          const isPast = stepOrder[s] < stepOrder[step];
+        {(["rank", "select", "score", "results", "share"] as const).map((s, i) => {
+          const stepOrder = { rank: 0, select: 1, score: 2, results: 3, share: 4 } as const;
+          const isShareActive = s === "share" && step === "results" && saved;
+          const isActive = step === s || isShareActive;
+          const isPast = stepOrder[s] < stepOrder[step] || (s === "results" && isShareActive);
 
           return (
             <button
               key={s}
-              onClick={() => { setStep(s); window.scrollTo(0, 0); }}
+              onClick={async () => {
+                if (s === "share") {
+                  const el = document.getElementById("share-card");
+                  if (!el) return;
+                  const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
+                  const canvas = await html2canvas(el, {
+                    width: 1080,
+                    height: 1080,
+                    scale: 1,
+                    useCORS: true,
+                    backgroundColor: "#080808",
+                  });
+                  const link = document.createElement("a");
+                  link.download = `top5-${topic.slug ?? "list"}.png`;
+                  link.href = canvas.toDataURL("image/png");
+                  link.click();
+                } else {
+                  setStep(s);
+                  window.scrollTo(0, 0);
+                }
+              }}
               className="flex items-center gap-2 flex-1 sm:flex-none"
             >
               <div
@@ -1735,7 +1757,7 @@ export function TopicVotingFlow({
                   className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
                              text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
                 >
-                  Download Card
+                  Share Your TOP 5
                 </button>
               </div>
             </>
