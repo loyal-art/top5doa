@@ -170,7 +170,7 @@ function SubjectLinks({
 }
 
 
-type Step = "rank" | "select" | "score" | "results" | "share";
+type Step = "rank" | "select" | "score" | "results";
 type VoteMode = "by-subject" | "by-attribute";
 
 const STEP_META: Record<Step, { num: number; label: string }> = {
@@ -178,7 +178,6 @@ const STEP_META: Record<Step, { num: number; label: string }> = {
   select: { num: 2, label: "SELECT SUBJECTS" },
   score: { num: 3, label: "SCORE SUBJECTS" },
   results: { num: 4, label: "YOUR TOP 5" },
-  share: { num: 5, label: "SHARE YOUR TOP 5" },
 };
 
 const MIN_SELECTED_SUBJECTS = 5;
@@ -764,24 +763,17 @@ export function TopicVotingFlow({
       <PipPanel content={pipContent} onClose={() => setPipContent(null)} />
       {/* Step Indicator */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {(["rank", "select", "score", "results", "share"] as const).map((s, i) => {
-          const stepOrder = { rank: 0, select: 1, score: 2, results: 3, share: 4 } as const;
-          const isShareActive = s === "share" && step === "results" && saved;
-          const isActive = step === s || isShareActive;
-          const isPast = stepOrder[s] < stepOrder[step] || (s === "results" && isShareActive);
+        {(["rank", "select", "score", "results"] as const).map((s, i) => {
+          const stepOrder = { rank: 0, select: 1, score: 2, results: 3 } as const;
+          const isActive = step === s;
+          const isPast = stepOrder[s] < stepOrder[step];
 
           return (
             <button
               key={s}
               onClick={() => {
-                if (s === "share") {
-                  const shareBtn = document.getElementById("share-menu-anchor");
-                  if (shareBtn) shareBtn.scrollIntoView({ behavior: "smooth", block: "center" });
-                  setShareMenuOpen((v) => !v);
-                } else {
-                  setStep(s);
-                  window.scrollTo(0, 0);
-                }
+                setStep(s);
+                window.scrollTo(0, 0);
               }}
               className="flex items-center gap-2 flex-1 sm:flex-none"
             >
@@ -1777,7 +1769,7 @@ export function TopicVotingFlow({
                                text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
                                flex items-center gap-2"
                   >
-                    Share Your TOP 5
+                    Share Your <span className="brand-glow font-bold" style={{ color: "#FFD700" }}>TOP</span>{" "}<span className="brand-glow font-bold" style={{ color: "#FFD700" }}>5</span>
                     <svg className={`w-3.5 h-3.5 transition-transform ${shareMenuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
