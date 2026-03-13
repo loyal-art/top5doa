@@ -34,9 +34,14 @@ function FeedCard({ item }: { item: FeedItem }) {
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
         <Link
           href={`/profile/${item.username}`}
-          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10 border border-brand-accent/30 hover:border-brand-accent transition-colors"
+          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10 border border-brand-accent/30 hover:border-brand-accent transition-colors overflow-hidden"
         >
-          <span className="font-display text-sm text-brand-accent">{initials}</span>
+          {item.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <span className="font-display text-sm text-brand-accent">{initials}</span>
+          )}
         </Link>
         <div className="flex-1 min-w-0">
           <Link
@@ -163,13 +168,13 @@ export function FeedClient({
     const subjectIds = [...new Set(page.flatMap((l) => l.rows.map((r) => r.subject_id)))];
 
     const [profilesRes, topicsRes, subjectsRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name").in("id", userIds),
+      supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", userIds),
       supabase.from("topics").select("id, title, slug").in("id", topicIds),
       supabase.from("subjects").select("id, name").in("id", subjectIds),
     ]);
 
     const profileMap = Object.fromEntries(
-      (profilesRes.data ?? []).map((p) => [p.id, { username: p.username, displayName: p.display_name }])
+      (profilesRes.data ?? []).map((p) => [p.id, { username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url }])
     );
     const topicMap = Object.fromEntries(
       (topicsRes.data ?? []).map((t) => [t.id, { title: t.title, slug: t.slug }])
@@ -183,6 +188,7 @@ export function FeedClient({
       userId: l.userId,
       displayName: profileMap[l.userId]?.displayName ?? "Unknown",
       username: profileMap[l.userId]?.username ?? "",
+      avatarUrl: profileMap[l.userId]?.avatarUrl ?? null,
       topicId: l.topicId,
       topicTitle: topicMap[l.topicId]?.title ?? "Unknown Topic",
       topicSlug: topicMap[l.topicId]?.slug ?? "",

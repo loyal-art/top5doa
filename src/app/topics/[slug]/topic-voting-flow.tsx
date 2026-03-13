@@ -218,7 +218,7 @@ export function TopicVotingFlow({
   >(initialGlobalRankings ?? null);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [recentVoters, setRecentVoters] = useState<
-    { username: string; display_name: string; topPick: string | null }[]
+    { username: string; display_name: string; avatar_url: string | null; topPick: string | null }[]
   >([]);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -311,7 +311,7 @@ export function TopicVotingFlow({
     const [{ data: profiles }, { data: topPicks }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, username, display_name")
+        .select("id, username, display_name, avatar_url")
         .in("id", uniqueUserIds),
       supabase
         .from("user_lists")
@@ -340,6 +340,7 @@ export function TopicVotingFlow({
       .map((p) => ({
         username: p!.username,
         display_name: p!.display_name,
+        avatar_url: p!.avatar_url ?? null,
         topPick: topPickMap.get(p!.id) ?? null,
       }));
     setRecentVoters(voters);
@@ -1582,9 +1583,14 @@ export function TopicVotingFlow({
                               href={`/profile/${voter.username}`}
                               className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors duration-150 group"
                             >
-                              <span className="w-7 h-7 rounded-full bg-brand-border flex items-center justify-center text-[10px] font-mono text-neutral-400 flex-shrink-0">
-                                {initials}
-                              </span>
+                              {voter.avatar_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={voter.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <span className="w-7 h-7 rounded-full bg-brand-border flex items-center justify-center text-[10px] font-mono text-neutral-400 flex-shrink-0">
+                                  {initials}
+                                </span>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-body text-neutral-300 truncate group-hover:text-[#e8ff00] transition-colors duration-150">
                                   {voter.username}
