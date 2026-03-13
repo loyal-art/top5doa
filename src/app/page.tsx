@@ -544,11 +544,11 @@ export default async function Home({
             {/* Left: headline */}
             <div>
               <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
-                DEBATE THE
+                DEBATE THE GREATS.
                 <br />
-                <span className="text-brand-accent">GREATEST</span>
-                <br />
-                OF ALL TIME
+                <span className="block mt-2">
+                  {brandHighlight("CREATE AND SHARE YOUR TOP 5 DOA.")}
+                </span>
               </h1>
               <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
                 Rank what matters. Score the legends. See how your top 5 stacks up against the world.
