@@ -297,7 +297,7 @@ function TopicCard({
       {/* ── Right: Global Top 3 ── */}
       <div className="relative flex-shrink-0 w-44 border-l border-brand-border bg-brand-bg/40 p-4 flex flex-col">
         <p className="font-display text-[10px] tracking-[0.2em] text-neutral-600 mb-3">
-          GLOBAL TOP 3
+          GLOBAL <span className="brand-glow" style={{ color: "#FFD700" }}>TOP</span> 3
         </p>
 
         {top3.length > 0 ? (
