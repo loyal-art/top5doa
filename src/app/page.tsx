@@ -23,27 +23,6 @@ type Topic = {
 
 type GlobalRanking = { subject_id: string; avg_score: number };
 
-// ─── Brand Highlight ─────────────────────────────────────────────────────────
-
-/** Wrap specific words in a gold-glow span */
-function brandHighlight(text: string, words: string[]): React.ReactNode {
-  const pattern = new RegExp(`(${words.join("|")})`, "gi");
-  const parts = text.split(pattern);
-  return parts.map((part, i) =>
-    words.some((w) => w.toLowerCase() === part.toLowerCase()) ? (
-      <span
-        key={i}
-        className="text-brand-accent"
-        style={{ textShadow: "0 0 20px rgba(232,255,0,0.5), 0 0 40px rgba(232,255,0,0.25)" }}
-      >
-        {part}
-      </span>
-    ) : (
-      <span key={i}>{part}</span>
-    )
-  );
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const NAV_TABS = [
@@ -568,7 +547,7 @@ export default async function Home({
                 DEBATE THE GREATS.
                 <br />
                 <span className="block mt-2">
-                  {brandHighlight("CREATE AND SHARE YOUR TOP 5 DOA.", ["TOP", "5"])}
+                  {brandHighlight("CREATE AND SHARE YOUR TOP 5 DOA.")}
                 </span>
               </h1>
               <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
