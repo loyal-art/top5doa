@@ -573,6 +573,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      hot_takes: {
+        Row: {
+          id: string;
+          user_id: string;
+          topic_id: string;
+          subject_id: string | null;
+          attribute_id: string | null;
+          content: string;
+          flames: number;
+          trashes: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          topic_id: string;
+          subject_id?: string | null;
+          attribute_id?: string | null;
+          content: string;
+          flames?: number;
+          trashes?: number;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          topic_id?: string;
+          subject_id?: string | null;
+          attribute_id?: string | null;
+          content?: string;
+          flames?: number;
+          trashes?: number;
+        };
+        Relationships: [];
+      };
+      hot_take_votes: {
+        Row: {
+          id: string;
+          hot_take_id: string;
+          user_id: string;
+          vote_type: "flame" | "trash";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          hot_take_id: string;
+          user_id: string;
+          vote_type: "flame" | "trash";
+          created_at?: string;
+        };
+        Update: {
+          hot_take_id?: string;
+          user_id?: string;
+          vote_type?: "flame" | "trash";
+        };
+        Relationships: [];
+      };
       follows: {
         Row: {
           id: string;
