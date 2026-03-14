@@ -39,9 +39,9 @@ export default async function AdminPage() {
 
   return (
     <main className="min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="mb-8 border-b border-brand-border pb-6">
-          <h1 className="font-display text-5xl tracking-wide">ADMIN PANEL</h1>
+      <div className="max-w-7xl mx-auto px-4 py-6 md:py-10">
+        <div className="mb-6 md:mb-8 border-b border-brand-border pb-4 md:pb-6">
+          <h1 className="font-display text-4xl md:text-5xl tracking-wide">ADMIN PANEL</h1>
           <p className="text-neutral-500 mt-2 font-mono text-sm">
             Manage topics, subjects, and attributes.
           </p>
