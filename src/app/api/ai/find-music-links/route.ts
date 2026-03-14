@@ -1,53 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-async function getSpotifyToken(
-  clientId: string,
-  clientSecret: string,
-): Promise<string> {
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-    },
-    body: "grant_type=client_credentials",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Spotify auth failed: ${res.status} ${text}`);
-  }
-
-  const data = await res.json();
-  return data.access_token;
-}
-
-async function searchSpotifyTrack(
-  token: string,
-  subjectName: string,
-  topicTitle: string,
-): Promise<string | null> {
-  const q = `track:${subjectName} ${topicTitle}`;
-  const params = new URLSearchParams({
-    q,
-    type: "track",
-    limit: "1",
-  });
-
-  const res = await fetch(
-    `https://api.spotify.com/v1/search?${params.toString()}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  );
-
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  const track = data.tracks?.items?.[0];
-  return track?.external_urls?.spotify ?? null;
-}
-
 export async function POST(req: NextRequest) {
   const { topicTitle, subjects } = await req.json();
 
@@ -59,31 +11,64 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "subjects array is required" }, { status: 400 });
   }
 
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are not configured" },
+      { error: "ANTHROPIC_API_KEY is not configured" },
       { status: 500 },
     );
   }
 
-  let token: string;
-  try {
-    token = await getSpotifyToken(clientId, clientSecret);
-  } catch (err) {
+  const subjectList = subjects
+    .map((s: { id: string; name: string }) => `- id: "${s.id}", name: "${s.name}"`)
+    .join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system:
+        "For each song name and topic context, construct a YouTube search URL in the format: https://www.youtube.com/results?search_query={song+title}+{artist}+official+audio. URL-encode the search_query parameter properly. Return ONLY valid JSON with no markdown: { \"links\": [{ \"id\": \"string\", \"name\": \"string\", \"musicUrl\": \"string\" }] }",
+      messages: [
+        {
+          role: "user",
+          content: `Generate YouTube search URLs for each of these subjects in the context of the topic "${topicTitle}":\n\n${subjectList}`,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to authenticate with Spotify" },
+      { error: `Anthropic API error: ${res.status} ${text}` },
       { status: 502 },
     );
   }
 
-  const links = await Promise.all(
-    subjects.map(async (s: { id: string; name: string }) => {
-      const spotifyUrl = await searchSpotifyTrack(token, s.name, topicTitle);
-      return { id: s.id, name: s.name, spotifyUrl };
-    }),
-  );
+  const data = await res.json();
+  const content = data.content?.[0]?.text;
 
-  return NextResponse.json({ links });
+  if (!content) {
+    return NextResponse.json(
+      { error: "No content in API response" },
+      { status: 502 },
+    );
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+    return NextResponse.json(parsed);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to parse AI response as JSON", raw: content },
+      { status: 502 },
+    );
+  }
 }
