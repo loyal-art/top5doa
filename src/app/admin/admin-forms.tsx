@@ -1136,11 +1136,12 @@ type MusicLinkResult = {
   id: string;
   name: string;
   deezerUrl: string | null;
+  deezerEmbedUrl: string | null;
   spotifySearchUrl: string | null;
   previewUrl: string | null;
   trackTitle: string | null;
   artistName: string | null;
-  saveChoice: "spotify" | "deezer";
+  saveChoice: "deezer" | "spotify";
   checked: boolean;
 };
 
@@ -1221,6 +1222,7 @@ function SubjectsList({
         id: string;
         name: string;
         deezerUrl: string | null;
+        deezerEmbedUrl: string | null;
         spotifySearchUrl: string | null;
         previewUrl: string | null;
         trackTitle: string | null;
@@ -1229,7 +1231,7 @@ function SubjectsList({
       setMusicResults(
         links.map((l) => ({
           ...l,
-          saveChoice: "spotify" as const,
+          saveChoice: "deezer" as const,
           checked: l.deezerUrl !== null,
         })),
       );
@@ -1264,7 +1266,7 @@ function SubjectsList({
     for (const item of toSave) {
       const subject = subjects.find((s) => s.id === item.id);
       if (!subject) continue;
-      const url = item.saveChoice === "spotify" ? item.spotifySearchUrl : item.deezerUrl;
+      const url = item.saveChoice === "deezer" ? item.deezerEmbedUrl : item.spotifySearchUrl;
       if (!url) continue;
       const result = await updateSubject(item.id, {
         name: subject.name,
@@ -1401,6 +1403,23 @@ function SubjectsList({
                               <input
                                 type="radio"
                                 name={`save-choice-${r.id}`}
+                                checked={r.saveChoice === "deezer"}
+                                onChange={() => setSaveChoice(r.id, "deezer")}
+                                className="accent-[#A238FF] w-3 h-3 flex-shrink-0"
+                              />
+                              <a
+                                href={r.deezerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-purple-400 hover:text-purple-300 truncate"
+                              >
+                                Deezer Embed (default)
+                              </a>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name={`save-choice-${r.id}`}
                                 checked={r.saveChoice === "spotify"}
                                 onChange={() => setSaveChoice(r.id, "spotify")}
                                 className="accent-[#1DB954] w-3 h-3 flex-shrink-0"
@@ -1412,23 +1431,6 @@ function SubjectsList({
                                 className="text-xs font-mono text-green-400 hover:text-green-300 truncate"
                               >
                                 Spotify Search
-                              </a>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="radio"
-                                name={`save-choice-${r.id}`}
-                                checked={r.saveChoice === "deezer"}
-                                onChange={() => setSaveChoice(r.id, "deezer")}
-                                className="accent-[#A238FF] w-3 h-3 flex-shrink-0"
-                              />
-                              <a
-                                href={r.deezerUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-mono text-purple-400 hover:text-purple-300 truncate"
-                              >
-                                Deezer
                               </a>
                             </div>
                           </div>
