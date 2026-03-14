@@ -1132,6 +1132,13 @@ function TopicsListInner({
   );
 }
 
+type MusicLinkResult = {
+  id: string;
+  name: string;
+  spotifyUrl: string | null;
+  checked: boolean;
+};
+
 function SubjectsList({
   topics,
   onSelect,
@@ -1146,9 +1153,19 @@ function SubjectsList({
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // Music link finder state
+  const [musicResults, setMusicResults] = useState<MusicLinkResult[] | null>(null);
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicError, setMusicError] = useState<string | null>(null);
+  const [savingMusic, setSavingMusic] = useState(false);
+  const [musicSaveMsg, setMusicSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   async function loadSubjects(topicId: string) {
     setLoadingList(true);
     setListError(null);
+    setMusicResults(null);
+    setMusicError(null);
+    setMusicSaveMsg(null);
     const result = await getSubjectsForTopic(topicId);
     if (result.error) {
       setListError(result.error);
@@ -1162,7 +1179,95 @@ function SubjectsList({
     const id = e.target.value;
     setSelectedTopicId(id);
     setSubjects([]);
+    setMusicResults(null);
+    setMusicError(null);
+    setMusicSaveMsg(null);
     if (id) loadSubjects(id);
+  }
+
+  const selectedTopicTitle = topics.find((t) => t.id === selectedTopicId)?.title ?? "";
+
+  async function handleFindMusic() {
+    if (!selectedTopicId || subjects.length === 0) return;
+    setMusicLoading(true);
+    setMusicError(null);
+    setMusicResults(null);
+    setMusicSaveMsg(null);
+
+    try {
+      const res = await fetch("/api/ai/find-music-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicTitle: selectedTopicTitle,
+          subjects: subjects.map((s) => ({ id: s.id, name: s.name })),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMusicError(data.error ?? `Request failed (${res.status})`);
+        setMusicLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      const links: { id: string; name: string; spotifyUrl: string | null }[] = data.links ?? [];
+      setMusicResults(
+        links.map((l) => ({
+          ...l,
+          checked: l.spotifyUrl !== null,
+        })),
+      );
+    } catch {
+      setMusicError("Network error — check your connection and try again.");
+    }
+    setMusicLoading(false);
+  }
+
+  function toggleMusicResult(id: string) {
+    setMusicResults((prev) =>
+      prev?.map((r) => (r.id === id ? { ...r, checked: !r.checked } : r)) ?? null,
+    );
+  }
+
+  async function handleSaveMusicLinks() {
+    if (!musicResults) return;
+    const toSave = musicResults.filter((r) => r.checked && r.spotifyUrl);
+    if (toSave.length === 0) return;
+
+    setSavingMusic(true);
+    setMusicSaveMsg(null);
+
+    let saved = 0;
+    let errored = 0;
+    for (const item of toSave) {
+      const subject = subjects.find((s) => s.id === item.id);
+      if (!subject) continue;
+      const result = await updateSubject(item.id, {
+        name: subject.name,
+        description: subject.description,
+        era: subject.era,
+        link_photo: subject.link_photo,
+        link_music: item.spotifyUrl!,
+        link_video: subject.link_video,
+        video_url: subject.video_url,
+      });
+      if (result.error) {
+        errored++;
+      } else {
+        saved++;
+      }
+    }
+
+    if (errored > 0) {
+      setMusicSaveMsg({ type: "error", text: `Saved ${saved}, failed ${errored}.` });
+    } else {
+      setMusicSaveMsg({ type: "success", text: `Updated music links for ${saved} subject${saved === 1 ? "" : "s"}.` });
+    }
+    setSavingMusic(false);
+    // Reload subjects to reflect updates
+    if (selectedTopicId) loadSubjects(selectedTopicId);
   }
 
   return (
@@ -1197,6 +1302,99 @@ function SubjectsList({
             <p className="text-sm font-mono text-neutral-500 px-2">No subjects found.</p>
           )}
 
+          {/* Find Music Links button */}
+          {!loadingList && subjects.length > 0 && !musicResults && (
+            <div className="px-2">
+              <button
+                type="button"
+                onClick={handleFindMusic}
+                disabled={musicLoading}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-green-500/40 text-green-400 font-mono text-xs hover:bg-green-500/10 hover:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {musicLoading ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Searching Spotify links...
+                  </>
+                ) : (
+                  <>
+                    <span>&#9835;</span>
+                    Find Music Links
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {musicError && (
+            <p className="text-sm font-mono text-brand-red px-2">{musicError}</p>
+          )}
+
+          {/* Music link results review */}
+          {musicResults && (
+            <div className="px-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                  Spotify Links Found
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setMusicResults(null); setMusicSaveMsg(null); }}
+                  className="text-xs font-mono text-neutral-500 hover:text-white transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {musicResults.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-start gap-2 px-2.5 py-2 rounded-lg border border-brand-border bg-brand-surface text-sm"
+                  >
+                    {r.spotifyUrl ? (
+                      <input
+                        type="checkbox"
+                        checked={r.checked}
+                        onChange={() => toggleMusicResult(r.id)}
+                        className="accent-[#e8ff00] w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                      />
+                    ) : (
+                      <span className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-body text-white text-sm truncate">{r.name}</div>
+                      {r.spotifyUrl ? (
+                        <a
+                          href={r.spotifyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-mono text-green-400 hover:text-green-300 truncate block"
+                        >
+                          {r.spotifyUrl}
+                        </a>
+                      ) : (
+                        <span className="text-xs font-mono text-neutral-600">No link found</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <StatusMessage message={musicSaveMsg} />
+              <button
+                type="button"
+                onClick={handleSaveMusicLinks}
+                disabled={savingMusic || musicResults.filter((r) => r.checked && r.spotifyUrl).length === 0}
+                className="w-full px-3 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-xs font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {savingMusic
+                  ? "Saving..."
+                  : `Save Selected Links (${musicResults.filter((r) => r.checked && r.spotifyUrl).length})`}
+              </button>
+            </div>
+          )}
+
           <ul className="space-y-0.5">
             {subjects.map((subject) => (
               <li key={subject.id}>
@@ -1209,7 +1407,12 @@ function SubjectsList({
                       : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
                   }`}
                 >
-                  <div className="truncate">{subject.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate">{subject.name}</span>
+                    {subject.link_music && (
+                      <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" title="Has music link" />
+                    )}
+                  </div>
                   {subject.era && (
                     <span className="text-xs font-mono text-neutral-600">{subject.era}</span>
                   )}
