@@ -153,27 +153,27 @@ function SubjectLinks({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(photoUrl, "photo"); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm bg-blue-600 hover:bg-blue-500 transition-colors"
         >
-          📷 PHOTO
+          📷
         </button>
       )}
       {subject.link_music && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(subject.link_music!, "music"); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-green-600 hover:bg-green-500 transition-colors"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm bg-green-600 hover:bg-green-500 transition-colors"
         >
-          🎵 MUSIC
+          🎵
         </button>
       )}
       {subject.link_video && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(subject.link_video!, "video"); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm bg-red-600 hover:bg-red-500 transition-colors"
         >
-          🎬 VIDEO
+          🎬
         </button>
       )}
     </div>
@@ -1189,6 +1189,9 @@ export function TopicVotingFlow({
                     {subject.era && (
                       <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
                     )}
+                    <div className="mt-1">
+                      <SubjectLinks subject={subject} topicTitle={topic.title} onOpen={openPip} />
+                    </div>
                   </div>
                   {userId && (
                     <button
