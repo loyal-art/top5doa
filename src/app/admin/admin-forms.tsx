@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTopic,
@@ -90,6 +90,70 @@ function StatusMessage({
   );
 }
 
+// ── Section definitions ──────────────────────────────────────────────────────
+
+type SectionId =
+  | "ai-builder"
+  | "create-topic"
+  | "manage-topics"
+  | "manage-subjects"
+  | "manage-attributes"
+  | "manage-suggestions";
+
+const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
+  { id: "ai-builder", label: "AI Topic Builder", icon: "✦" },
+  { id: "create-topic", label: "Create Topic", icon: "+" },
+  { id: "manage-topics", label: "Manage Topics", icon: "◈" },
+  { id: "manage-subjects", label: "Manage Subjects", icon: "◉" },
+  { id: "manage-attributes", label: "Manage Attributes", icon: "◆" },
+  { id: "manage-suggestions", label: "Manage Suggestions", icon: "◇" },
+];
+
+// ── Draggable divider ────────────────────────────────────────────────────────
+
+function ColumnDivider({
+  onDrag,
+}: {
+  onDrag: (deltaX: number) => void;
+}) {
+  const dragging = useRef(false);
+  const lastX = useRef(0);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragging.current = true;
+      lastX.current = e.clientX;
+
+      const onMove = (ev: MouseEvent) => {
+        if (!dragging.current) return;
+        const delta = ev.clientX - lastX.current;
+        lastX.current = ev.clientX;
+        onDrag(delta);
+      };
+      const onUp = () => {
+        dragging.current = false;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [onDrag],
+  );
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="hidden md:flex w-1.5 flex-shrink-0 cursor-col-resize items-stretch group"
+    >
+      <div className="w-full bg-brand-border/40 group-hover:bg-brand-accent/40 group-active:bg-brand-accent/60 transition-colors rounded-full" />
+    </div>
+  );
+}
+
+// ── Form sections (column 2 — full form, no column 3) ───────────────────────
+
 function CreateTopicForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -127,9 +191,9 @@ function CreateTopicForm() {
   }
 
   return (
-    <section className="border border-brand-border rounded-2xl p-6">
+    <div className="p-6">
       <h2 className="font-display text-2xl tracking-wide mb-6">CREATE TOPIC</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className={labelClass}>Title</label>
           <input
@@ -191,7 +255,7 @@ function CreateTopicForm() {
           {loading ? "Creating..." : "Create Topic"}
         </button>
       </form>
-    </section>
+    </div>
   );
 }
 
@@ -245,7 +309,7 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
   }
 
   return (
-    <section className="border border-brand-border rounded-2xl p-6">
+    <div className="p-6">
       <h2 className="font-display text-2xl tracking-wide mb-6">ADD SUBJECT</h2>
       {topics.length === 0 ? (
         <p className="text-neutral-500 font-body">
@@ -253,7 +317,7 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
         </p>
       ) : (
         <div className="space-y-8">
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
               Single Entry
             </p>
@@ -325,7 +389,7 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
           </form>
 
           <div className="border-t border-brand-border/50 pt-8">
-            <form onSubmit={handleBulkSubmit} className="space-y-4 max-w-lg">
+            <form onSubmit={handleBulkSubmit} className="space-y-4">
               <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
                 Bulk Entry
               </p>
@@ -362,7 +426,7 @@ function AddSubjectForm({ topics }: { topics: Topic[] }) {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -404,8 +468,6 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
     const result = await addAttributesBulk(formData);
 
     if (result.error) {
-      setBulkMessage({ type: "error", text: result.error });
-    } else {
       setBulkMessage({
         type: "success",
         text: `Added ${result.count} attribute${result.count === 1 ? "" : "s"}!`,
@@ -416,7 +478,7 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
   }
 
   return (
-    <section className="border border-brand-border rounded-2xl p-6">
+    <div className="p-6">
       <h2 className="font-display text-2xl tracking-wide mb-6">ADD ATTRIBUTE</h2>
       {topics.length === 0 ? (
         <p className="text-neutral-500 font-body">
@@ -424,7 +486,7 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
         </p>
       ) : (
         <div className="space-y-8">
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
               Single Entry
             </p>
@@ -469,7 +531,7 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
           </form>
 
           <div className="border-t border-brand-border/50 pt-8">
-            <form onSubmit={handleBulkSubmit} className="space-y-4 max-w-lg">
+            <form onSubmit={handleBulkSubmit} className="space-y-4">
               <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
                 Bulk Entry
               </p>
@@ -506,9 +568,11 @@ function AddAttributeForm({ topics }: { topics: Topic[] }) {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
+
+// ── Edit forms (rendered in column 3) ────────────────────────────────────────
 
 function EditSubjectForm({
   subject,
@@ -567,8 +631,18 @@ function EditSubjectForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-xl tracking-wide">EDIT SUBJECT</h2>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Name</label>
           <input
@@ -589,75 +663,75 @@ function EditSubjectForm({
             placeholder="1984–2003"
           />
         </div>
-      </div>
-      <div>
-        <label className={labelClass}>Description</label>
-        <textarea
-          rows={2}
-          value={fields.description}
-          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
-          className={`${inputClass} resize-none`}
-          placeholder="Short description..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Photo Link</label>
-        <input
-          type="url"
-          value={fields.link_photo}
-          onChange={(e) => setFields((f) => ({ ...f, link_photo: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Music Link</label>
-        <input
-          type="url"
-          value={fields.link_music}
-          onChange={(e) => setFields((f) => ({ ...f, link_music: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Video Link</label>
-        <input
-          type="url"
-          value={fields.link_video}
-          onChange={(e) => setFields((f) => ({ ...f, link_video: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Video URL</label>
-        <input
-          type="url"
-          value={fields.video_url}
-          onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <StatusMessage message={message} />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Saving..." : "Save"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+        <div>
+          <label className={labelClass}>Description</label>
+          <textarea
+            rows={2}
+            value={fields.description}
+            onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+            className={`${inputClass} resize-none`}
+            placeholder="Short description..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Photo Link</label>
+          <input
+            type="url"
+            value={fields.link_photo}
+            onChange={(e) => setFields((f) => ({ ...f, link_photo: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Music Link</label>
+          <input
+            type="url"
+            value={fields.link_music}
+            onChange={(e) => setFields((f) => ({ ...f, link_music: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Video Link</label>
+          <input
+            type="url"
+            value={fields.link_video}
+            onChange={(e) => setFields((f) => ({ ...f, link_video: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Video URL</label>
+          <input
+            type="url"
+            value={fields.video_url}
+            onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <StatusMessage message={message} />
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Saving..." : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -703,255 +777,57 @@ function EditAttributeForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
-      <div>
-        <label className={labelClass}>Name</label>
-        <input
-          type="text"
-          required
-          value={fields.name}
-          onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Description</label>
-        <input
-          type="text"
-          value={fields.description}
-          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
-          className={inputClass}
-          placeholder="Ability to score points efficiently"
-        />
-      </div>
-      <StatusMessage message={message} />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Saving..." : "Save"}
-        </button>
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-xl tracking-wide">EDIT ATTRIBUTE</h2>
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
         >
-          Cancel
+          ✕
         </button>
       </div>
-    </form>
-  );
-}
-
-function ManageSubjectsSection({ topics }: { topics: Topic[] }) {
-  const [selectedTopicId, setSelectedTopicId] = useState("");
-  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  async function loadSubjects(topicId: string) {
-    setLoadingList(true);
-    setListError(null);
-    setEditingId(null);
-    const result = await getSubjectsForTopic(topicId);
-    if (result.error) {
-      setListError(result.error);
-    } else {
-      setSubjects(result.data ?? []);
-    }
-    setLoadingList(false);
-  }
-
-  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const id = e.target.value;
-    setSelectedTopicId(id);
-    setSubjects([]);
-    setEditingId(null);
-    if (id) loadSubjects(id);
-  }
-
-  return (
-    <section className="border border-brand-border rounded-2xl p-6">
-      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE SUBJECTS</h2>
-      {topics.length === 0 ? (
-        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
-      ) : (
-        <div className="space-y-4 max-w-2xl">
-          <div>
-            <label className={labelClass}>Topic</label>
-            <select
-              value={selectedTopicId}
-              onChange={handleTopicChange}
-              className={inputClass}
-            >
-              <option value="">Select a topic...</option>
-              {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {loadingList && (
-            <p className="text-sm font-mono text-neutral-500">Loading...</p>
-          )}
-          {listError && (
-            <p className="text-sm font-mono text-brand-red">{listError}</p>
-          )}
-
-          {!loadingList && selectedTopicId && subjects.length === 0 && !listError && (
-            <p className="text-sm font-mono text-neutral-500">No subjects found for this topic.</p>
-          )}
-
-          {subjects.length > 0 && (
-            <ul className="space-y-2">
-              {subjects.map((subject) => (
-                <li key={subject.id} className="rounded-xl border border-brand-border p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <span className="font-body text-white">{subject.name}</span>
-                      {subject.era && (
-                        <span className="ml-2 text-xs font-mono text-neutral-500">{subject.era}</span>
-                      )}
-                    </div>
-                    {editingId !== subject.id && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(subject.id)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                  {editingId === subject.id && (
-                    <EditSubjectForm
-                      subject={subject}
-                      onSave={(updated) => {
-                        setSubjects((prev) =>
-                          prev.map((s) => (s.id === updated.id ? updated : s))
-                        );
-                        setEditingId(null);
-                      }}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className={labelClass}>Name</label>
+          <input
+            type="text"
+            required
+            value={fields.name}
+            onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
+            className={inputClass}
+          />
         </div>
-      )}
-    </section>
-  );
-}
-
-function ManageAttributesSection({ topics }: { topics: Topic[] }) {
-  const [selectedTopicId, setSelectedTopicId] = useState("");
-  const [attributes, setAttributes] = useState<AttributeRow[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  async function loadAttributes(topicId: string) {
-    setLoadingList(true);
-    setListError(null);
-    setEditingId(null);
-    const result = await getAttributesForTopic(topicId);
-    if (result.error) {
-      setListError(result.error);
-    } else {
-      setAttributes(result.data ?? []);
-    }
-    setLoadingList(false);
-  }
-
-  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const id = e.target.value;
-    setSelectedTopicId(id);
-    setAttributes([]);
-    setEditingId(null);
-    if (id) loadAttributes(id);
-  }
-
-  return (
-    <section className="border border-brand-border rounded-2xl p-6">
-      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE ATTRIBUTES</h2>
-      {topics.length === 0 ? (
-        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
-      ) : (
-        <div className="space-y-4 max-w-2xl">
-          <div>
-            <label className={labelClass}>Topic</label>
-            <select
-              value={selectedTopicId}
-              onChange={handleTopicChange}
-              className={inputClass}
-            >
-              <option value="">Select a topic...</option>
-              {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {loadingList && (
-            <p className="text-sm font-mono text-neutral-500">Loading...</p>
-          )}
-          {listError && (
-            <p className="text-sm font-mono text-brand-red">{listError}</p>
-          )}
-
-          {!loadingList && selectedTopicId && attributes.length === 0 && !listError && (
-            <p className="text-sm font-mono text-neutral-500">No attributes found for this topic.</p>
-          )}
-
-          {attributes.length > 0 && (
-            <ul className="space-y-2">
-              {attributes.map((attribute) => (
-                <li key={attribute.id} className="rounded-xl border border-brand-border p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <span className="font-body text-white">{attribute.name}</span>
-                      {attribute.description && (
-                        <span className="ml-2 text-xs font-mono text-neutral-500">{attribute.description}</span>
-                      )}
-                    </div>
-                    {editingId !== attribute.id && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(attribute.id)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                  {editingId === attribute.id && (
-                    <EditAttributeForm
-                      attribute={attribute}
-                      onSave={(updated) => {
-                        setAttributes((prev) =>
-                          prev.map((a) => (a.id === updated.id ? updated : a))
-                        );
-                        setEditingId(null);
-                      }}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+        <div>
+          <label className={labelClass}>Description</label>
+          <input
+            type="text"
+            value={fields.description}
+            onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+            className={inputClass}
+            placeholder="Ability to score points efficiently"
+          />
         </div>
-      )}
-    </section>
+        <StatusMessage message={message} />
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Saving..." : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -1018,8 +894,18 @@ function EditTopicForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 pl-4 border-l-2 border-brand-accent/30">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-xl tracking-wide">EDIT TOPIC</h2>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Title</label>
           <input
@@ -1053,171 +939,588 @@ function EditTopicForm({
             ))}
           </div>
         </div>
-      </div>
-      <div>
-        <label className={labelClass}>Description</label>
-        <textarea
-          rows={2}
-          value={fields.description}
-          onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
-          className={`${inputClass} resize-none`}
-          placeholder="Short description..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Status</label>
-        <select
-          value={fields.status}
-          onChange={(e) => setFields((f) => ({ ...f, status: e.target.value }))}
-          className={inputClass}
-        >
-          <option value="draft">Draft</option>
-          <option value="coming_soon">Coming Soon</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-      <div>
-        <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
-          <input
-            type="checkbox"
-            checked={fields.is_featured}
-            onChange={(e) => setFields((f) => ({ ...f, is_featured: e.target.checked }))}
-            className="accent-[#e8ff00] w-3.5 h-3.5"
+        <div>
+          <label className={labelClass}>Description</label>
+          <textarea
+            rows={2}
+            value={fields.description}
+            onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+            className={`${inputClass} resize-none`}
+            placeholder="Short description..."
           />
-          Featured (shown in hero banner)
-        </label>
-      </div>
-      <div>
-        <label className={labelClass}>Cover Image URL</label>
-        <input
-          type="url"
-          value={fields.cover_image_url}
-          onChange={(e) => setFields((f) => ({ ...f, cover_image_url: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Card Image URL</label>
-        <input
-          type="url"
-          value={fields.card_image_url}
-          onChange={(e) => setFields((f) => ({ ...f, card_image_url: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Card Video URL</label>
-        <input
-          type="url"
-          value={fields.card_video_url}
-          onChange={(e) => setFields((f) => ({ ...f, card_video_url: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Video URL</label>
-        <input
-          type="url"
-          value={fields.video_url}
-          onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
-          className={inputClass}
-          placeholder="https://..."
-        />
-      </div>
-      <StatusMessage message={message} />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Saving..." : "Save"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+        </div>
+        <div>
+          <label className={labelClass}>Status</label>
+          <select
+            value={fields.status}
+            onChange={(e) => setFields((f) => ({ ...f, status: e.target.value }))}
+            className={inputClass}
+          >
+            <option value="draft">Draft</option>
+            <option value="coming_soon">Coming Soon</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div>
+          <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+            <input
+              type="checkbox"
+              checked={fields.is_featured}
+              onChange={(e) => setFields((f) => ({ ...f, is_featured: e.target.checked }))}
+              className="accent-[#e8ff00] w-3.5 h-3.5"
+            />
+            Featured (shown in hero banner)
+          </label>
+        </div>
+        <div>
+          <label className={labelClass}>Cover Image URL</label>
+          <input
+            type="url"
+            value={fields.cover_image_url}
+            onChange={(e) => setFields((f) => ({ ...f, cover_image_url: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Card Image URL</label>
+          <input
+            type="url"
+            value={fields.card_image_url}
+            onChange={(e) => setFields((f) => ({ ...f, card_image_url: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Card Video URL</label>
+          <input
+            type="url"
+            value={fields.card_video_url}
+            onChange={(e) => setFields((f) => ({ ...f, card_video_url: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Video URL</label>
+          <input
+            type="url"
+            value={fields.video_url}
+            onChange={(e) => setFields((f) => ({ ...f, video_url: e.target.value }))}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <StatusMessage message={message} />
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono text-sm font-bold hover:bg-brand-accent/90 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Saving..." : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
-function ManageTopicsSection() {
+// ── List panels (column 2 for list-based sections) ───────────────────────────
+
+function TopicsList({
+  onSelect,
+  selectedId,
+}: {
+  onSelect: (topic: TopicRow) => void;
+  selectedId: string | null;
+}) {
   const [topics, setTopics] = useState<TopicRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    setLoadError(null);
-    const result = await getTopics();
-    if (result.error) {
-      setLoadError(result.error);
-    } else {
-      setTopics(result.data ?? []);
-    }
-    setLoading(false);
-  }
 
   useEffect(() => {
-    load();
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      const result = await getTopics();
+      if (result.error) {
+        setLoadError(result.error);
+      } else {
+        setTopics(result.data ?? []);
+      }
+      setLoading(false);
+    })();
   }, []);
 
+  // Expose updated topic back to parent after save
+  const handleSaved = useCallback(
+    (updated: TopicRow) => {
+      setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      onSelect(updated);
+    },
+    [onSelect],
+  );
+
   return (
-    <section className="border border-brand-border rounded-2xl p-6">
-      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE TOPICS</h2>
+    <TopicsListInner
+      topics={topics}
+      loading={loading}
+      loadError={loadError}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onSaved={handleSaved}
+    />
+  );
+}
 
-      {loading && <p className="text-sm font-mono text-neutral-500">Loading...</p>}
-      {loadError && <p className="text-sm font-mono text-brand-red">{loadError}</p>}
+function TopicsListInner({
+  topics,
+  loading,
+  loadError,
+  selectedId,
+  onSelect,
+}: {
+  topics: TopicRow[];
+  loading: boolean;
+  loadError: string | null;
+  selectedId: string | null;
+  onSelect: (topic: TopicRow) => void;
+  onSaved: (updated: TopicRow) => void;
+}) {
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h2 className="font-display text-lg tracking-wide mb-4 px-2">TOPICS</h2>
+      {loading && <p className="text-sm font-mono text-neutral-500 px-2">Loading...</p>}
+      {loadError && <p className="text-sm font-mono text-brand-red px-2">{loadError}</p>}
       {!loading && !loadError && topics.length === 0 && (
-        <p className="text-neutral-500 font-body">No topics yet. Create a topic first.</p>
+        <p className="text-neutral-500 font-body text-sm px-2">No topics yet.</p>
       )}
-
-      {topics.length > 0 && (
-        <ul className="space-y-2 max-w-2xl">
-          {topics.map((topic) => (
-            <li key={topic.id} className="rounded-xl border border-brand-border p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <span className="font-body text-white">{topic.title}</span>
-                  <span className="ml-2 text-xs font-mono text-neutral-500">{topic.category.join(", ")}</span>
-                  <span className="ml-2 text-xs font-mono text-neutral-600">{topic.status}</span>
-                </div>
-                {editingId !== topic.id && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(topic.id)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg border border-brand-border text-neutral-400 font-mono text-xs hover:text-white hover:border-neutral-500 transition-colors"
-                  >
-                    Edit
-                  </button>
+      <ul className="space-y-0.5">
+        {topics.map((topic) => (
+          <li key={topic.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(topic)}
+              className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
+                selectedId === topic.id
+                  ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                  : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+              }`}
+            >
+              <div className="truncate">{topic.title}</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-mono text-neutral-600">{topic.status}</span>
+                {topic.category.length > 0 && (
+                  <span className="text-xs font-mono text-neutral-600 truncate">{topic.category.join(", ")}</span>
                 )}
               </div>
-              {editingId === topic.id && (
-                <EditTopicForm
-                  topic={topic}
-                  onSave={(updated) => {
-                    setTopics((prev) =>
-                      prev.map((t) => (t.id === updated.id ? updated : t))
-                    );
-                    setEditingId(null);
-                  }}
-                  onCancel={() => setEditingId(null)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SubjectsList({
+  topics,
+  onSelect,
+  selectedId,
+}: {
+  topics: Topic[];
+  onSelect: (subject: SubjectRow) => void;
+  selectedId: string | null;
+}) {
+  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  async function loadSubjects(topicId: string) {
+    setLoadingList(true);
+    setListError(null);
+    const result = await getSubjectsForTopic(topicId);
+    if (result.error) {
+      setListError(result.error);
+    } else {
+      setSubjects(result.data ?? []);
+    }
+    setLoadingList(false);
+  }
+
+  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setSelectedTopicId(id);
+    setSubjects([]);
+    if (id) loadSubjects(id);
+  }
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h2 className="font-display text-lg tracking-wide mb-4 px-2">SUBJECTS</h2>
+      {topics.length === 0 ? (
+        <p className="text-neutral-500 font-body text-sm px-2">No topics yet.</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="px-2">
+            <select
+              value={selectedTopicId}
+              onChange={handleTopicChange}
+              className={inputClass}
+            >
+              <option value="">Select a topic...</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loadingList && (
+            <p className="text-sm font-mono text-neutral-500 px-2">Loading...</p>
+          )}
+          {listError && (
+            <p className="text-sm font-mono text-brand-red px-2">{listError}</p>
+          )}
+          {!loadingList && selectedTopicId && subjects.length === 0 && !listError && (
+            <p className="text-sm font-mono text-neutral-500 px-2">No subjects found.</p>
+          )}
+
+          <ul className="space-y-0.5">
+            {subjects.map((subject) => (
+              <li key={subject.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(subject)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
+                    selectedId === subject.id
+                      ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                      : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+                  }`}
+                >
+                  <div className="truncate">{subject.name}</div>
+                  {subject.era && (
+                    <span className="text-xs font-mono text-neutral-600">{subject.era}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-    </section>
+    </div>
+  );
+}
+
+function AttributesList({
+  topics,
+  onSelect,
+  selectedId,
+}: {
+  topics: Topic[];
+  onSelect: (attribute: AttributeRow) => void;
+  selectedId: string | null;
+}) {
+  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [attributes, setAttributes] = useState<AttributeRow[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  async function loadAttributes(topicId: string) {
+    setLoadingList(true);
+    setListError(null);
+    const result = await getAttributesForTopic(topicId);
+    if (result.error) {
+      setListError(result.error);
+    } else {
+      setAttributes(result.data ?? []);
+    }
+    setLoadingList(false);
+  }
+
+  function handleTopicChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setSelectedTopicId(id);
+    setAttributes([]);
+    if (id) loadAttributes(id);
+  }
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h2 className="font-display text-lg tracking-wide mb-4 px-2">ATTRIBUTES</h2>
+      {topics.length === 0 ? (
+        <p className="text-neutral-500 font-body text-sm px-2">No topics yet.</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="px-2">
+            <select
+              value={selectedTopicId}
+              onChange={handleTopicChange}
+              className={inputClass}
+            >
+              <option value="">Select a topic...</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loadingList && (
+            <p className="text-sm font-mono text-neutral-500 px-2">Loading...</p>
+          )}
+          {listError && (
+            <p className="text-sm font-mono text-brand-red px-2">{listError}</p>
+          )}
+          {!loadingList && selectedTopicId && attributes.length === 0 && !listError && (
+            <p className="text-sm font-mono text-neutral-500 px-2">No attributes found.</p>
+          )}
+
+          <ul className="space-y-0.5">
+            {attributes.map((attribute) => (
+              <li key={attribute.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(attribute)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
+                    selectedId === attribute.id
+                      ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                      : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+                  }`}
+                >
+                  <div className="truncate">{attribute.name}</div>
+                  {attribute.description && (
+                    <span className="text-xs font-mono text-neutral-600 truncate block">{attribute.description}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Suggestions list + detail ────────────────────────────────────────────────
+
+type SuggestionRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  categories: string[];
+  vote_count: number;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  user_id: string;
+  submitter_username: string | null;
+};
+
+function SuggestionsList({
+  onSelect,
+  selectedId,
+}: {
+  onSelect: (suggestion: SuggestionRow) => void;
+  selectedId: string | null;
+}) {
+  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      const result = await getTopicSuggestions();
+      if (result.error) {
+        setLoadError(result.error);
+      } else {
+        setSuggestions(result.data ?? []);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const statusDot: Record<string, string> = {
+    pending: "bg-yellow-400",
+    approved: "bg-brand-accent",
+    rejected: "bg-brand-red",
+  };
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h2 className="font-display text-lg tracking-wide mb-4 px-2">SUGGESTIONS</h2>
+      {loading && <p className="text-sm font-mono text-neutral-500 px-2">Loading...</p>}
+      {loadError && <p className="text-sm font-mono text-brand-red px-2">{loadError}</p>}
+      {!loading && !loadError && suggestions.length === 0 && (
+        <p className="text-neutral-500 font-body text-sm px-2">No suggestions yet.</p>
+      )}
+      <ul className="space-y-0.5">
+        {suggestions.map((s) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(s)}
+              className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
+                selectedId === s.id
+                  ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                  : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot[s.status] ?? "bg-neutral-500"}`} />
+                <span className="truncate">{s.title}</span>
+              </div>
+              <div className="text-xs font-mono text-neutral-600 mt-0.5 pl-4">
+                {s.vote_count} vote{s.vote_count !== 1 ? "s" : ""} &middot; {s.status}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SuggestionDetail({
+  suggestion,
+  onClose,
+  onUpdate,
+}: {
+  suggestion: SuggestionRow;
+  onClose: () => void;
+  onUpdate: (updated: SuggestionRow | null) => void;
+}) {
+  const [actionLoading, setActionLoading] = useState(false);
+
+  function daysRemaining(expiresAt: string): number {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }
+
+  function formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  async function handleStatus(status: "approved" | "rejected") {
+    setActionLoading(true);
+    const result = await updateSuggestionStatus(suggestion.id, status);
+    if (result.error) {
+      alert(result.error);
+    } else {
+      onUpdate({ ...suggestion, status });
+    }
+    setActionLoading(false);
+  }
+
+  async function handleDelete() {
+    if (!confirm("Delete this suggestion permanently?")) return;
+    setActionLoading(true);
+    const result = await deleteSuggestion(suggestion.id);
+    if (result.error) {
+      alert(result.error);
+    } else {
+      onUpdate(null);
+    }
+    setActionLoading(false);
+  }
+
+  const days = daysRemaining(suggestion.expires_at);
+
+  const statusColor: Record<string, string> = {
+    pending: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+    approved: "text-brand-accent bg-brand-accent/10 border-brand-accent/30",
+    rejected: "text-brand-red bg-brand-red/10 border-brand-red/30",
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-xl tracking-wide">SUGGESTION DETAIL</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-body text-white text-lg">{suggestion.title}</h3>
+          {suggestion.description && (
+            <p className="text-sm font-body text-neutral-400 mt-1">{suggestion.description}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2.5 py-0.5 rounded-md border text-xs font-mono uppercase tracking-wider ${statusColor[suggestion.status] ?? "text-neutral-500 bg-neutral-500/10 border-neutral-500/30"}`}
+          >
+            {suggestion.status}
+          </span>
+        </div>
+
+        <div className="space-y-1.5 text-xs font-mono text-neutral-500">
+          <div>By <span className="text-neutral-300">{suggestion.submitter_username ?? "unknown"}</span></div>
+          <div>{suggestion.vote_count} vote{suggestion.vote_count !== 1 ? "s" : ""}</div>
+          <div>{suggestion.categories.join(", ")}</div>
+          <div className={days <= 2 ? "text-brand-red" : ""}>
+            {days > 0 ? `${days}d remaining` : "expired"}
+          </div>
+          <div>{formatDate(suggestion.created_at)}</div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-brand-border">
+          {suggestion.status !== "approved" && (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => handleStatus("approved")}
+              className="px-4 py-2 rounded-lg border border-brand-accent/40 text-brand-accent font-mono text-xs hover:bg-brand-accent/10 hover:border-brand-accent transition-colors disabled:opacity-50"
+            >
+              Approve
+            </button>
+          )}
+          {suggestion.status !== "rejected" && (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => handleStatus("rejected")}
+              className="px-4 py-2 rounded-lg border border-yellow-400/40 text-yellow-400 font-mono text-xs hover:bg-yellow-400/10 hover:border-yellow-400 transition-colors disabled:opacity-50"
+            >
+              Reject
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={handleDelete}
+            className="px-4 py-2 rounded-lg border border-brand-red/40 text-brand-red font-mono text-xs hover:bg-brand-red/10 hover:border-brand-red transition-colors disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1237,7 +1540,6 @@ function AiTopicBuilder() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  // AI-generated results (editable)
   const [subjects, setSubjects] = useState<AiSubject[]>([]);
   const [attributes, setAttributes] = useState<AiAttribute[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -1293,13 +1595,12 @@ function AiTopicBuilder() {
         }))
       );
       setHasGenerated(true);
-    } catch (err) {
+    } catch {
       setGenError("Network error — check your connection and try again.");
     }
     setGenerating(false);
   }
 
-  // Subject editing helpers
   function updateSubjectField(idx: number, field: keyof AiSubject, value: string) {
     setSubjects((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, [field]: value || (field === "era" ? null : "") } : s))
@@ -1312,7 +1613,6 @@ function AiTopicBuilder() {
     setSubjects((prev) => [...prev, { name: "", description: "", era: null }]);
   }
 
-  // Attribute editing helpers
   function updateAttributeField(idx: number, field: keyof AiAttribute, value: string) {
     setAttributes((prev) =>
       prev.map((a, i) => (i === idx ? { ...a, [field]: value } : a))
@@ -1364,7 +1664,6 @@ function AiTopicBuilder() {
         type: "success",
         text: `Topic created with ${validSubjects.length} subjects and ${validAttrs.length} attributes!`,
       });
-      // Reset form
       setTitle("");
       setSlug("");
       setCategories([]);
@@ -1378,7 +1677,7 @@ function AiTopicBuilder() {
   }
 
   return (
-    <section className="border border-brand-accent/30 rounded-2xl p-6 bg-brand-accent/[0.02]">
+    <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
           AI
@@ -1386,8 +1685,7 @@ function AiTopicBuilder() {
         <h2 className="font-display text-2xl tracking-wide">AI TOPIC BUILDER</h2>
       </div>
 
-      {/* Step 1: Title + Categories */}
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4">
         <div>
           <label className={labelClass}>Topic Title</label>
           <input
@@ -1450,7 +1748,6 @@ function AiTopicBuilder() {
           </select>
         </div>
 
-        {/* Generate button */}
         <button
           onClick={handleGenerate}
           disabled={generating || !title.trim()}
@@ -1474,7 +1771,6 @@ function AiTopicBuilder() {
         )}
       </div>
 
-      {/* Step 2: Review generated content */}
       {hasGenerated && (
         <div className="mt-8 space-y-6 border-t border-brand-border pt-6">
           <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
@@ -1495,7 +1791,7 @@ function AiTopicBuilder() {
                 + Add Subject
               </button>
             </div>
-            <div className="space-y-2 max-w-2xl">
+            <div className="space-y-2">
               {subjects.map((s, i) => (
                 <div
                   key={i}
@@ -1554,7 +1850,7 @@ function AiTopicBuilder() {
                 + Add Attribute
               </button>
             </div>
-            <div className="space-y-2 max-w-2xl">
+            <div className="space-y-2">
               {attributes.map((a, i) => (
                 <div
                   key={i}
@@ -1603,185 +1899,263 @@ function AiTopicBuilder() {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
-// ── Manage Suggestions ────────────────────────────────────────────────────────
-
-type SuggestionRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  categories: string[];
-  vote_count: number;
-  status: string;
-  expires_at: string;
-  created_at: string;
-  user_id: string;
-  submitter_username: string | null;
-};
-
-function ManageSuggestionsSection() {
-  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    setLoadError(null);
-    const result = await getTopicSuggestions();
-    if (result.error) {
-      setLoadError(result.error);
-    } else {
-      setSuggestions(result.data ?? []);
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function handleStatus(id: string, status: "approved" | "rejected") {
-    setActionLoading(id);
-    const result = await updateSuggestionStatus(id, status);
-    if (result.error) {
-      alert(result.error);
-    } else {
-      setSuggestions((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status } : s))
-      );
-    }
-    setActionLoading(null);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this suggestion permanently?")) return;
-    setActionLoading(id);
-    const result = await deleteSuggestion(id);
-    if (result.error) {
-      alert(result.error);
-    } else {
-      setSuggestions((prev) => prev.filter((s) => s.id !== id));
-    }
-    setActionLoading(null);
-  }
-
-  function daysRemaining(expiresAt: string): number {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }
-
-  function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-
-  const statusColor: Record<string, string> = {
-    pending: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
-    approved: "text-brand-accent bg-brand-accent/10 border-brand-accent/30",
-    rejected: "text-brand-red bg-brand-red/10 border-brand-red/30",
-  };
-
-  return (
-    <section className="border border-brand-border rounded-2xl p-6">
-      <h2 className="font-display text-2xl tracking-wide mb-6">MANAGE SUGGESTIONS</h2>
-
-      {loading && <p className="text-sm font-mono text-neutral-500">Loading...</p>}
-      {loadError && <p className="text-sm font-mono text-brand-red">{loadError}</p>}
-      {!loading && !loadError && suggestions.length === 0 && (
-        <p className="text-neutral-500 font-body">No suggestions yet.</p>
-      )}
-
-      {suggestions.length > 0 && (
-        <ul className="space-y-2">
-          {suggestions.map((s) => {
-            const days = daysRemaining(s.expires_at);
-            const isActioning = actionLoading === s.id;
-            return (
-              <li key={s.id} className="rounded-xl border border-brand-border p-4 space-y-3">
-                {/* Top row: title + status */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-body text-white text-lg leading-tight">{s.title}</h3>
-                    {s.description && (
-                      <p className="text-sm font-body text-neutral-400 mt-1 line-clamp-2">{s.description}</p>
-                    )}
-                  </div>
-                  <span
-                    className={`shrink-0 px-2.5 py-0.5 rounded-md border text-xs font-mono uppercase tracking-wider ${statusColor[s.status] ?? "text-neutral-500 bg-neutral-500/10 border-neutral-500/30"}`}
-                  >
-                    {s.status}
-                  </span>
-                </div>
-
-                {/* Meta row */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-neutral-500">
-                  <span>by <span className="text-neutral-300">{s.submitter_username ?? "unknown"}</span></span>
-                  <span>{s.vote_count} vote{s.vote_count !== 1 ? "s" : ""}</span>
-                  <span>{s.categories.join(", ")}</span>
-                  <span className={days <= 2 ? "text-brand-red" : ""}>
-                    {days > 0 ? `${days}d remaining` : "expired"}
-                  </span>
-                  <span>{formatDate(s.created_at)}</span>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-2">
-                  {s.status !== "approved" && (
-                    <button
-                      type="button"
-                      disabled={isActioning}
-                      onClick={() => handleStatus(s.id, "approved")}
-                      className="px-3 py-1.5 rounded-lg border border-brand-accent/40 text-brand-accent font-mono text-xs hover:bg-brand-accent/10 hover:border-brand-accent transition-colors disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                  )}
-                  {s.status !== "rejected" && (
-                    <button
-                      type="button"
-                      disabled={isActioning}
-                      onClick={() => handleStatus(s.id, "rejected")}
-                      className="px-3 py-1.5 rounded-lg border border-yellow-400/40 text-yellow-400 font-mono text-xs hover:bg-yellow-400/10 hover:border-yellow-400 transition-colors disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={isActioning}
-                    onClick={() => handleDelete(s.id)}
-                    className="px-3 py-1.5 rounded-lg border border-brand-red/40 text-brand-red font-mono text-xs hover:bg-brand-red/10 hover:border-brand-red transition-colors disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
+// ── Main AdminForms — Miller columns layout ──────────────────────────────────
 
 export function AdminForms({ topics }: { topics: Topic[] }) {
-  return (
-    <div className="space-y-10">
-      <AiTopicBuilder />
-      <CreateTopicForm />
-      <ManageTopicsSection />
-      <ManageSuggestionsSection />
-      <AddSubjectForm topics={topics} />
-      <AddAttributeForm topics={topics} />
-      <ManageSubjectsSection topics={topics} />
-      <ManageAttributesSection topics={topics} />
+  const [activeSection, setActiveSection] = useState<SectionId | null>(null);
+  const [selectedItem, setSelectedItem] = useState<TopicRow | SubjectRow | AttributeRow | SuggestionRow | null>(null);
+
+  // Column widths (desktop)
+  const [col1W, setCol1W] = useState(220);
+  const [col2W, setCol2W] = useState(340);
+
+  const hasCol3 =
+    activeSection === "manage-topics" ||
+    activeSection === "manage-subjects" ||
+    activeSection === "manage-attributes" ||
+    activeSection === "manage-suggestions";
+
+  function handleSectionClick(id: SectionId) {
+    setActiveSection(id);
+    setSelectedItem(null);
+  }
+
+  // ── Column 2 content ──────────────────────────────────────────────────────
+
+  function renderCol2() {
+    switch (activeSection) {
+      case "ai-builder":
+        return <AiTopicBuilder />;
+      case "create-topic":
+        return <CreateTopicForm />;
+      case "manage-topics":
+        return (
+          <TopicsList
+            onSelect={(t) => setSelectedItem(t)}
+            selectedId={selectedItem?.id ?? null}
+          />
+        );
+      case "manage-subjects":
+        return (
+          <SubjectsList
+            topics={topics}
+            onSelect={(s) => setSelectedItem(s)}
+            selectedId={selectedItem?.id ?? null}
+          />
+        );
+      case "manage-attributes":
+        return (
+          <AttributesList
+            topics={topics}
+            onSelect={(a) => setSelectedItem(a)}
+            selectedId={selectedItem?.id ?? null}
+          />
+        );
+      case "manage-suggestions":
+        return (
+          <SuggestionsList
+            onSelect={(s) => setSelectedItem(s)}
+            selectedId={selectedItem?.id ?? null}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
+  // ── Column 3 content ──────────────────────────────────────────────────────
+
+  function renderCol3() {
+    if (!selectedItem) return null;
+
+    if (activeSection === "manage-topics") {
+      return (
+        <EditTopicForm
+          key={selectedItem.id}
+          topic={selectedItem as TopicRow}
+          onSave={(updated) => setSelectedItem(updated)}
+          onCancel={() => setSelectedItem(null)}
+        />
+      );
+    }
+    if (activeSection === "manage-subjects") {
+      return (
+        <EditSubjectForm
+          key={selectedItem.id}
+          subject={selectedItem as SubjectRow}
+          onSave={(updated) => setSelectedItem(updated)}
+          onCancel={() => setSelectedItem(null)}
+        />
+      );
+    }
+    if (activeSection === "manage-attributes") {
+      return (
+        <EditAttributeForm
+          key={selectedItem.id}
+          attribute={selectedItem as AttributeRow}
+          onSave={(updated) => setSelectedItem(updated)}
+          onCancel={() => setSelectedItem(null)}
+        />
+      );
+    }
+    if (activeSection === "manage-suggestions") {
+      return (
+        <SuggestionDetail
+          key={selectedItem.id}
+          suggestion={selectedItem as SuggestionRow}
+          onClose={() => setSelectedItem(null)}
+          onUpdate={(updated) => {
+            if (updated) {
+              setSelectedItem(updated);
+            } else {
+              setSelectedItem(null);
+            }
+          }}
+        />
+      );
+    }
+    return null;
+  }
+
+  // ── Mobile: stacked layout ────────────────────────────────────────────────
+
+  const mobileContent = (
+    <div className="md:hidden space-y-4">
+      {/* Section nav */}
+      <div className="flex flex-wrap gap-2">
+        {SECTIONS.map((sec) => (
+          <button
+            key={sec.id}
+            type="button"
+            onClick={() => handleSectionClick(sec.id)}
+            className={`px-3 py-2 rounded-lg text-xs font-mono transition-colors ${
+              activeSection === sec.id
+                ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                : "text-neutral-400 border border-brand-border hover:text-white hover:bg-neutral-800"
+            }`}
+          >
+            {sec.icon} {sec.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeSection && (
+        <div className="border border-brand-border rounded-2xl overflow-hidden bg-brand-surface/30">
+          {renderCol2()}
+        </div>
+      )}
+
+      {/* Detail / edit */}
+      {selectedItem && hasCol3 && (
+        <div className="border border-brand-border rounded-2xl overflow-hidden bg-brand-surface/30">
+          {renderCol3()}
+        </div>
+      )}
     </div>
+  );
+
+  // ── Desktop: Miller columns ───────────────────────────────────────────────
+
+  const showCol2 = activeSection !== null;
+  const showCol3 = hasCol3 && selectedItem !== null;
+
+  const desktopContent = (
+    <div className="hidden md:flex h-[calc(100vh-140px)] border border-brand-border rounded-2xl overflow-hidden bg-brand-surface/20">
+      {/* Column 1: Navigation sidebar */}
+      <div
+        className="flex-shrink-0 border-r border-brand-border bg-neutral-900/60 overflow-y-auto"
+        style={{ width: col1W }}
+      >
+        <div className="p-3">
+          <div className="text-[10px] font-mono text-neutral-600 uppercase tracking-widest px-2 mb-2">
+            Sections
+          </div>
+          <ul className="space-y-0.5">
+            {SECTIONS.map((sec) => (
+              <li key={sec.id}>
+                <button
+                  type="button"
+                  onClick={() => handleSectionClick(sec.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono transition-colors flex items-center gap-2 ${
+                    activeSection === sec.id
+                      ? "bg-brand-accent/10 text-brand-accent"
+                      : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                  }`}
+                >
+                  <span className="text-base leading-none opacity-60">{sec.icon}</span>
+                  <span className="truncate">{sec.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Divider 1 */}
+      {showCol2 && (
+        <ColumnDivider
+          onDrag={(delta) =>
+            setCol1W((w) => Math.max(160, Math.min(400, w + delta)))
+          }
+        />
+      )}
+
+      {/* Column 2: Section content / list */}
+      {showCol2 && (
+        <div
+          className="flex-shrink-0 border-r border-brand-border overflow-y-auto"
+          style={{ width: col2W }}
+        >
+          {renderCol2()}
+        </div>
+      )}
+
+      {/* Divider 2 */}
+      {showCol3 && (
+        <ColumnDivider
+          onDrag={(delta) =>
+            setCol2W((w) => Math.max(200, Math.min(600, w + delta)))
+          }
+        />
+      )}
+
+      {/* Column 3: Edit form / detail */}
+      {showCol3 && (
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          {renderCol3()}
+        </div>
+      )}
+
+      {/* Empty state when no col3 but col2 is a form section */}
+      {showCol2 && !showCol3 && !hasCol3 && (
+        <div className="flex-1 min-w-0" />
+      )}
+
+      {/* Empty state for list sections with no selection */}
+      {showCol2 && !showCol3 && hasCol3 && (
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <p className="text-neutral-600 font-mono text-sm">Select an item to edit</p>
+        </div>
+      )}
+
+      {/* Empty state when nothing selected */}
+      {!showCol2 && (
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <p className="text-neutral-600 font-mono text-sm">Select a section to get started</p>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {desktopContent}
+      {mobileContent}
+    </>
   );
 }
