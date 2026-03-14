@@ -166,7 +166,8 @@ export function Header() {
               {/* Hot Takes link */}
               <Link
                 href="/hot-takes"
-                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+                className="text-sm font-mono flame-glow transition-colors"
+                style={{ color: "#FF4500" }}
               >
                 HOT TAKES
               </Link>
