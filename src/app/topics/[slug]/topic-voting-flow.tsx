@@ -299,6 +299,199 @@ export function TopicVotingFlow({
     setHotTakeOpen(false);
   }
 
+  // Hot Takes overlay state
+  const [htOverlayOpen, setHtOverlayOpen] = useState(false);
+  const [htOverlayFilter, setHtOverlayFilter] = useState<string | null>(null); // subject_id filter or null for all
+  const [htItems, setHtItems] = useState<{
+    id: string; userId: string; username: string; displayName: string; avatarUrl: string | null;
+    content: string; subjectId: string | null; attributeId: string | null;
+    subjectName: string | null; attributeName: string | null;
+    flames: number; trashes: number; createdAt: string;
+  }[]>([]);
+  const [htVotes, setHtVotes] = useState<Record<string, "flame" | "trash">>({});
+  const [htLoading, setHtLoading] = useState(false);
+  const [htNewText, setHtNewText] = useState("");
+  const [htNewSubjectId, setHtNewSubjectId] = useState<string>("");
+  const [htSubmitting, setHtSubmitting] = useState(false);
+  const [htTotalCount, setHtTotalCount] = useState(0);
+  const [htSubjectCounts, setHtSubjectCounts] = useState<Record<string, number>>({});
+  const [showFullList, setShowFullList] = useState(false);
+
+  // Fetch hot take counts for this topic
+  useEffect(() => {
+    (async () => {
+      const { data, count } = await supabase
+        .from("hot_takes")
+        .select("id, subject_id", { count: "exact" })
+        .eq("topic_id", topic.id);
+      setHtTotalCount(count ?? 0);
+      const counts: Record<string, number> = {};
+      for (const t of data ?? []) {
+        if (t.subject_id) counts[t.subject_id] = (counts[t.subject_id] ?? 0) + 1;
+      }
+      setHtSubjectCounts(counts);
+    })();
+  }, [supabase, topic.id]);
+
+  async function openHtOverlay(subjectFilter: string | null = null) {
+    setHtOverlayFilter(subjectFilter);
+    setHtOverlayOpen(true);
+    setHtLoading(true);
+    setHtNewText("");
+    setHtNewSubjectId(subjectFilter ?? "");
+
+    let query = supabase
+      .from("hot_takes")
+      .select("*")
+      .eq("topic_id", topic.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (subjectFilter) query = query.eq("subject_id", subjectFilter);
+
+    const { data: takes } = await query;
+    const allTakes = takes ?? [];
+
+    // Fetch profiles
+    const uids = [...new Set(allTakes.map((t) => t.user_id))];
+    const profileMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {};
+    if (uids.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", uids);
+      for (const p of profiles ?? []) {
+        profileMap[p.id] = { username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url };
+      }
+    }
+
+    // Fetch subject/attribute names
+    const sIds = [...new Set(allTakes.filter((t) => t.subject_id).map((t) => t.subject_id!))];
+    const aIds = [...new Set(allTakes.filter((t) => t.attribute_id).map((t) => t.attribute_id!))];
+    const subjectMap: Record<string, string> = {};
+    const attrMap: Record<string, string> = {};
+    if (sIds.length > 0) {
+      const { data } = await supabase.from("subjects").select("id, name").in("id", sIds);
+      for (const s of data ?? []) subjectMap[s.id] = s.name;
+    }
+    if (aIds.length > 0) {
+      const { data } = await supabase.from("attributes").select("id, name").in("id", aIds);
+      for (const a of data ?? []) attrMap[a.id] = a.name;
+    }
+
+    // Fetch user votes
+    let uVotes: Record<string, "flame" | "trash"> = {};
+    if (userId) {
+      const tIds = allTakes.map((t) => t.id);
+      if (tIds.length > 0) {
+        const { data: votes } = await supabase
+          .from("hot_take_votes")
+          .select("hot_take_id, vote_type")
+          .eq("user_id", userId)
+          .in("hot_take_id", tIds);
+        uVotes = Object.fromEntries((votes ?? []).map((v) => [v.hot_take_id, v.vote_type as "flame" | "trash"]));
+      }
+    }
+
+    setHtItems(allTakes.map((t) => ({
+      id: t.id, userId: t.user_id,
+      username: profileMap[t.user_id]?.username ?? "",
+      displayName: profileMap[t.user_id]?.displayName ?? "Unknown",
+      avatarUrl: profileMap[t.user_id]?.avatarUrl ?? null,
+      content: t.content,
+      subjectId: t.subject_id, attributeId: t.attribute_id,
+      subjectName: t.subject_id ? (subjectMap[t.subject_id] ?? null) : null,
+      attributeName: t.attribute_id ? (attrMap[t.attribute_id] ?? null) : null,
+      flames: t.flames, trashes: t.trashes, createdAt: t.created_at,
+    })));
+    setHtVotes(uVotes);
+    setHtLoading(false);
+  }
+
+  async function htVote(takeId: string, voteType: "flame" | "trash") {
+    if (!userId) return;
+    const currentVote = htVotes[takeId] ?? null;
+    const updated = htItems.map((item) => {
+      if (item.id !== takeId) return item;
+      let { flames, trashes } = item;
+      if (currentVote === voteType) {
+        if (voteType === "flame") flames--; else trashes--;
+      } else {
+        if (currentVote === "flame") flames--;
+        else if (currentVote === "trash") trashes--;
+        if (voteType === "flame") flames++; else trashes++;
+      }
+      return { ...item, flames, trashes };
+    });
+    const newVotes = { ...htVotes };
+    if (currentVote === voteType) delete newVotes[takeId];
+    else newVotes[takeId] = voteType;
+    setHtItems(updated);
+    setHtVotes(newVotes);
+
+    if (currentVote === voteType) {
+      await supabase.from("hot_take_votes").delete().eq("hot_take_id", takeId).eq("user_id", userId);
+      const col = voteType === "flame" ? "flames" : "trashes";
+      const take = htItems.find((i) => i.id === takeId);
+      if (take) await supabase.from("hot_takes").update({ [col]: Math.max(0, take[col] - 1) }).eq("id", takeId);
+    } else {
+      if (currentVote) {
+        await supabase.from("hot_take_votes").delete().eq("hot_take_id", takeId).eq("user_id", userId);
+        const oldCol = currentVote === "flame" ? "flames" : "trashes";
+        const take = htItems.find((i) => i.id === takeId);
+        if (take) await supabase.from("hot_takes").update({ [oldCol]: Math.max(0, take[oldCol] - 1) }).eq("id", takeId);
+      }
+      await supabase.from("hot_take_votes").insert({ hot_take_id: takeId, user_id: userId, vote_type: voteType });
+      const newCol = voteType === "flame" ? "flames" : "trashes";
+      const take = updated.find((i) => i.id === takeId);
+      if (take) await supabase.from("hot_takes").update({ [newCol]: take[newCol] }).eq("id", takeId);
+    }
+  }
+
+  async function htSubmitNew() {
+    if (!userId || !htNewText.trim() || htNewText.length > 280) return;
+    setHtSubmitting(true);
+    const { data: inserted } = await supabase.from("hot_takes").insert({
+      user_id: userId,
+      topic_id: topic.id,
+      content: htNewText.trim(),
+      subject_id: htNewSubjectId || null,
+      attribute_id: null,
+    }).select("*").single();
+
+    if (inserted) {
+      const { data: prof } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", userId).single();
+      const subName = htNewSubjectId ? subjects.find((s) => s.id === htNewSubjectId)?.name ?? null : null;
+      setHtItems((prev) => [{
+        id: inserted.id, userId: inserted.user_id,
+        username: prof?.username ?? "", displayName: prof?.display_name ?? "You",
+        avatarUrl: prof?.avatar_url ?? null,
+        content: inserted.content,
+        subjectId: inserted.subject_id, attributeId: inserted.attribute_id,
+        subjectName: subName, attributeName: null,
+        flames: 0, trashes: 0, createdAt: inserted.created_at,
+      }, ...prev]);
+      setHtTotalCount((c) => c + 1);
+      if (htNewSubjectId) {
+        setHtSubjectCounts((prev) => ({ ...prev, [htNewSubjectId]: (prev[htNewSubjectId] ?? 0) + 1 }));
+      }
+    }
+    setHtNewText("");
+    setHtSubmitting(false);
+  }
+
+  function htRelativeTime(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  }
+
   // Selected subjects for the "select" step — IDs of subjects the user wants to score
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(
     () => new Set(subjects.map((s) => s.id)),
@@ -952,6 +1145,162 @@ export function TopicVotingFlow({
         </div>
       )}
 
+      {/* Hot Takes Overlay */}
+      {htOverlayOpen && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center" onClick={() => setHtOverlayOpen(false)}>
+          <div className="absolute inset-0 bg-black/80" />
+          <div
+            className="relative w-[90%] max-w-2xl rounded-2xl bg-brand-bg border border-brand-border shadow-2xl flex flex-col"
+            style={{ height: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border flex-shrink-0">
+              <h3 className="font-display text-xl tracking-wide flame-glow" style={{ color: "#FF4500" }}>
+                🔥 HOT TAKES {htOverlayFilter ? `— ${subjects.find((s) => s.id === htOverlayFilter)?.name?.toUpperCase() ?? ""}` : ""}
+              </h3>
+              <button
+                onClick={() => setHtOverlayOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Submit new take */}
+            {userId && (
+              <div className="px-5 py-4 border-b border-brand-border flex-shrink-0 space-y-3">
+                <div className="flex gap-3">
+                  <select
+                    value={htNewSubjectId}
+                    onChange={(e) => setHtNewSubjectId(e.target.value)}
+                    className="px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-xs font-mono text-neutral-300 focus:outline-none focus:border-brand-accent"
+                  >
+                    <option value="">General take</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={htNewText}
+                    onChange={(e) => setHtNewText(e.target.value.slice(0, 280))}
+                    placeholder="Drop your hot take..."
+                    className="flex-1 rounded-lg bg-brand-surface border border-brand-border px-3 py-2 text-sm font-body text-white placeholder-neutral-600 focus:outline-none focus:border-brand-accent"
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); htSubmitNew(); } }}
+                  />
+                  <button
+                    onClick={htSubmitNew}
+                    disabled={htSubmitting || !htNewText.trim() || htNewText.length > 280}
+                    className="px-4 py-2 rounded-lg font-mono font-bold text-xs text-brand-bg bg-brand-accent hover:bg-brand-accent/90 transition-colors disabled:opacity-50"
+                  >
+                    {htSubmitting ? "..." : "Submit"}
+                  </button>
+                </div>
+                <p className={`text-xs font-mono ${htNewText.length > 260 ? "text-red-400" : "text-neutral-600"}`}>
+                  {htNewText.length}/280
+                </p>
+              </div>
+            )}
+
+            {/* Takes list */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {htLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-32 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+                  ))}
+                </div>
+              ) : htItems.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="font-display text-2xl text-neutral-600">NO HOT TAKES YET</p>
+                  <p className="text-sm text-neutral-600 mt-2 font-body">Be the first to drop a spicy take.</p>
+                </div>
+              ) : (
+                htItems.map((item) => {
+                  const initials = item.displayName.split(" ").map((w) => w[0] ?? "").slice(0, 2).join("").toUpperCase() || "?";
+                  const vote = htVotes[item.id] ?? null;
+                  return (
+                    <div key={item.id} className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-3">
+                      {/* Header */}
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/profile/${item.username}`}
+                          className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10 border border-brand-accent/30 hover:border-brand-accent transition-colors overflow-hidden"
+                        >
+                          {item.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                          ) : (
+                            <span className="font-display text-xs text-brand-accent">{initials}</span>
+                          )}
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/profile/${item.username}`}
+                            className="font-display text-sm tracking-wide text-white hover:text-brand-accent transition-colors"
+                          >
+                            @{item.username}
+                          </Link>
+                          <p className="text-xs font-mono text-neutral-600">{htRelativeTime(item.createdAt)}</p>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <p className="text-sm font-body text-neutral-200 leading-relaxed">{item.content}</p>
+
+                      {/* Context pills */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {item.subjectName && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            {item.subjectName}
+                          </span>
+                        )}
+                        {item.attributeName && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            {item.attributeName}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Vote buttons */}
+                      <div className="flex items-center gap-4 pt-1">
+                        <button
+                          onClick={() => userId && htVote(item.id, "flame")}
+                          disabled={!userId}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono transition-colors ${
+                            vote === "flame"
+                              ? "bg-orange-500/20 text-orange-400 border border-orange-500/40"
+                              : "bg-brand-bg border border-brand-border text-neutral-500 hover:text-orange-400 hover:border-orange-500/30"
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          <span>🔥</span>
+                          <span>{item.flames}</span>
+                        </button>
+                        <button
+                          onClick={() => userId && htVote(item.id, "trash")}
+                          disabled={!userId}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono transition-colors ${
+                            vote === "trash"
+                              ? "bg-neutral-500/20 text-neutral-300 border border-neutral-500/40"
+                              : "bg-brand-bg border border-brand-border text-neutral-500 hover:text-neutral-300 hover:border-neutral-500/30"
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          <span>🗑️</span>
+                          <span>{item.trashes}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step Indicator + Top Share Button */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 sm:gap-2">
@@ -1591,10 +1940,11 @@ export function TopicVotingFlow({
                   <h3 className="font-display text-lg tracking-wide text-neutral-300">
                     {displayName ? `${displayName}'s List` : "YOUR LIST"}
                   </h3>
-                  {(isPremium ? results : results.slice(0, 5)).map((r, idx) => {
+                  {(showFullList ? results : results.slice(0, 5)).map((r, idx) => {
                     const isGold = idx === 0;
                     const isSilver = idx === 1;
                     const isBronze = idx === 2;
+                    const subjectHtCount = htSubjectCounts[r.subject.id] ?? 0;
                     return (
                       <div
                         key={r.subject.id}
@@ -1615,6 +1965,15 @@ export function TopicVotingFlow({
                             <p className={`font-display text-sm tracking-wide truncate flex-1 min-w-0 ${isGold ? "text-brand-accent" : "text-white"}`}>
                               {r.subject.name.toUpperCase()}
                             </p>
+                            {subjectHtCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => openHtOverlay(r.subject.id)}
+                                className="flex-shrink-0 text-xs font-mono text-orange-400 hover:text-orange-300 transition-colors"
+                              >
+                                🔥 {subjectHtCount}
+                              </button>
+                            )}
                             <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
                           </div>
                           {r.subject.era && (
@@ -1674,11 +2033,11 @@ export function TopicVotingFlow({
                       })()}
 
                       {/* Global positions 2+: blurred for free users, fully visible for premium */}
-                      {globalRankings.slice(1, isPremium ? undefined : 5).length > 0 && (
+                      {globalRankings.slice(1, showFullList ? undefined : 5).length > 0 && (
                         <div className="relative">
                           <div className={!isPremium ? "blur-sm pointer-events-none select-none" : ""}>
                             <div className="space-y-3">
-                              {globalRankings.slice(1, isPremium ? undefined : 5).map((r, relIdx) => {
+                              {globalRankings.slice(1, showFullList ? undefined : 5).map((r, relIdx) => {
                                 const idx = relIdx + 1;
                                 const isSilver = idx === 1;
                                 const isBronze = idx === 2;
@@ -2018,8 +2377,8 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* Edit Vote button */}
-              <div className="flex justify-start gap-3 pt-2">
+              {/* Action buttons row */}
+              <div className="flex flex-wrap justify-start gap-3 pt-2">
                 <button
                   onClick={() => {
                     setSaved(false);
@@ -2032,6 +2391,15 @@ export function TopicVotingFlow({
                 >
                   Edit Vote
                 </button>
+                {results.length > 5 && (
+                  <button
+                    onClick={() => setShowFullList((v) => !v)}
+                    className="px-5 py-3 rounded-xl bg-brand-surface border border-brand-border
+                               text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+                  >
+                    {showFullList ? "Show Top 5" : "View Entire List"}
+                  </button>
+                )}
                 <div className="relative" ref={shareMenuBottomRef} id="share-menu-anchor">
                   <button
                     onClick={() => setShareMenuOpen((v) => v === "bottom" ? null : "bottom")}
@@ -2050,6 +2418,18 @@ export function TopicVotingFlow({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Hot Takes button */}
+              <div className="pt-1">
+                <button
+                  onClick={() => openHtOverlay(null)}
+                  className="w-full px-5 py-3.5 rounded-xl border border-[#FF4500]/30 bg-[#FF4500]/5
+                             font-mono font-bold text-sm flame-glow transition-colors hover:bg-[#FF4500]/10 hover:border-[#FF4500]/50"
+                  style={{ color: "#FF4500" }}
+                >
+                  🔥 HOT TAKES{htTotalCount > 0 ? ` (${htTotalCount})` : ""}
+                </button>
               </div>
             </>
           ) : (
