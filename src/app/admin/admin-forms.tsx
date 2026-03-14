@@ -1135,7 +1135,7 @@ function TopicsListInner({
 type MusicLinkResult = {
   id: string;
   name: string;
-  spotifyUrl: string | null;
+  musicUrl: string | null;
   checked: boolean;
 };
 
@@ -1212,11 +1212,11 @@ function SubjectsList({
       }
 
       const data = await res.json();
-      const links: { id: string; name: string; spotifyUrl: string | null }[] = data.links ?? [];
+      const links: { id: string; name: string; musicUrl: string | null }[] = data.links ?? [];
       setMusicResults(
         links.map((l) => ({
           ...l,
-          checked: l.spotifyUrl !== null,
+          checked: l.musicUrl !== null,
         })),
       );
     } catch {
@@ -1233,7 +1233,7 @@ function SubjectsList({
 
   async function handleSaveMusicLinks() {
     if (!musicResults) return;
-    const toSave = musicResults.filter((r) => r.checked && r.spotifyUrl);
+    const toSave = musicResults.filter((r) => r.checked && r.musicUrl);
     if (toSave.length === 0) return;
 
     setSavingMusic(true);
@@ -1249,7 +1249,7 @@ function SubjectsList({
         description: subject.description,
         era: subject.era,
         link_photo: subject.link_photo,
-        link_music: item.spotifyUrl!,
+        link_music: item.musicUrl!,
         link_video: subject.link_video,
         video_url: subject.video_url,
       });
@@ -1317,12 +1317,12 @@ function SubjectsList({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Searching Spotify links...
+                    Searching music/video links...
                   </>
                 ) : (
                   <>
                     <span>&#9835;</span>
-                    Find Music Links
+                    Find Music/Video Links
                   </>
                 )}
               </button>
@@ -1337,7 +1337,7 @@ function SubjectsList({
             <div className="px-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
-                  Spotify Links Found
+                  YouTube Links Found
                 </span>
                 <button
                   type="button"
@@ -1353,7 +1353,7 @@ function SubjectsList({
                     key={r.id}
                     className="flex items-start gap-2 px-2.5 py-2 rounded-lg border border-brand-border bg-brand-surface text-sm"
                   >
-                    {r.spotifyUrl ? (
+                    {r.musicUrl ? (
                       <input
                         type="checkbox"
                         checked={r.checked}
@@ -1365,14 +1365,14 @@ function SubjectsList({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="font-body text-white text-sm truncate">{r.name}</div>
-                      {r.spotifyUrl ? (
+                      {r.musicUrl ? (
                         <a
-                          href={r.spotifyUrl}
+                          href={r.musicUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs font-mono text-green-400 hover:text-green-300 truncate block"
+                          className="text-xs font-mono text-red-400 hover:text-red-300 truncate block"
                         >
-                          {r.spotifyUrl}
+                          {r.musicUrl}
                         </a>
                       ) : (
                         <span className="text-xs font-mono text-neutral-600">No link found</span>
@@ -1385,12 +1385,12 @@ function SubjectsList({
               <button
                 type="button"
                 onClick={handleSaveMusicLinks}
-                disabled={savingMusic || musicResults.filter((r) => r.checked && r.spotifyUrl).length === 0}
+                disabled={savingMusic || musicResults.filter((r) => r.checked && r.musicUrl).length === 0}
                 className="w-full px-3 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-xs font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {savingMusic
                   ? "Saving..."
-                  : `Save Selected Links (${musicResults.filter((r) => r.checked && r.spotifyUrl).length})`}
+                  : `Save Selected Links (${musicResults.filter((r) => r.checked && r.musicUrl).length})`}
               </button>
             </div>
           )}

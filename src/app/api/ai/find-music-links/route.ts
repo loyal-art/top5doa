@@ -34,11 +34,11 @@ export async function POST(req: NextRequest) {
       model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       system:
-        "You are a music expert. For each song/album/artist name given, return the exact Spotify URL from open.spotify.com. Only return URLs you are highly confident are correct. If you are not sure about a URL, return null for that entry. Return ONLY valid JSON with no markdown: { \"links\": [{ \"id\": \"string\", \"name\": \"string\", \"spotifyUrl\": \"string | null\" }] }",
+        "For each song name and topic context, construct a YouTube search URL in the format: https://www.youtube.com/results?search_query={song+title}+{artist}+official+audio. URL-encode the search_query parameter properly. Return ONLY valid JSON with no markdown: { \"links\": [{ \"id\": \"string\", \"name\": \"string\", \"musicUrl\": \"string\" }] }",
       messages: [
         {
           role: "user",
-          content: `Find the Spotify URLs for each of these subjects in the context of the topic "${topicTitle}":\n\n${subjectList}`,
+          content: `Generate YouTube search URLs for each of these subjects in the context of the topic "${topicTitle}":\n\n${subjectList}`,
         },
       ],
     }),
