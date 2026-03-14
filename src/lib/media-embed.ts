@@ -31,8 +31,20 @@ export function getAppleMusicEmbed(url: string): { src: string; height: number }
   }
 }
 
+/** Detect Deezer widget URLs (already embeddable). */
+export function getDeezerEmbed(url: string): { src: string; height: number } | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname !== "widget.deezer.com") return null;
+    // Already an embed URL like widget.deezer.com/widget/dark/track/123
+    return { src: url, height: 80 };
+  } catch {
+    return null;
+  }
+}
+
 /** Try to resolve a media URL into an embed-friendly src + height.
  *  Returns null if the URL doesn't match any known embed provider. */
 export function resolveEmbed(url: string): { src: string; height: number } | null {
-  return getSpotifyEmbed(url) ?? getAppleMusicEmbed(url) ?? null;
+  return getSpotifyEmbed(url) ?? getAppleMusicEmbed(url) ?? getDeezerEmbed(url) ?? null;
 }

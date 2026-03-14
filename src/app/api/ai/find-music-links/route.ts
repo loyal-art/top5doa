@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 type DeezerTrack = {
+  id: number;
   link: string;
   preview: string;
   title: string;
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
           id: s.id,
           name: s.name,
           deezerUrl: null,
+          deezerEmbedUrl: null,
           spotifySearchUrl: null,
           previewUrl: null,
           trackTitle: null,
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest) {
         id: s.id,
         name: s.name,
         deezerUrl: track.link,
+        deezerEmbedUrl: `https://widget.deezer.com/widget/dark/track/${track.id}`,
         spotifySearchUrl: `https://open.spotify.com/search/${encodeURIComponent(spotifyQuery)}`,
         previewUrl: track.preview || null,
         trackTitle: track.title,
