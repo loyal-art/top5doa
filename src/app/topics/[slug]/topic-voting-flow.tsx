@@ -8,6 +8,7 @@ import { SubjectScoreSlider } from "@/components/subject-score-slider";
 import { ShareButton } from "@/components/share-button";
 import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
+import { resolveEmbed } from "@/lib/media-embed";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -87,32 +88,42 @@ function PipPanel({ content, onClose }: { content: PipContent; onClose: () => vo
       </div>
 
       {/* Content */}
-      <div className="w-full bg-black" style={{ height: content.type === "photo" ? "auto" : 240 }}>
-        {content.type === "photo" ? (
-          content.url.includes("google.com/search") ? (
-            <div className="flex items-center justify-center p-6">
-              <a
-                href={content.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
-              >
-                🔍 Search Google Images
-              </a>
+      {(() => {
+        if (content.type === "photo") {
+          return (
+            <div className="w-full bg-black" style={{ height: "auto" }}>
+              {content.url.includes("google.com/search") ? (
+                <div className="flex items-center justify-center p-6">
+                  <a
+                    href={content.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-mono font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+                  >
+                    🔍 Search Google Images
+                  </a>
+                </div>
+              ) : (
+                <img src={content.url} alt="Subject photo" className="w-full h-auto object-contain max-h-[400px]" />
+              )}
             </div>
-          ) : (
-            <img src={content.url} alt="Subject photo" className="w-full h-auto object-contain max-h-[400px]" />
-          )
-        ) : (
-          <iframe
-            src={content.url}
-            className="w-full h-full"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            title="Media preview"
-          />
-        )}
-      </div>
+          );
+        }
+        const embed = resolveEmbed(content.url);
+        const iframeSrc = embed?.src ?? content.url;
+        const iframeHeight = embed?.height ?? 240;
+        return (
+          <div className="w-full bg-black" style={{ height: iframeHeight }}>
+            <iframe
+              src={iframeSrc}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="Media preview"
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
