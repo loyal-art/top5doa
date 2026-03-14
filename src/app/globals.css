@@ -166,7 +166,7 @@
 
 @keyframes flameGlow {
   0%, 100% {
-    text-shadow: 0 0 8px rgba(255, 69, 0, 0.6), 0 0 16px rgba(255, 69, 0, 0.3);
+    text-shadow: 0 0 8px rgba(255, 69, 0, 0.4), 0 0 16px rgba(255, 69, 0, 0.2);
   }
   50% {
     text-shadow: 0 0 16px rgba(255, 69, 0, 1), 0 0 32px rgba(255, 69, 0, 0.7), 0 0 48px rgba(255, 69, 0, 0.4);
