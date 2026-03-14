@@ -1135,7 +1135,12 @@ function TopicsListInner({
 type MusicLinkResult = {
   id: string;
   name: string;
-  musicUrl: string | null;
+  deezerUrl: string | null;
+  spotifySearchUrl: string | null;
+  previewUrl: string | null;
+  trackTitle: string | null;
+  artistName: string | null;
+  saveChoice: "spotify" | "deezer";
   checked: boolean;
 };
 
@@ -1212,11 +1217,20 @@ function SubjectsList({
       }
 
       const data = await res.json();
-      const links: { id: string; name: string; musicUrl: string | null }[] = data.links ?? [];
+      const links: {
+        id: string;
+        name: string;
+        deezerUrl: string | null;
+        spotifySearchUrl: string | null;
+        previewUrl: string | null;
+        trackTitle: string | null;
+        artistName: string | null;
+      }[] = data.links ?? [];
       setMusicResults(
         links.map((l) => ({
           ...l,
-          checked: l.musicUrl !== null,
+          saveChoice: "spotify" as const,
+          checked: l.deezerUrl !== null,
         })),
       );
     } catch {
@@ -1231,9 +1245,15 @@ function SubjectsList({
     );
   }
 
+  function setSaveChoice(id: string, choice: "spotify" | "deezer") {
+    setMusicResults((prev) =>
+      prev?.map((r) => (r.id === id ? { ...r, saveChoice: choice } : r)) ?? null,
+    );
+  }
+
   async function handleSaveMusicLinks() {
     if (!musicResults) return;
-    const toSave = musicResults.filter((r) => r.checked && r.musicUrl);
+    const toSave = musicResults.filter((r) => r.checked && (r.deezerUrl || r.spotifySearchUrl));
     if (toSave.length === 0) return;
 
     setSavingMusic(true);
@@ -1244,12 +1264,14 @@ function SubjectsList({
     for (const item of toSave) {
       const subject = subjects.find((s) => s.id === item.id);
       if (!subject) continue;
+      const url = item.saveChoice === "spotify" ? item.spotifySearchUrl : item.deezerUrl;
+      if (!url) continue;
       const result = await updateSubject(item.id, {
         name: subject.name,
         description: subject.description,
         era: subject.era,
         link_photo: subject.link_photo,
-        link_music: item.musicUrl!,
+        link_music: url,
         link_video: subject.link_video,
         video_url: subject.video_url,
       });
@@ -1337,7 +1359,7 @@ function SubjectsList({
             <div className="px-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
-                  YouTube Links Found
+                  Music Links Found
                 </span>
                 <button
                   type="button"
@@ -1347,36 +1369,71 @@ function SubjectsList({
                   Dismiss
                 </button>
               </div>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {musicResults.map((r) => (
                   <li
                     key={r.id}
-                    className="flex items-start gap-2 px-2.5 py-2 rounded-lg border border-brand-border bg-brand-surface text-sm"
+                    className="px-2.5 py-2.5 rounded-lg border border-brand-border bg-brand-surface text-sm"
                   >
-                    {r.musicUrl ? (
-                      <input
-                        type="checkbox"
-                        checked={r.checked}
-                        onChange={() => toggleMusicResult(r.id)}
-                        className="accent-[#e8ff00] w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                      />
-                    ) : (
-                      <span className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-body text-white text-sm truncate">{r.name}</div>
-                      {r.musicUrl ? (
-                        <a
-                          href={r.musicUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-mono text-red-400 hover:text-red-300 truncate block"
-                        >
-                          {r.musicUrl}
-                        </a>
+                    <div className="flex items-start gap-2">
+                      {r.deezerUrl ? (
+                        <input
+                          type="checkbox"
+                          checked={r.checked}
+                          onChange={() => toggleMusicResult(r.id)}
+                          className="accent-[#e8ff00] w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                        />
                       ) : (
-                        <span className="text-xs font-mono text-neutral-600">No link found</span>
+                        <span className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                       )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-body text-white text-sm truncate">{r.name}</div>
+                        {r.trackTitle ? (
+                          <div className="text-xs font-mono text-neutral-400 mt-0.5">
+                            {r.trackTitle} — {r.artistName}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-mono text-neutral-600">No match found</span>
+                        )}
+                        {r.deezerUrl && (
+                          <div className="flex flex-col gap-1 mt-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name={`save-choice-${r.id}`}
+                                checked={r.saveChoice === "spotify"}
+                                onChange={() => setSaveChoice(r.id, "spotify")}
+                                className="accent-[#1DB954] w-3 h-3 flex-shrink-0"
+                              />
+                              <a
+                                href={r.spotifySearchUrl!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-green-400 hover:text-green-300 truncate"
+                              >
+                                Spotify Search
+                              </a>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name={`save-choice-${r.id}`}
+                                checked={r.saveChoice === "deezer"}
+                                onChange={() => setSaveChoice(r.id, "deezer")}
+                                className="accent-[#A238FF] w-3 h-3 flex-shrink-0"
+                              />
+                              <a
+                                href={r.deezerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-purple-400 hover:text-purple-300 truncate"
+                              >
+                                Deezer
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -1385,12 +1442,12 @@ function SubjectsList({
               <button
                 type="button"
                 onClick={handleSaveMusicLinks}
-                disabled={savingMusic || musicResults.filter((r) => r.checked && r.musicUrl).length === 0}
+                disabled={savingMusic || musicResults.filter((r) => r.checked && r.deezerUrl).length === 0}
                 className="w-full px-3 py-2 rounded-lg bg-brand-accent text-brand-bg font-mono text-xs font-bold hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {savingMusic
                   ? "Saving..."
-                  : `Save Selected Links (${musicResults.filter((r) => r.checked && r.musicUrl).length})`}
+                  : `Save Selected Links (${musicResults.filter((r) => r.checked && r.deezerUrl).length})`}
               </button>
             </div>
           )}
