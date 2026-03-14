@@ -31,13 +31,24 @@ export function getAppleMusicEmbed(url: string): { src: string; height: number }
   }
 }
 
-/** Detect Deezer widget URLs (already embeddable). */
+/** Detect Deezer URLs and return embeddable widget URL. */
 export function getDeezerEmbed(url: string): { src: string; height: number } | null {
   try {
     const u = new URL(url);
-    if (u.hostname !== "widget.deezer.com") return null;
-    // Already an embed URL like widget.deezer.com/widget/dark/track/123
-    return { src: url, height: 80 };
+    // Already a widget embed URL
+    if (u.hostname === "widget.deezer.com") {
+      return { src: url, height: 80 };
+    }
+    // Regular Deezer track URL — convert to widget embed
+    if (u.hostname === "www.deezer.com" || u.hostname === "deezer.com") {
+      const match = u.pathname.match(/\/track\/(\d+)/);
+      if (!match) return null;
+      return {
+        src: `https://widget.deezer.com/widget/dark/track/${match[1]}`,
+        height: 80,
+      };
+    }
+    return null;
   } catch {
     return null;
   }
