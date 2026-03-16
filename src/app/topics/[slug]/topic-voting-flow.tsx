@@ -9,6 +9,7 @@ import { ShareButton } from "@/components/share-button";
 import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
+import { awardAura, getTierForAura, getNextTier } from "@/lib/aura";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -234,6 +235,8 @@ export function TopicVotingFlow({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [userAuraPoints, setUserAuraPoints] = useState<number>(0);
+  const [shareAuraEarned, setShareAuraEarned] = useState(false); // tracks if share aura was awarded this session
   const [pipContent, setPipContent] = useState<PipContent>(null);
   const [shareMenuOpen, setShareMenuOpen] = useState<"top" | "bottom" | null>(null);
   const shareMenuTopRef = useRef<HTMLDivElement>(null);
@@ -410,6 +413,9 @@ export function TopicVotingFlow({
 
   async function htVote(takeId: string, voteType: "flame" | "trash") {
     if (!userId) return;
+    // Anti-spam: users cannot vote on their own hot takes
+    const take = htItems.find((i) => i.id === takeId);
+    if (take && take.userId === userId) return;
     const currentVote = htVotes[takeId] ?? null;
     const updated = htItems.map((item) => {
       if (item.id !== takeId) return item;
@@ -443,8 +449,12 @@ export function TopicVotingFlow({
       }
       await supabase.from("hot_take_votes").insert({ hot_take_id: takeId, user_id: userId, vote_type: voteType });
       const newCol = voteType === "flame" ? "flames" : "trashes";
-      const take = updated.find((i) => i.id === takeId);
-      if (take) await supabase.from("hot_takes").update({ [newCol]: take[newCol] }).eq("id", takeId);
+      const updatedTake = updated.find((i) => i.id === takeId);
+      if (updatedTake) await supabase.from("hot_takes").update({ [newCol]: updatedTake[newCol] }).eq("id", takeId);
+      // Award aura to the hot take owner when flamed
+      if (voteType === "flame" && updatedTake) {
+        await awardAura(supabase, updatedTake.userId, "flame", takeId);
+      }
     }
   }
 
@@ -619,7 +629,7 @@ export function TopicVotingFlow({
       const [{ data: profile }, { data: lockedList }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, username, is_premium, premium_expires_at")
+          .select("display_name, username, is_premium, premium_expires_at, aura_points")
           .eq("id", userId!)
           .single(),
         supabase
@@ -639,6 +649,7 @@ export function TopicVotingFlow({
           profile?.premium_expires_at != null &&
           new Date(profile.premium_expires_at) > new Date()
       );
+      setUserAuraPoints(profile?.aura_points ?? 0);
 
       // Load existing attribute ranks
       const { data: existingRanks, error: ranksError } = await supabase
@@ -912,6 +923,8 @@ export function TopicVotingFlow({
       await supabase.from("user_lists").insert(listRows);
 
       setSaved(true);
+      // Award aura for voting (lock-in) — idempotent via aura_log
+      await awardAura(supabase, userId, "vote", topic.id);
       // Refetch so the community tally reflects this user's new vote
       await fetchGlobalRankings();
       await fetchRecentVoters();
@@ -974,6 +987,12 @@ export function TopicVotingFlow({
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/list/${username}/${topic.slug}`
     : null;
 
+  const handleShareAura = async () => {
+    if (!userId || shareAuraEarned) return;
+    const awarded = await awardAura(supabase, userId, "share", topic.id);
+    if (awarded) setShareAuraEarned(true);
+  };
+
   const handleDownloadCard = async () => {
     const el = document.getElementById("share-card");
     if (!el) return;
@@ -990,6 +1009,7 @@ export function TopicVotingFlow({
     link.href = canvas.toDataURL("image/png");
     link.click();
     setShareMenuOpen(null);
+    handleShareAura();
   };
 
   const handleCopyLink = async () => {
@@ -997,6 +1017,7 @@ export function TopicVotingFlow({
     await navigator.clipboard.writeText(listUrl);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+    handleShareAura();
   };
 
   const shareDropdownItems = (
@@ -1028,6 +1049,7 @@ export function TopicVotingFlow({
             onClick={() => {
               window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(listUrl)}`, "_blank", "noopener");
               setShareMenuOpen(null);
+              handleShareAura();
             }}
             className="w-full px-4 py-3 text-left text-sm font-mono text-neutral-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
           >
@@ -1041,6 +1063,7 @@ export function TopicVotingFlow({
               const text = `Check out my TOP 5 for ${topic.title}`;
               window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(listUrl)}`, "_blank", "noopener");
               setShareMenuOpen(null);
+              handleShareAura();
             }}
             className="w-full px-4 py-3 text-left text-sm font-mono text-neutral-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
           >
@@ -1054,6 +1077,7 @@ export function TopicVotingFlow({
               const text = `Check out my TOP 5 for ${topic.title} ${listUrl}`;
               window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
               setShareMenuOpen(null);
+              handleShareAura();
             }}
             className="w-full px-4 py-3 text-left text-sm font-mono text-neutral-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
           >
@@ -1915,6 +1939,11 @@ export function TopicVotingFlow({
                   <p className="text-xs italic text-neutral-600 mt-1 font-body">
                     Scores reflect ranking within this topic only.
                   </p>
+                  {userId && !shareAuraEarned && (
+                    <p className="text-xs font-mono mt-2" style={{ color: "#e8ff00" }}>
+                      ✦ Share your TOP 5 and earn +25 Aura
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {username && (
@@ -2353,6 +2382,19 @@ export function TopicVotingFlow({
                         @{username}
                       </span>
                     )}
+                    {userId && (() => {
+                      const tierName = getTierForAura(userAuraPoints);
+                      return (
+                        <span style={{
+                          fontFamily: "'Space Mono', monospace",
+                          fontSize: "16px",
+                          color: "#888888",
+                          marginTop: "4px",
+                        }}>
+                          {tierName.toUpperCase()} · {userAuraPoints.toLocaleString()} AURA
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <span style={{
