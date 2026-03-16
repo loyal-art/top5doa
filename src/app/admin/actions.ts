@@ -457,3 +457,31 @@ export async function deleteSuggestion(
   revalidatePath("/");
   return { error: null };
 }
+
+export async function deleteTopic(
+  id: string
+): Promise<{ error: string | null }> {
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  // Delete related data in dependency order (all have topic_id)
+  const relatedTables = [
+    "user_attribute_ranks",
+    "user_subject_scores",
+    "user_lists",
+    "attributes",
+    "subjects",
+  ] as const;
+
+  for (const table of relatedTables) {
+    const { error } = await supabase.from(table).delete().eq("topic_id", id);
+    if (error) return { error: `Failed to delete from ${table}: ${error.message}` };
+  }
+
+  const { error } = await supabase.from("topics").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
