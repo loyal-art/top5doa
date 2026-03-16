@@ -458,6 +458,72 @@ export async function deleteSuggestion(
   return { error: null };
 }
 
+export async function deleteSubjects(
+  ids: string[]
+): Promise<{ error: string | null }> {
+  if (ids.length === 0) return { error: null };
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  // Collect hot_takes that reference these subjects, then clean up their votes
+  const { data: relatedHotTakes } = await supabase
+    .from("hot_takes")
+    .select("id")
+    .in("subject_id", ids);
+  const hotTakeIds = (relatedHotTakes ?? []).map((h) => h.id);
+  if (hotTakeIds.length > 0) {
+    await supabase.from("hot_take_votes").delete().in("hot_take_id", hotTakeIds);
+    const { error } = await supabase.from("hot_takes").delete().in("id", hotTakeIds);
+    if (error) return { error: error.message };
+  }
+
+  const { error: scoresErr } = await supabase.from("user_subject_scores").delete().in("subject_id", ids);
+  if (scoresErr) return { error: scoresErr.message };
+
+  const { error: listsErr } = await supabase.from("user_lists").delete().in("subject_id", ids);
+  if (listsErr) return { error: listsErr.message };
+
+  const { error } = await supabase.from("subjects").delete().in("id", ids);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function deleteAttributes(
+  ids: string[]
+): Promise<{ error: string | null }> {
+  if (ids.length === 0) return { error: null };
+  const { supabase, error: authError } = await getAdminUser();
+  if (authError || !supabase) return { error: authError ?? "Auth failed" };
+
+  // Collect hot_takes that reference these attributes, then clean up their votes
+  const { data: relatedHotTakes } = await supabase
+    .from("hot_takes")
+    .select("id")
+    .in("attribute_id", ids);
+  const hotTakeIds = (relatedHotTakes ?? []).map((h) => h.id);
+  if (hotTakeIds.length > 0) {
+    await supabase.from("hot_take_votes").delete().in("hot_take_id", hotTakeIds);
+    const { error } = await supabase.from("hot_takes").delete().in("id", hotTakeIds);
+    if (error) return { error: error.message };
+  }
+
+  const { error: ranksErr } = await supabase.from("user_attribute_ranks").delete().in("attribute_id", ids);
+  if (ranksErr) return { error: ranksErr.message };
+
+  const { error: scoresErr } = await supabase.from("user_subject_scores").delete().in("attribute_id", ids);
+  if (scoresErr) return { error: scoresErr.message };
+
+  const { error } = await supabase.from("attributes").delete().in("id", ids);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { error: null };
+}
+
 export async function deleteTopic(
   id: string
 ): Promise<{ error: string | null }> {

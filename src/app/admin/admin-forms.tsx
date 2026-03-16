@@ -19,6 +19,8 @@ import {
   updateSuggestionStatus,
   deleteSuggestion,
   deleteTopic,
+  deleteSubjects,
+  deleteAttributes,
 } from "./actions";
 
 interface Topic {
@@ -1227,15 +1229,64 @@ function SubjectsList({
   topics,
   onSelect,
   selectedId,
+  onDeleted,
 }: {
   topics: Topic[];
   onSelect: (subject: SubjectRow) => void;
   selectedId: string | null;
+  onDeleted: (deletedIds: string[]) => void;
 }) {
   const [selectedTopicId, setSelectedTopicId] = useState("");
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+
+  // Bulk-delete state
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const allChecked = subjects.length > 0 && checkedIds.size === subjects.length;
+  const someChecked = checkedIds.size > 0;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someChecked && !allChecked;
+    }
+  }, [someChecked, allChecked]);
+
+  function toggleCheck(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setCheckedIds(allChecked ? new Set() : new Set(subjects.map((s) => s.id)));
+  }
+
+  async function handleDeleteSelected() {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleteLoading(true);
+    const ids: string[] = Array.from(checkedIds);
+    const result = await deleteSubjects(ids);
+    setDeleteLoading(false);
+    if (result.error) {
+      setDeleteMsg({ type: "error", text: result.error });
+    } else {
+      setDeleteMsg({ type: "success", text: `Deleted ${ids.length} subject${ids.length === 1 ? "" : "s"}.` });
+      setSubjects((prev) => prev.filter((s) => !checkedIds.has(s.id)));
+      setCheckedIds(new Set());
+      setShowDeleteDialog(false);
+      setDeleteConfirmText("");
+      onDeleted(ids);
+    }
+  }
 
   // Music link finder state
   const [musicResults, setMusicResults] = useState<MusicLinkResult[] | null>(null);
@@ -1263,6 +1314,8 @@ function SubjectsList({
     const id = e.target.value;
     setSelectedTopicId(id);
     setSubjects([]);
+    setCheckedIds(new Set());
+    setDeleteMsg(null);
     setMusicResults(null);
     setMusicError(null);
     setMusicSaveMsg(null);
@@ -1532,31 +1585,112 @@ function SubjectsList({
             </div>
           )}
 
-          <ul className="space-y-0.5">
-            {subjects.map((subject) => (
-              <li key={subject.id}>
+          {/* Bulk-delete toolbar */}
+          {subjects.length > 0 && (
+            <div className="px-2 space-y-1.5">
+              {someChecked && (
                 <button
                   type="button"
-                  onClick={() => onSelect(subject)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
-                    selectedId === subject.id
-                      ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
-                      : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
-                  }`}
+                  onClick={() => { setShowDeleteDialog(true); setDeleteConfirmText(""); setDeleteMsg(null); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-red-700/60 text-red-400 font-mono text-xs hover:bg-red-900/20 hover:border-red-500 transition-colors"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate">{subject.name}</span>
-                    {subject.link_music && (
-                      <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" title="Has music link" />
-                    )}
-                  </div>
-                  {subject.era && (
-                    <span className="text-xs font-mono text-neutral-600">{subject.era}</span>
-                  )}
+                  Delete Selected ({checkedIds.size})
                 </button>
+              )}
+              {deleteMsg && (
+                <p className={`text-xs font-mono px-1 ${deleteMsg.type === "error" ? "text-red-400" : "text-brand-accent"}`}>
+                  {deleteMsg.text}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Subject list with checkboxes */}
+          {subjects.length > 0 && (
+            <ul className="space-y-0.5">
+              <li className="flex items-center gap-2 px-3 py-1">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  className="accent-[#e8ff00] w-3.5 h-3.5 flex-shrink-0"
+                />
+                <span className="text-xs font-mono text-neutral-500 select-none">Select All</span>
               </li>
-            ))}
-          </ul>
+              {subjects.map((subject) => (
+                <li key={subject.id} className="flex items-center gap-1.5 px-2">
+                  <input
+                    type="checkbox"
+                    checked={checkedIds.has(subject.id)}
+                    onChange={() => toggleCheck(subject.id)}
+                    className="accent-[#e8ff00] w-3.5 h-3.5 flex-shrink-0 ml-0.5"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onSelect(subject)}
+                    className={`flex-1 min-w-0 text-left px-2 py-2 rounded-lg font-body text-sm transition-colors ${
+                      selectedId === subject.id
+                        ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                        : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate">{subject.name}</span>
+                      {subject.link_music && (
+                        <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" title="Has music link" />
+                      )}
+                    </div>
+                    {subject.era && (
+                      <span className="text-xs font-mono text-neutral-600">{subject.era}</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="bg-neutral-900 border border-red-700/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="font-display text-lg text-red-400 mb-2 tracking-wide">DELETE SUBJECTS</h3>
+            <p className="text-sm text-neutral-400 font-mono mb-4 leading-relaxed">
+              Permanently delete {checkedIds.size} subject{checkedIds.size === 1 ? "" : "s"} and all related scores, lists, and hot takes?{" "}
+              Type <span className="text-red-400 font-bold">DELETE</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleDeleteSelected(); }}
+              placeholder="DELETE"
+              className={inputClass}
+              autoFocus
+            />
+            {deleteMsg?.type === "error" && (
+              <p className="text-sm font-mono text-red-400 mt-2">{deleteMsg.text}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={deleteConfirmText !== "DELETE" || deleteLoading}
+                className="px-5 py-2.5 rounded-xl bg-red-700 text-white font-mono text-sm font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? "Deleting..." : `Delete ${checkedIds.size}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteDialog(false); setDeleteConfirmText(""); }}
+                className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1567,15 +1701,64 @@ function AttributesList({
   topics,
   onSelect,
   selectedId,
+  onDeleted,
 }: {
   topics: Topic[];
   onSelect: (attribute: AttributeRow) => void;
   selectedId: string | null;
+  onDeleted: (deletedIds: string[]) => void;
 }) {
   const [selectedTopicId, setSelectedTopicId] = useState("");
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+
+  // Bulk-delete state
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const allChecked = attributes.length > 0 && checkedIds.size === attributes.length;
+  const someChecked = checkedIds.size > 0;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someChecked && !allChecked;
+    }
+  }, [someChecked, allChecked]);
+
+  function toggleCheck(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setCheckedIds(allChecked ? new Set() : new Set(attributes.map((a) => a.id)));
+  }
+
+  async function handleDeleteSelected() {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleteLoading(true);
+    const ids: string[] = Array.from(checkedIds);
+    const result = await deleteAttributes(ids);
+    setDeleteLoading(false);
+    if (result.error) {
+      setDeleteMsg({ type: "error", text: result.error });
+    } else {
+      setDeleteMsg({ type: "success", text: `Deleted ${ids.length} attribute${ids.length === 1 ? "" : "s"}.` });
+      setAttributes((prev) => prev.filter((a) => !checkedIds.has(a.id)));
+      setCheckedIds(new Set());
+      setShowDeleteDialog(false);
+      setDeleteConfirmText("");
+      onDeleted(ids);
+    }
+  }
 
   async function loadAttributes(topicId: string) {
     setLoadingList(true);
@@ -1593,6 +1776,8 @@ function AttributesList({
     const id = e.target.value;
     setSelectedTopicId(id);
     setAttributes([]);
+    setCheckedIds(new Set());
+    setDeleteMsg(null);
     if (id) loadAttributes(id);
   }
 
@@ -1628,26 +1813,107 @@ function AttributesList({
             <p className="text-sm font-mono text-neutral-500 px-2">No attributes found.</p>
           )}
 
-          <ul className="space-y-0.5">
-            {attributes.map((attribute) => (
-              <li key={attribute.id}>
+          {/* Bulk-delete toolbar */}
+          {attributes.length > 0 && (
+            <div className="px-2 space-y-1.5">
+              {someChecked && (
                 <button
                   type="button"
-                  onClick={() => onSelect(attribute)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-colors ${
-                    selectedId === attribute.id
-                      ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
-                      : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
-                  }`}
+                  onClick={() => { setShowDeleteDialog(true); setDeleteConfirmText(""); setDeleteMsg(null); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-red-700/60 text-red-400 font-mono text-xs hover:bg-red-900/20 hover:border-red-500 transition-colors"
                 >
-                  <div className="truncate">{attribute.name}</div>
-                  {attribute.description && (
-                    <span className="text-xs font-mono text-neutral-600 truncate block">{attribute.description}</span>
-                  )}
+                  Delete Selected ({checkedIds.size})
                 </button>
+              )}
+              {deleteMsg && (
+                <p className={`text-xs font-mono px-1 ${deleteMsg.type === "error" ? "text-red-400" : "text-brand-accent"}`}>
+                  {deleteMsg.text}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Attribute list with checkboxes */}
+          {attributes.length > 0 && (
+            <ul className="space-y-0.5">
+              <li className="flex items-center gap-2 px-3 py-1">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  className="accent-[#e8ff00] w-3.5 h-3.5 flex-shrink-0"
+                />
+                <span className="text-xs font-mono text-neutral-500 select-none">Select All</span>
               </li>
-            ))}
-          </ul>
+              {attributes.map((attribute) => (
+                <li key={attribute.id} className="flex items-center gap-1.5 px-2">
+                  <input
+                    type="checkbox"
+                    checked={checkedIds.has(attribute.id)}
+                    onChange={() => toggleCheck(attribute.id)}
+                    className="accent-[#e8ff00] w-3.5 h-3.5 flex-shrink-0 ml-0.5"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onSelect(attribute)}
+                    className={`flex-1 min-w-0 text-left px-2 py-2 rounded-lg font-body text-sm transition-colors ${
+                      selectedId === attribute.id
+                        ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/30"
+                        : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="truncate">{attribute.name}</div>
+                    {attribute.description && (
+                      <span className="text-xs font-mono text-neutral-600 truncate block">{attribute.description}</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="bg-neutral-900 border border-red-700/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="font-display text-lg text-red-400 mb-2 tracking-wide">DELETE ATTRIBUTES</h3>
+            <p className="text-sm text-neutral-400 font-mono mb-4 leading-relaxed">
+              Permanently delete {checkedIds.size} attribute{checkedIds.size === 1 ? "" : "s"} and all related rankings, scores, and hot takes?{" "}
+              Type <span className="text-red-400 font-bold">DELETE</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleDeleteSelected(); }}
+              placeholder="DELETE"
+              className={inputClass}
+              autoFocus
+            />
+            {deleteMsg?.type === "error" && (
+              <p className="text-sm font-mono text-red-400 mt-2">{deleteMsg.text}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={deleteConfirmText !== "DELETE" || deleteLoading}
+                className="px-5 py-2.5 rounded-xl bg-red-700 text-white font-mono text-sm font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? "Deleting..." : `Delete ${checkedIds.size}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteDialog(false); setDeleteConfirmText(""); }}
+                className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2288,6 +2554,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
             topics={topics}
             onSelect={(s) => setSelectedItem(s)}
             selectedId={selectedItem?.id ?? null}
+            onDeleted={(ids) => {
+              if (selectedItem && ids.includes(selectedItem.id)) setSelectedItem(null);
+            }}
           />
         );
       case "manage-attributes":
@@ -2296,6 +2565,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
             topics={topics}
             onSelect={(a) => setSelectedItem(a)}
             selectedId={selectedItem?.id ?? null}
+            onDeleted={(ids) => {
+              if (selectedItem && ids.includes(selectedItem.id)) setSelectedItem(null);
+            }}
           />
         );
       case "manage-suggestions":
