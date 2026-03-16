@@ -15,8 +15,11 @@ export type Database = {
           display_name: string;
           username: string;
           avatar_url: string | null;
-          tier: "free" | "premium";
+          tier: string;
           aura_points: number;
+          daily_streak: number;
+          last_active_date: string | null;
+          streak_multiplier: number;
           is_admin: boolean;
           is_public: boolean;
           is_premium: boolean;
@@ -29,8 +32,11 @@ export type Database = {
           display_name: string;
           username?: string;
           avatar_url?: string | null;
-          tier?: "free" | "premium";
+          tier?: string;
           aura_points?: number;
+          daily_streak?: number;
+          last_active_date?: string | null;
+          streak_multiplier?: number;
           is_admin?: boolean;
           is_public?: boolean;
           is_premium?: boolean;
@@ -43,8 +49,11 @@ export type Database = {
           display_name?: string;
           username?: string;
           avatar_url?: string | null;
-          tier?: "free" | "premium";
+          tier?: string;
           aura_points?: number;
+          daily_streak?: number;
+          last_active_date?: string | null;
+          streak_multiplier?: number;
           is_admin?: boolean;
           is_public?: boolean;
           is_premium?: boolean;
@@ -670,6 +679,31 @@ export type Database = {
         };
         Relationships: [];
       };
+      aura_log: {
+        Row: {
+          id: string;
+          user_id: string;
+          action: string;
+          points: number;
+          reference_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          action: string;
+          points: number;
+          reference_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          action?: string;
+          points?: number;
+          reference_id?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -690,6 +724,15 @@ export type Database = {
       notify_new_topic: {
         Args: { p_topic_id: string; p_category: string; p_title: string };
         Returns: undefined;
+      };
+      award_aura: {
+        Args: {
+          p_user_id: string;
+          p_action: string;
+          p_points: number;
+          p_reference_id?: string | null;
+        };
+        Returns: boolean;
       };
     };
     Enums: {

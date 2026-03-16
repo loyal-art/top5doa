@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { brandHighlight } from "@/lib/utils";
+import { awardAura } from "@/lib/aura";
 
 export type SuggestionRow = {
   id: string;
@@ -82,6 +83,8 @@ function VoteButton({
         setVoted(true);
         setCount(newCount);
         onVoteChange?.(true, newCount);
+        // Award aura for voting on a suggestion
+        await awardAura(supabase, userId, "suggestion_vote", suggestionId);
       }
     }
     setLoading(false);

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { awardAura } from "@/lib/aura";
 
 const ALL_CATEGORIES = [
   "NFL", "NBA", "MLB", "Music", "Movies", "Gaming",
@@ -59,20 +60,27 @@ export function SubmitTopicCTA({
     setError(null);
 
     const supabase = createClient();
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from("topic_suggestions")
       .insert({
         user_id: userId,
         title: trimmedTitle,
         description: trimmedDesc,
         categories: Array.from(categories),
-      });
+      })
+      .select("id")
+      .single();
 
     setSubmitting(false);
 
     if (insertError) {
       setError("Failed to suggest. Please try again.");
       return;
+    }
+
+    // Award aura for suggesting a topic (max 5/day enforced in award_aura RPC)
+    if (inserted?.id) {
+      await awardAura(supabase, userId, "suggest_topic", inserted.id);
     }
 
     setSuccess(true);

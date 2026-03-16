@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic } from "./page";
+import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura } from "@/lib/aura";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -13,28 +14,13 @@ const ALERT_CATEGORIES = [
   "TV", "Food", "Gaming", "Culture",
 ] as const;
 
-// ── Aura tier — mirrors the get_aura_tier() SQL function ───────────────────
-function getAuraTier(points: number): { label: string; classes: string } {
-  if (points >= 9500)
-    return { label: "Legendary", classes: "text-amber-400 bg-amber-400/10 border-amber-400/30" };
-  if (points >= 5000)
-    return { label: "Elite", classes: "text-purple-400 bg-purple-400/10 border-purple-400/30" };
-  if (points >= 2500)
-    return { label: "Respected", classes: "text-blue-400 bg-blue-400/10 border-blue-400/30" };
-  if (points >= 1000)
-    return { label: "Known", classes: "text-brand-accent bg-brand-accent/10 border-brand-accent/30" };
-  if (points >= 250)
-    return { label: "Cold", classes: "text-neutral-400 bg-neutral-400/10 border-neutral-400/30" };
-  return { label: "Ghost", classes: "text-neutral-600 bg-neutral-700/30 border-neutral-700" };
-}
-
 interface ProfileClientProps {
   profile: {
     id: string;
     display_name: string;
     username: string;
     avatar_url: string | null;
-    tier: "free" | "premium";
+    tier: string;
     aura_points: number;
     is_public: boolean;
     is_premium: boolean;
@@ -84,7 +70,14 @@ export function ProfileClient({
   // on the owner's own view.
   const canSeeFullProfile = isPublic || isOwn || isFollowing;
 
-  const tier = getAuraTier(profile.aura_points);
+  const tierName = getTierForAura(profile.aura_points);
+  const tierBadgeClasses = getTierBadgeClasses(tierName);
+  const glowColor = getGlowColor(tierName);
+  const nextTier = getNextTier(profile.aura_points);
+  // For Aura Beast (rainbow), use a CSS animation fallback color
+  const avatarGlowStyle = glowColor === "rainbow"
+    ? { boxShadow: "0 0 0 3px #e8ff00, 0 0 12px 4px rgba(232,255,0,0.4)" }
+    : { boxShadow: `0 0 0 3px ${glowColor}, 0 0 12px 4px ${glowColor}40` };
 
   // Two-letter initials for the avatar placeholder
   const initials = profile.display_name
@@ -126,6 +119,9 @@ export function ProfileClient({
             message: `${follower.display_name} started following you`,
           });
         }
+        // Award aura: follower gets +1, followed user gets +10
+        await awardAura(supabase, viewerId, "follow", profile.id);
+        await awardAura(supabase, profile.id, "receive_follow", viewerId);
       }
       setIsFollowing(true);
       setFollowCount((c) => c + 1);
@@ -228,18 +224,19 @@ export function ProfileClient({
           {/* Top row: avatar · identity · action button */}
           <div className="flex items-start gap-5">
 
-            {/* Avatar */}
+            {/* Avatar with tier glow ring */}
             {profile.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name}
-                className="w-20 h-20 rounded-full object-cover flex-shrink-0 border-2 border-brand-accent/30"
+                className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+                style={avatarGlowStyle}
               />
             ) : (
               <div
-                className="w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center
-                           bg-brand-accent/10 border-2 border-brand-accent/30"
+                className="w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10"
+                style={avatarGlowStyle}
               >
                 <span className="font-display text-2xl text-brand-accent">{initials}</span>
               </div>
@@ -319,11 +316,11 @@ export function ProfileClient({
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono
-                               font-bold border ${tier.classes}`}
+                               font-bold border ${tierBadgeClasses}`}
                 >
-                  {tier.label.toUpperCase()}
+                  {tierName.toUpperCase()}
                 </span>
-                {profile.tier === "premium" && (
+                {profile.is_premium && (
                   <span
                     className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono
                                font-bold border text-brand-accent bg-brand-accent/10 border-brand-accent/30"
@@ -332,6 +329,14 @@ export function ProfileClient({
                   </span>
                 )}
               </div>
+              {nextTier && (
+                <p className="text-xs font-mono text-neutral-600 mt-1.5">
+                  {nextTier.remaining.toLocaleString()} Aura until{" "}
+                  <span style={{ color: getGlowColor(nextTier.name) }}>
+                    {nextTier.name}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Action: privacy toggle (own) · follow button (other) · sign-in link (anon) */}
