@@ -18,6 +18,7 @@ import {
   getTopicSuggestions,
   updateSuggestionStatus,
   deleteSuggestion,
+  deleteTopic,
 } from "./actions";
 
 interface Topic {
@@ -118,36 +119,39 @@ function ColumnDivider({
 }) {
   const dragging = useRef(false);
   const lastX = useRef(0);
+  // Use a ref so the mousemove handler always calls the latest onDrag
+  const onDragRef = useRef(onDrag);
+  useEffect(() => {
+    onDragRef.current = onDrag;
+  });
 
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragging.current = true;
-      lastX.current = e.clientX;
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    lastX.current = e.clientX;
 
-      const onMove = (ev: MouseEvent) => {
-        if (!dragging.current) return;
-        const delta = ev.clientX - lastX.current;
-        lastX.current = ev.clientX;
-        onDrag(delta);
-      };
-      const onUp = () => {
-        dragging.current = false;
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-      };
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    },
-    [onDrag],
-  );
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = ev.clientX - lastX.current;
+      lastX.current = ev.clientX;
+      onDragRef.current(delta);
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
 
   return (
     <div
       onMouseDown={onMouseDown}
-      className="hidden md:flex w-1.5 flex-shrink-0 cursor-col-resize items-stretch group"
+      className="hidden md:flex w-2 flex-shrink-0 items-stretch group"
+      style={{ cursor: "col-resize" }}
     >
-      <div className="w-full bg-brand-border/40 group-hover:bg-brand-accent/40 group-active:bg-brand-accent/60 transition-colors rounded-full" />
+      <div className="w-full bg-brand-border/40 group-hover:bg-brand-accent/40 group-active:bg-brand-accent/60 transition-colors" />
     </div>
   );
 }
@@ -835,10 +839,12 @@ function EditTopicForm({
   topic,
   onSave,
   onCancel,
+  onDelete,
 }: {
   topic: TopicRow;
   onSave: (updated: TopicRow) => void;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const [fields, setFields] = useState({
     title: topic.title,
@@ -856,6 +862,23 @@ function EditTopicForm({
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDeleteConfirm() {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    const result = await deleteTopic(topic.id);
+    if (result.error) {
+      setDeleteError(result.error);
+      setDeleteLoading(false);
+    } else {
+      onDelete();
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1014,7 +1037,7 @@ function EditTopicForm({
           />
         </div>
         <StatusMessage message={message} />
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-2 flex-wrap">
           <button
             type="submit"
             disabled={loading}
@@ -1029,8 +1052,63 @@ function EditTopicForm({
           >
             Cancel
           </button>
+          <button
+            type="button"
+            onClick={() => setShowDeleteDialog(true)}
+            className="px-5 py-2.5 rounded-xl border border-red-700/60 text-red-400 font-mono text-sm hover:bg-red-900/30 hover:text-red-300 hover:border-red-500 transition-colors ml-auto"
+          >
+            Delete Topic
+          </button>
         </div>
       </form>
+
+      {/* Delete confirmation dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="bg-neutral-900 border border-red-700/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="font-display text-lg text-red-400 mb-2 tracking-wide">DELETE TOPIC</h3>
+            <p className="text-sm text-neutral-400 font-mono mb-1 leading-relaxed">
+              This will permanently delete &ldquo;{topic.title}&rdquo; and all related subjects, attributes, rankings, scores, and user lists.
+            </p>
+            <p className="text-sm text-neutral-300 font-mono mb-4">
+              Type <span className="text-red-400 font-bold">DELETE</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleDeleteConfirm(); }}
+              placeholder="DELETE"
+              className={inputClass}
+              autoFocus
+            />
+            {deleteError && (
+              <p className="text-sm font-mono text-red-400 mt-2">{deleteError}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleteConfirmText !== "DELETE" || deleteLoading}
+                className="px-5 py-2.5 rounded-xl bg-red-700 text-white font-mono text-sm font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? "Deleting..." : "Delete Topic"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setDeleteConfirmText("");
+                  setDeleteError(null);
+                }}
+                className="px-5 py-2.5 rounded-xl border border-brand-border text-neutral-400 font-mono text-sm hover:text-white hover:border-neutral-500 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2170,6 +2248,8 @@ function AiTopicBuilder() {
 export function AdminForms({ topics }: { topics: Topic[] }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [selectedItem, setSelectedItem] = useState<TopicRow | SubjectRow | AttributeRow | SuggestionRow | null>(null);
+  // Increment to force TopicsList to re-fetch after a delete
+  const [refreshTopicsKey, setRefreshTopicsKey] = useState(0);
 
   // Column widths (desktop)
   const [col1W, setCol1W] = useState(220);
@@ -2197,6 +2277,7 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       case "manage-topics":
         return (
           <TopicsList
+            key={refreshTopicsKey}
             onSelect={(t) => setSelectedItem(t)}
             selectedId={selectedItem?.id ?? null}
           />
@@ -2241,6 +2322,10 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
           topic={selectedItem as TopicRow}
           onSave={(updated) => setSelectedItem(updated)}
           onCancel={() => setSelectedItem(null)}
+          onDelete={() => {
+            setSelectedItem(null);
+            setRefreshTopicsKey((k) => k + 1);
+          }}
         />
       );
     }
@@ -2362,7 +2447,7 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       {showCol2 && (
         <ColumnDivider
           onDrag={(delta) =>
-            setCol1W((w) => Math.max(160, Math.min(400, w + delta)))
+            setCol1W((w) => Math.max(200, Math.min(600, w + delta)))
           }
         />
       )}
@@ -2370,15 +2455,15 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       {/* Column 2: Section content / list */}
       {showCol2 && (
         <div
-          className="flex-shrink-0 border-r border-brand-border overflow-y-auto"
-          style={{ width: col2W }}
+          className="flex-shrink-0 overflow-y-auto"
+          style={{ width: col2W, borderRight: "1px solid var(--brand-border, #2a2a2a)" }}
         >
           {renderCol2()}
         </div>
       )}
 
-      {/* Divider 2 */}
-      {showCol3 && (
+      {/* Divider 2 — shown for all list sections so col2 stays resizable even without a selection */}
+      {showCol2 && hasCol3 && (
         <ColumnDivider
           onDrag={(delta) =>
             setCol2W((w) => Math.max(200, Math.min(600, w + delta)))
