@@ -2225,7 +2225,7 @@ export function TopicVotingFlow({
 
                 {/* Topic title */}
                 <div style={{
-                  padding: "0 64px 32px",
+                  padding: "0 80px 32px",
                   textAlign: "center",
                   flexShrink: 0,
                   position: "relative",
@@ -2244,14 +2244,11 @@ export function TopicVotingFlow({
                   {/* Title with gold "TOP" and "5" treatment */}
                   <div style={{
                     fontFamily: "'Bebas Neue', Impact, sans-serif",
-                    fontSize: "58px",
-                    lineHeight: 1.1,
+                    fontSize: "48px",
+                    lineHeight: 1.15,
                     letterSpacing: "2px",
                     wordBreak: "break-word",
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
+                    overflow: "visible",
                   }}>
                     {(() => {
                       const title = topic.title.toUpperCase();
@@ -2287,13 +2284,13 @@ export function TopicVotingFlow({
                 }}>
                   {(() => {
                     const top5 = results.slice(0, 5);
-                    // Rank gradient pairs: [top color, bottom color] — gold #1 → silver #5
-                    const rankGradients: [string, string][] = [
-                      ["#FFD700", "#B8860B"],  // #1 gold → dark gold
-                      ["#D4D4D4", "#909090"],  // #2 silver-light → mid
-                      ["#A8A8A8", "#686868"],  // #3 silver-mid → dim
-                      ["#888888", "#484848"],  // #4 silver-dark → darker
-                      ["#808080", "#404040"],  // #5 silver → near-charcoal
+                    // Solid rank colors — html2canvas-safe (no background-clip:text)
+                    const rankColors = [
+                      "#FFD700",  // #1 gold
+                      "#E6C200",  // #2 warm gold
+                      "#C0C0C0",  // #3 silver
+                      "#A9A9A9",  // #4 dark silver
+                      "#808080",  // #5 grey
                     ];
                     // HSL accent bar colors: warm red → cool blue
                     const hslAccentColors = [
@@ -2304,7 +2301,7 @@ export function TopicVotingFlow({
                       "hsl(210, 85%, 55%)",  // cool blue
                     ];
                     return top5.map((r, idx) => {
-                      const [rankTop, rankBottom] = rankGradients[idx] ?? ["#808080", "#404040"];
+                      const rankColor = rankColors[idx] ?? "#808080";
                       const accentColor = hslAccentColors[idx] ?? "hsl(210, 85%, 55%)";
                       const isFirst = idx === 0;
                       return (
@@ -2315,7 +2312,6 @@ export function TopicVotingFlow({
                             alignItems: "center",
                             gap: "16px",
                             position: "relative",
-                            // Radial gold glow spans the full row for #1
                             background: isFirst
                               ? "radial-gradient(circle at left, rgba(255,215,0,0.2), transparent 70%)"
                               : "none",
@@ -2323,16 +2319,13 @@ export function TopicVotingFlow({
                             padding: "4px 0",
                           }}
                         >
-                          {/* Large rank number — gradient fill via webkit-background-clip */}
+                          {/* Large rank number — solid color, html2canvas-safe */}
                           <div style={{
                             fontFamily: "'Bebas Neue', Impact, sans-serif",
                             fontSize: isFirst ? "96px" : "80px",
                             width: "96px",
                             textAlign: "center",
-                            background: `linear-gradient(180deg, ${rankTop} 0%, ${rankBottom} 100%)`,
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                            color: "transparent",
+                            color: rankColor,
                             flexShrink: 0,
                             lineHeight: 1,
                           }}>
