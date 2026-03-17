@@ -996,13 +996,15 @@ export function TopicVotingFlow({
   const handleDownloadCard = async () => {
     const el = document.getElementById("share-card");
     if (!el) return;
+    // Ensure Bebas Neue, DM Sans, and Space Mono are fully loaded before capture
+    await document.fonts.ready;
     const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
     const canvas = await html2canvas(el, {
       width: 1080,
       height: 1080,
       scale: 1,
       useCORS: true,
-      backgroundColor: "#080808",
+      backgroundColor: "#0a0a0a",
     });
     const link = document.createElement("a");
     link.download = `top5-${topic.slug ?? "list"}.png`;
@@ -2278,22 +2280,22 @@ export function TopicVotingFlow({
                   padding: "0 56px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "16px",
+                  gap: "14px",
                   flex: 1,
                   position: "relative",
                   zIndex: 1,
                 }}>
                   {(() => {
                     const top5 = results.slice(0, 5);
-                    // Rank gradient: gold #1 → silver #5
-                    const rankColors = [
-                      "#FFD700",  // #1 gold
-                      "#D4D4D4",  // #2 silver-light
-                      "#A8A8A8",  // #3 silver-mid
-                      "#888888",  // #4 silver-dark
-                      "#6B6B6B",  // #5 silver-dim
+                    // Rank gradient pairs: [top color, bottom color] — gold #1 → silver #5
+                    const rankGradients: [string, string][] = [
+                      ["#FFD700", "#B8860B"],  // #1 gold → dark gold
+                      ["#D4D4D4", "#909090"],  // #2 silver-light → mid
+                      ["#A8A8A8", "#686868"],  // #3 silver-mid → dim
+                      ["#888888", "#484848"],  // #4 silver-dark → darker
+                      ["#808080", "#404040"],  // #5 silver → near-charcoal
                     ];
-                    // HSL accent bar colors: warm red → cool blue (matching existing system inverted)
+                    // HSL accent bar colors: warm red → cool blue
                     const hslAccentColors = [
                       "hsl(0, 85%, 50%)",    // warm red
                       "hsl(30, 95%, 50%)",   // orange
@@ -2302,48 +2304,49 @@ export function TopicVotingFlow({
                       "hsl(210, 85%, 55%)",  // cool blue
                     ];
                     return top5.map((r, idx) => {
-                      const rankColor = rankColors[idx] ?? "#6B6B6B";
+                      const [rankTop, rankBottom] = rankGradients[idx] ?? ["#808080", "#404040"];
                       const accentColor = hslAccentColors[idx] ?? "hsl(210, 85%, 55%)";
                       const isFirst = idx === 0;
                       return (
-                        <div key={r.subject.id} style={{ display: "flex", alignItems: "center", gap: "20px", position: "relative" }}>
-                          {/* Radial glow behind #1 */}
-                          {isFirst && (
-                            <div style={{
-                              position: "absolute",
-                              left: "-20px",
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              width: "200px",
-                              height: "200px",
-                              background: "radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 70%)",
-                              pointerEvents: "none",
-                            }} />
-                          )}
-                          {/* Large rank number with gradient fill */}
+                        <div
+                          key={r.subject.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            position: "relative",
+                            // Radial gold glow spans the full row for #1
+                            background: isFirst
+                              ? "radial-gradient(circle at left, rgba(255,215,0,0.2), transparent 70%)"
+                              : "none",
+                            borderRadius: "12px",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {/* Large rank number — gradient fill via webkit-background-clip */}
                           <div style={{
                             fontFamily: "'Bebas Neue', Impact, sans-serif",
-                            fontSize: isFirst ? "72px" : "54px",
-                            width: "72px",
+                            fontSize: isFirst ? "96px" : "80px",
+                            width: "96px",
                             textAlign: "center",
-                            color: rankColor,
+                            background: `linear-gradient(180deg, ${rankTop} 0%, ${rankBottom} 100%)`,
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            color: "transparent",
                             flexShrink: 0,
                             lineHeight: 1,
-                            textShadow: isFirst ? `0 0 24px rgba(255,215,0,0.5)` : "none",
                           }}>
                             {idx + 1}
                           </div>
                           {/* Row card */}
                           <div style={{
                             flex: 1,
-                            height: isFirst ? "84px" : "72px",
+                            height: isFirst ? "88px" : "76px",
                             borderRadius: "10px",
-                            background: isFirst
-                              ? "linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(255,255,255,0.03) 100%)"
-                              : "rgba(255,255,255,0.03)",
+                            background: "rgba(255,255,255,0.05)",
                             border: isFirst
-                              ? "1px solid rgba(255,215,0,0.18)"
-                              : "1px solid rgba(255,255,255,0.06)",
+                              ? "1px solid rgba(255,215,0,0.2)"
+                              : "1px solid rgba(255,255,255,0.07)",
                             position: "relative",
                             overflow: "hidden",
                             display: "flex",
@@ -2351,28 +2354,29 @@ export function TopicVotingFlow({
                             paddingLeft: "20px",
                             paddingRight: "24px",
                           }}>
-                            {/* Left accent bar */}
+                            {/* 3px left accent bar */}
                             <div style={{
                               position: "absolute",
                               left: 0,
                               top: 0,
                               bottom: 0,
-                              width: "4px",
+                              width: "3px",
                               background: accentColor,
                               borderRadius: "10px 0 0 10px",
                             }} />
                             {/* Subject name */}
                             <span style={{
                               fontFamily: "'DM Sans', sans-serif",
-                              fontSize: isFirst ? "30px" : "26px",
+                              fontSize: isFirst ? "32px" : "28px",
                               fontWeight: 700,
                               color: "#ffffff",
-                              letterSpacing: "0.5px",
+                              letterSpacing: "0.3px",
                               flex: 1,
-                              paddingLeft: "12px",
+                              paddingLeft: "14px",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
+                              textShadow: "0 1px 8px rgba(0,0,0,0.6)",
                             }}>
                               {r.subject.name}
                             </span>
@@ -2446,29 +2450,34 @@ export function TopicVotingFlow({
                         const tierName = getTierForAura(userAuraPoints);
                         const glowColor = getGlowColor(tierName);
                         const safeGlow = glowColor === "rainbow" ? "#ffffff" : glowColor;
+                        const r = parseInt(safeGlow.slice(1, 3), 16);
+                        const g = parseInt(safeGlow.slice(3, 5), 16);
+                        const b = parseInt(safeGlow.slice(5, 7), 16);
                         return (
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
-                            {/* Tier badge */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                            {/* Tier badge — solid tinted background with glow border */}
                             <span style={{
                               fontFamily: "'DM Sans', sans-serif",
-                              fontSize: "13px",
-                              fontWeight: 700,
-                              color: safeGlow,
-                              background: `rgba(${parseInt(safeGlow.slice(1,3),16)},${parseInt(safeGlow.slice(3,5),16)},${parseInt(safeGlow.slice(5,7),16)},0.12)`,
-                              border: `1px solid ${safeGlow}55`,
+                              fontSize: "14px",
+                              fontWeight: 800,
+                              color: "#ffffff",
+                              background: `rgba(${r},${g},${b},0.35)`,
+                              border: `1px solid rgba(${r},${g},${b},0.7)`,
                               borderRadius: "6px",
-                              padding: "3px 10px",
+                              padding: "4px 12px",
                               textTransform: "uppercase",
-                              letterSpacing: "1px",
-                              boxShadow: `0 0 10px ${safeGlow}33`,
+                              letterSpacing: "1.5px",
+                              boxShadow: `0 0 14px rgba(${r},${g},${b},0.45)`,
                             }}>
                               {tierName}
                             </span>
+                            {/* Aura count — prominent */}
                             <span style={{
-                              fontFamily: "'Space Mono', monospace",
-                              fontSize: "13px",
-                              color: "#555555",
-                              letterSpacing: "1px",
+                              fontFamily: "'Bebas Neue', Impact, sans-serif",
+                              fontSize: "20px",
+                              color: safeGlow,
+                              letterSpacing: "2px",
+                              textShadow: `0 0 12px rgba(${r},${g},${b},0.5)`,
                             }}>
                               {userAuraPoints.toLocaleString()} AURA
                             </span>
