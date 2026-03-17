@@ -31,6 +31,7 @@ export function Header() {
   const [username, setUsername] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [dailyStreak, setDailyStreak] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -41,12 +42,13 @@ export function Header() {
   async function fetchUsername(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("username, is_admin, avatar_url")
+      .select("username, is_admin, avatar_url, daily_streak")
       .eq("id", userId)
       .single();
     setUsername(data?.username ?? null);
     setAvatarUrl(data?.avatar_url ?? null);
     setIsAdmin(data?.is_admin === true);
+    setDailyStreak(data?.daily_streak ?? 0);
   }
 
   async function fetchNotifications(userId: string) {
@@ -97,6 +99,7 @@ export function Header() {
       } else {
         setUsername(null);
         setIsAdmin(false);
+        setDailyStreak(0);
         setNotifications([]);
       }
     });
@@ -317,6 +320,15 @@ export function Header() {
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-accent shadow-[0_0_6px_rgba(232,255,0,0.6)]" />
                 )}
                 {username ? `@${username}` : "Profile"}
+                {/* Streak badge — only shown when streak is 3+ days */}
+                {dailyStreak >= 3 && (
+                  <span
+                    className="text-xs font-mono font-bold flame-glow"
+                    style={{ color: "#FF4500" }}
+                  >
+                    🔥{dailyStreak}
+                  </span>
+                )}
               </Link>
 
               <button

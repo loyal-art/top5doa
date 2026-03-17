@@ -33,7 +33,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // ── Profile lookup ──────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, username, avatar_url, tier, aura_points, is_public, is_premium")
+    .select("id, display_name, username, avatar_url, tier, aura_points, is_public, is_premium, daily_streak, streak_multiplier")
     .eq("username", username)
     .single();
 

@@ -24,6 +24,8 @@ interface ProfileClientProps {
     aura_points: number;
     is_public: boolean;
     is_premium: boolean;
+    daily_streak: number;
+    streak_multiplier: number;
   };
   followerCount: number;
   isOwn: boolean;
@@ -413,7 +415,7 @@ export function ProfileClient({
           </div>
 
           {/* Stats row */}
-          <div className="flex items-center gap-6 pt-4 border-t border-brand-border">
+          <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-brand-border">
             <div className="text-center">
               <p className="font-display text-xl text-brand-accent">
                 {profile.aura_points.toLocaleString()}
@@ -431,6 +433,33 @@ export function ProfileClient({
                 <div className="text-center">
                   <p className="font-display text-xl">{votedTopics.length}</p>
                   <p className="text-xs font-mono text-neutral-600 uppercase mt-0.5">Topics Voted</p>
+                </div>
+              </>
+            )}
+            {/* Streak — shown when the user has an active streak */}
+            {profile.daily_streak > 0 && (
+              <>
+                <div className="w-px h-8 bg-brand-border" />
+                <div className="text-center">
+                  <p
+                    className="font-display text-xl flame-glow"
+                    style={{ color: "#FF4500" }}
+                  >
+                    🔥 {profile.daily_streak}
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600 uppercase mt-0.5">Day Streak</p>
+                </div>
+              </>
+            )}
+            {/* Momentum multiplier — shown when streak is high enough to boost */}
+            {profile.streak_multiplier > 1.0 && (
+              <>
+                <div className="w-px h-8 bg-brand-border" />
+                <div className="text-center">
+                  <p className="font-display text-xl" style={{ color: "#e8ff00" }}>
+                    ⚡ x{parseFloat(profile.streak_multiplier.toFixed(2)).toString()}
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600 uppercase mt-0.5">Momentum</p>
                 </div>
               </>
             )}
