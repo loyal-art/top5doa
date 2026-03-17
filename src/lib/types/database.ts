@@ -734,6 +734,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      update_streak: {
+        Args: { p_user_id: string };
+        Returns: number;  // new streak_multiplier
+      };
     };
     Enums: {
       user_tier: "free" | "premium";

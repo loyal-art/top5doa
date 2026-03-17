@@ -76,7 +76,8 @@ export type AuraAction =
   | "follow"
   | "flame"
   | "suggest_topic"
-  | "suggestion_vote";
+  | "suggestion_vote"
+  | "streak_bonus";  // Awarded by update_streak() SQL; points vary by milestone
 
 export const AURA_POINTS: Record<AuraAction, number> = {
   vote:            10,
@@ -86,12 +87,19 @@ export const AURA_POINTS: Record<AuraAction, number> = {
   flame:            2,
   suggest_topic:    3,
   suggestion_vote:  1,
+  streak_bonus:     0,  // Variable — SQL milestone logic sets the actual amount
 };
 
 // ── Client-side awardAura ─────────────────────────────────────────────────────
 
 /**
  * Awards aura to a user by calling the `award_aura` Postgres RPC.
+ *
+ * For all actions except `streak_bonus`:
+ *  1. Calls `update_streak` RPC to advance the daily streak and get the
+ *     current momentum multiplier.
+ *  2. Multiplies base points by the multiplier before awarding.
+ *
  * Returns true if points were awarded, false if it was a duplicate or
  * a daily limit was hit.
  */
@@ -101,7 +109,21 @@ export async function awardAura(
   action: AuraAction,
   referenceId?: string
 ): Promise<boolean> {
-  const points = AURA_POINTS[action];
+  const basePoints = AURA_POINTS[action];
+
+  // Apply momentum multiplier for regular actions.
+  // streak_bonus is skipped to avoid loops (update_streak awards it internally).
+  let points = basePoints;
+  if (action !== "streak_bonus") {
+    const { data: newMultiplier } = await supabase.rpc("update_streak", {
+      p_user_id: userId,
+    });
+    const multiplier = typeof newMultiplier === "number" ? newMultiplier : 1.0;
+    if (multiplier > 1) {
+      points = Math.round(basePoints * multiplier);
+    }
+  }
+
   const { data, error } = await supabase.rpc("award_aura", {
     p_user_id:      userId,
     p_action:       action,
