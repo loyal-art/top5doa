@@ -115,9 +115,11 @@ export async function awardAura(
   // streak_bonus is skipped to avoid loops (update_streak awards it internally).
   let points = basePoints;
   if (action !== "streak_bonus") {
-    const { data: newMultiplier } = await supabase.rpc("update_streak", {
+    console.log("calling update_streak for user:", userId);
+    const { data: newMultiplier, error: streakError } = await supabase.rpc("update_streak", {
       p_user_id: userId,
     });
+    console.log("update_streak result:", newMultiplier, streakError);
     const multiplier = typeof newMultiplier === "number" ? newMultiplier : 1.0;
     if (multiplier > 1) {
       points = Math.round(basePoints * multiplier);
