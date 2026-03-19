@@ -738,6 +738,18 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;  // new streak_multiplier
       };
+      check_viral_milestones: {
+        Args: { p_hot_take_id: string; p_user_id: string; p_flame_count: number };
+        Returns: undefined;
+      };
+      update_take_of_the_day: {
+        Args: Record<never, never>;
+        Returns: undefined;
+      };
+      check_hot_streak: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       user_tier: "free" | "premium";
