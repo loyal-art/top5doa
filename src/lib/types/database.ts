@@ -18,6 +18,7 @@ export type Database = {
           tier: string;
           aura_points: number;
           daily_streak: number;
+          hot_take_streak: number;
           last_active_date: string | null;
           streak_multiplier: number;
           is_admin: boolean;
@@ -35,6 +36,7 @@ export type Database = {
           tier?: string;
           aura_points?: number;
           daily_streak?: number;
+          hot_take_streak?: number;
           last_active_date?: string | null;
           streak_multiplier?: number;
           is_admin?: boolean;
@@ -52,6 +54,7 @@ export type Database = {
           tier?: string;
           aura_points?: number;
           daily_streak?: number;
+          hot_take_streak?: number;
           last_active_date?: string | null;
           streak_multiplier?: number;
           is_admin?: boolean;
