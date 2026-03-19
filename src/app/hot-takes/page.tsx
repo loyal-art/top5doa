@@ -16,6 +16,7 @@ export type HotTakeItem = {
   flames: number;
   trashes: number;
   createdAt: string;
+  takeOfTheDay: boolean;
 };
 
 export default async function HotTakesPage() {
@@ -24,6 +25,9 @@ export default async function HotTakesPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Update Take of the Day on every page load (safe to run multiple times)
+  await supabase.rpc("update_take_of_the_day");
 
   // Fetch first batch of hot takes
   const { data: takes } = await supabase
@@ -100,6 +104,7 @@ export default async function HotTakesPage() {
     flames: t.flames,
     trashes: t.trashes,
     createdAt: t.created_at,
+    takeOfTheDay: t.take_of_the_day ?? false,
   }));
 
   // All topics for filter dropdown

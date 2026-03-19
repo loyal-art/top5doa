@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { awardAura } from "@/lib/aura";
 import type { HotTakeItem } from "./page";
 
 function relativeTime(dateStr: string): string {
@@ -15,6 +16,13 @@ function relativeTime(dateStr: string): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return `${Math.floor(days / 30)}mo ago`;
+}
+
+function getViralBadge(flames: number): { label: string; className: string } | null {
+  if (flames >= 100) return { label: "🔥🔥🔥 INFERNO", className: "text-red-400 bg-red-500/10 border-red-500/30" };
+  if (flames >= 50)  return { label: "🔥🔥 BLAZING",  className: "text-orange-400 bg-orange-500/10 border-orange-500/30" };
+  if (flames >= 10)  return { label: "🔥 VIRAL",      className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30" };
+  return null;
 }
 
 function TakeCard({
@@ -35,8 +43,26 @@ function TakeCard({
     .join("")
     .toUpperCase() || "?";
 
+  const viralBadge = getViralBadge(item.flames);
+
   return (
     <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
+      {/* Take of the Day + viral badges */}
+      {(item.takeOfTheDay || viralBadge) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {item.takeOfTheDay && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
+              🏆 TAKE OF THE DAY
+            </span>
+          )}
+          {viralBadge && (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${viralBadge.className}`}>
+              {viralBadge.label}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Header: avatar + user + timestamp */}
       <div className="flex items-center gap-3">
         <Link
@@ -131,7 +157,6 @@ export function HotTakesClient({
   const [items, setItems] = useState(initialItems);
   const [votes, setVotes] = useState(initialVotes);
   const [filterTopicId, setFilterTopicId] = useState<string>("all");
-  const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
   const filteredItems = filterTopicId === "all"
@@ -214,12 +239,32 @@ export function HotTakesClient({
         .insert({ hot_take_id: takeId, user_id: userId, vote_type: voteType });
       // Increment new counter
       const newCol = voteType === "flame" ? "flames" : "trashes";
-      const take = updatedItems.find((i) => i.id === takeId);
-      if (take) {
+      const updatedTake = updatedItems.find((i) => i.id === takeId);
+      if (updatedTake) {
         await supabase
           .from("hot_takes")
-          .update({ [newCol]: take[newCol] })
+          .update({ [newCol]: updatedTake[newCol] })
           .eq("id", takeId);
+      }
+
+      // ── Post-flame bonuses ─────────────────────────────────────────────
+      if (voteType === "flame" && updatedTake) {
+        const newFlameCount = updatedTake.flames;
+
+        // Award +2 aura to the take owner
+        await awardAura(supabase, updatedTake.userId, "flame", takeId);
+
+        // Viral milestone bonuses (10 / 50 / 100 flames)
+        await supabase.rpc("check_viral_milestones", {
+          p_hot_take_id: takeId,
+          p_user_id:     updatedTake.userId,
+          p_flame_count: newFlameCount,
+        });
+
+        // Hot streak: increment at exactly 10 flames
+        if (newFlameCount === 10) {
+          await supabase.rpc("check_hot_streak", { p_user_id: updatedTake.userId });
+        }
       }
     }
   }

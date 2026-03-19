@@ -309,7 +309,7 @@ export function TopicVotingFlow({
     id: string; userId: string; username: string; displayName: string; avatarUrl: string | null;
     content: string; subjectId: string | null; attributeId: string | null;
     subjectName: string | null; attributeName: string | null;
-    flames: number; trashes: number; createdAt: string;
+    flames: number; trashes: number; createdAt: string; takeOfTheDay: boolean;
   }[]>([]);
   const [htVotes, setHtVotes] = useState<Record<string, "flame" | "trash">>({});
   const [htLoading, setHtLoading] = useState(false);
@@ -406,6 +406,7 @@ export function TopicVotingFlow({
       subjectName: t.subject_id ? (subjectMap[t.subject_id] ?? null) : null,
       attributeName: t.attribute_id ? (attrMap[t.attribute_id] ?? null) : null,
       flames: t.flames, trashes: t.trashes, createdAt: t.created_at,
+      takeOfTheDay: t.take_of_the_day ?? false,
     })));
     setHtVotes(uVotes);
     setHtLoading(false);
@@ -451,9 +452,24 @@ export function TopicVotingFlow({
       const newCol = voteType === "flame" ? "flames" : "trashes";
       const updatedTake = updated.find((i) => i.id === takeId);
       if (updatedTake) await supabase.from("hot_takes").update({ [newCol]: updatedTake[newCol] }).eq("id", takeId);
-      // Award aura to the hot take owner when flamed
+      // Post-flame bonuses
       if (voteType === "flame" && updatedTake) {
+        const newFlameCount = updatedTake.flames;
+
+        // Award +2 aura to the take owner
         await awardAura(supabase, updatedTake.userId, "flame", takeId);
+
+        // Viral milestone bonuses (10 / 50 / 100 flames)
+        await supabase.rpc("check_viral_milestones", {
+          p_hot_take_id: takeId,
+          p_user_id:     updatedTake.userId,
+          p_flame_count: newFlameCount,
+        });
+
+        // Hot streak: increment at exactly 10 flames
+        if (newFlameCount === 10) {
+          await supabase.rpc("check_hot_streak", { p_user_id: updatedTake.userId });
+        }
       }
     }
   }
@@ -479,7 +495,7 @@ export function TopicVotingFlow({
         content: inserted.content,
         subjectId: inserted.subject_id, attributeId: inserted.attribute_id,
         subjectName: subName, attributeName: null,
-        flames: 0, trashes: 0, createdAt: inserted.created_at,
+        flames: 0, trashes: 0, createdAt: inserted.created_at, takeOfTheDay: false,
       }, ...prev]);
       setHtTotalCount((c) => c + 1);
       if (htNewSubjectId) {
@@ -1248,8 +1264,30 @@ export function TopicVotingFlow({
                 htItems.map((item) => {
                   const initials = item.displayName.split(" ").map((w) => w[0] ?? "").slice(0, 2).join("").toUpperCase() || "?";
                   const vote = htVotes[item.id] ?? null;
+                  const viralBadge = item.flames >= 100
+                    ? { label: "🔥🔥🔥 INFERNO", cls: "text-red-400 bg-red-500/10 border-red-500/30" }
+                    : item.flames >= 50
+                    ? { label: "🔥🔥 BLAZING",   cls: "text-orange-400 bg-orange-500/10 border-orange-500/30" }
+                    : item.flames >= 10
+                    ? { label: "🔥 VIRAL",        cls: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30" }
+                    : null;
                   return (
                     <div key={item.id} className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-3">
+                      {/* Badges */}
+                      {(item.takeOfTheDay || viralBadge) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.takeOfTheDay && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
+                              🏆 TAKE OF THE DAY
+                            </span>
+                          )}
+                          {viralBadge && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${viralBadge.cls}`}>
+                              {viralBadge.label}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {/* Header */}
                       <div className="flex items-center gap-3">
                         <Link

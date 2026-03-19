@@ -26,6 +26,7 @@ interface ProfileClientProps {
     is_premium: boolean;
     daily_streak: number;
     streak_multiplier: number;
+    hot_take_streak: number;
   };
   followerCount: number;
   isOwn: boolean;
@@ -460,6 +461,21 @@ export function ProfileClient({
                     ⚡ x{parseFloat(profile.streak_multiplier.toFixed(2)).toString()}
                   </p>
                   <p className="text-xs font-mono text-neutral-600 uppercase mt-0.5">Momentum</p>
+                </div>
+              </>
+            )}
+            {/* Hot take streak — shown when user has consecutive viral takes */}
+            {profile.hot_take_streak > 0 && (
+              <>
+                <div className="w-px h-8 bg-brand-border" />
+                <div className="text-center">
+                  <p
+                    className="font-display text-xl"
+                    style={{ color: "#FF4500" }}
+                  >
+                    🔥 {profile.hot_take_streak}/3
+                  </p>
+                  <p className="text-xs font-mono text-neutral-600 uppercase mt-0.5">Hot Streak</p>
                 </div>
               </>
             )}
