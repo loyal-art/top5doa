@@ -593,6 +593,7 @@ export type Database = {
           flames: number;
           trashes: number;
           created_at: string;
+          take_of_the_day: boolean;
         };
         Insert: {
           id?: string;
@@ -604,6 +605,7 @@ export type Database = {
           flames?: number;
           trashes?: number;
           created_at?: string;
+          take_of_the_day?: boolean;
         };
         Update: {
           user_id?: string;
@@ -613,6 +615,7 @@ export type Database = {
           content?: string;
           flames?: number;
           trashes?: number;
+          take_of_the_day?: boolean;
         };
         Relationships: [];
       };
