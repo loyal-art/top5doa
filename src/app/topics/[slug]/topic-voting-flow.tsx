@@ -22,6 +22,7 @@ interface TopicVotingFlowProps {
   weights: number[];
   globalRankings?: { subject: Subject; score: number }[];
   voterCount: number;
+  creatorUsername?: string | null;
 }
 
 type PipContent = { url: string; type: "photo" | "music" | "video" } | null;
@@ -201,6 +202,7 @@ export function TopicVotingFlow({
   weights,
   globalRankings: initialGlobalRankings,
   voterCount,
+  creatorUsername,
 }: TopicVotingFlowProps) {
   // Memoize the Supabase client so its reference stays stable across renders.
   // createBrowserClient returns a new object on every call; if it were called
@@ -1938,6 +1940,11 @@ export function TopicVotingFlow({
                   <p className="text-xs font-mono text-neutral-600 mt-1">
                     {voterCount.toLocaleString()} {voterCount === 1 ? "voter" : "voters"} on this topic
                   </p>
+                  {creatorUsername && (
+                    <p className="text-xs font-mono text-neutral-600 mt-1">
+                      Created by <span className="text-neutral-500">@{creatorUsername}</span>
+                    </p>
+                  )}
                   <p className="text-xs italic text-neutral-600 mt-1 font-body">
                     Scores reflect ranking within this topic only.
                   </p>

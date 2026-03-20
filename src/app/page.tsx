@@ -20,6 +20,7 @@ type Topic = {
   card_image_url: string | null;
   card_video_url: string | null;
   view_count: number;
+  created_by: string | null;
 };
 
 type GlobalRanking = { subject_id: string; avg_score: number };
@@ -148,12 +149,14 @@ function TopicCard({
   hasVoted,
   top3,
   viewCount,
+  creatorUsername,
 }: {
   topic: Topic;
   attributes: { id: string; name: string }[];
   hasVoted: boolean;
   top3: { name: string; score: number }[];
   viewCount: number;
+  creatorUsername: string | null;
 }) {
   const MAX_CHIPS = 3;
   const visibleAttrs = attributes.slice(0, MAX_CHIPS);
@@ -264,6 +267,11 @@ function TopicCard({
         <h3 className="font-display text-2xl tracking-wide text-white group-hover:text-brand-accent transition-colors duration-300 leading-tight">
           {brandHighlight(topic.title)}
         </h3>
+        {creatorUsername && (
+          <p className="text-xs font-mono text-neutral-600">
+            Created by <span className="text-neutral-500">@{creatorUsername}</span>
+          </p>
+        )}
 
         {/* Attribute chips */}
         {visibleAttrs.length > 0 && (
@@ -357,14 +365,14 @@ export default async function Home({
   // Active topics
   const { data: topics } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
   // Featured topic (for hero banner)
   const { data: featuredData } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("is_featured", true)
     .eq("status", "active")
     .limit(1)
@@ -374,7 +382,7 @@ export default async function Home({
   // Coming Soon topics
   const { data: comingSoonData } = await supabase
     .from("topics")
-    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count")
+    .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("status", "coming_soon")
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
@@ -440,6 +448,20 @@ export default async function Home({
 
   const feedTopics: Topic[] = topics ?? [];
   const topicIds = feedTopics.map((t) => t.id);
+
+  // ── Creator usernames ──────────────────────────────────────────────────────
+  const allTopicsForCreators = [...feedTopics, ...(comingSoonTopics ?? [])];
+  const creatorIds = [...new Set(allTopicsForCreators.map((t) => t.created_by).filter(Boolean))] as string[];
+  let creatorUsernameMap: Record<string, string> = {};
+  if (creatorIds.length > 0) {
+    const { data: creatorProfiles } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", creatorIds);
+    (creatorProfiles ?? []).forEach((p) => {
+      creatorUsernameMap[p.id] = p.username;
+    });
+  }
 
   // ── Parallel data fetches ──────────────────────────────────────────────────
   let subjectMap: Record<string, string> = {};
@@ -814,6 +836,7 @@ export default async function Home({
                   hasVoted={votedTopicIds.has(topic.id)}
                   top3={globalTop3ByTopic[topic.id] ?? []}
                   viewCount={topic.view_count ?? 0}
+                  creatorUsername={topic.created_by ? creatorUsernameMap[topic.created_by] ?? null : null}
                 />
               ))}
             </TopicFeed>
