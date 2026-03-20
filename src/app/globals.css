@@ -189,3 +189,20 @@
     background-clip: text;
   }
 }
+
+/* ============================================================
+   Hot Takes Ticker
+   ============================================================ */
+
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.hot-takes-ticker {
+  animation: tickerScroll 60s linear infinite;
+}
+
+.hot-takes-ticker:hover {
+  animation-play-state: paused;
+}

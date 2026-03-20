@@ -8,6 +8,7 @@ import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 import { brandHighlight } from "@/lib/utils";
 import { TopicFeed } from "@/components/topic-feed";
 import { getTierForAura, getGlowColor } from "@/lib/aura";
+import { HotTakesTicker, type TickerTake } from "@/components/hot-takes-ticker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -471,6 +472,43 @@ export default async function Home({
     .order("aura_points", { ascending: false })
     .limit(3);
   const top3Aura = (auraLeaders ?? []).filter((p) => p.aura_points > 0);
+
+  // ── Hot takes for ticker ───────────────────────────────────────────────────
+  const { data: tickerTakesRaw } = await supabase
+    .from("hot_takes")
+    .select("id, content, flames, user_id, topic_id")
+    .gt("flames", 0)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  let tickerTakes: TickerTake[] = [];
+  if (tickerTakesRaw && tickerTakesRaw.length > 0) {
+    const takeUserIds = [...new Set(tickerTakesRaw.map((t) => t.user_id))];
+    const takeTopicIds = [...new Set(tickerTakesRaw.map((t) => t.topic_id))];
+
+    const [profilesRes, topicsRes] = await Promise.all([
+      supabase.from("profiles").select("id, username").in("id", takeUserIds),
+      supabase.from("topics").select("id, title, slug").in("id", takeTopicIds),
+    ]);
+
+    const usernameMap = Object.fromEntries(
+      (profilesRes.data ?? []).map((p) => [p.id, p.username])
+    );
+    const topicMap = Object.fromEntries(
+      (topicsRes.data ?? []).map((t) => [t.id, { title: t.title, slug: t.slug }])
+    );
+
+    tickerTakes = tickerTakesRaw
+      .filter((t) => usernameMap[t.user_id] && topicMap[t.topic_id])
+      .map((t) => ({
+        id: t.id,
+        content: t.content,
+        flames: t.flames,
+        username: usernameMap[t.user_id],
+        topic_title: topicMap[t.topic_id].title,
+        topic_slug: topicMap[t.topic_id].slug,
+      }));
+  }
 
   // ── Parallel data fetches ──────────────────────────────────────────────────
   let subjectMap: Record<string, string> = {};
@@ -963,6 +1001,8 @@ export default async function Home({
 
         </div>
       </div>
+      {/* ── Hot Takes Ticker ── */}
+      <HotTakesTicker takes={tickerTakes} />
     </main>
   );
 }
