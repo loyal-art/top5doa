@@ -476,8 +476,7 @@ export default async function Home({
   // ── Hot takes for ticker ───────────────────────────────────────────────────
   const { data: tickerTakesRaw } = await supabase
     .from("hot_takes")
-    .select("id, content, flames, user_id, topic_id")
-    .gt("flames", 0)
+    .select("id, content, flames, trashes, user_id, topic_id, subject_id, attribute_id")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -485,10 +484,18 @@ export default async function Home({
   if (tickerTakesRaw && tickerTakesRaw.length > 0) {
     const takeUserIds = [...new Set(tickerTakesRaw.map((t) => t.user_id))];
     const takeTopicIds = [...new Set(tickerTakesRaw.map((t) => t.topic_id))];
+    const takeSubjectIds = [...new Set(tickerTakesRaw.map((t) => t.subject_id).filter(Boolean))] as string[];
+    const takeAttributeIds = [...new Set(tickerTakesRaw.map((t) => t.attribute_id).filter(Boolean))] as string[];
 
-    const [profilesRes, topicsRes] = await Promise.all([
+    const [profilesRes, topicsRes, subjectsRes, attrsRes] = await Promise.all([
       supabase.from("profiles").select("id, username").in("id", takeUserIds),
       supabase.from("topics").select("id, title, slug").in("id", takeTopicIds),
+      takeSubjectIds.length > 0
+        ? supabase.from("subjects").select("id, name").in("id", takeSubjectIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      takeAttributeIds.length > 0
+        ? supabase.from("attributes").select("id, name").in("id", takeAttributeIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     ]);
 
     const usernameMap = Object.fromEntries(
@@ -497,6 +504,12 @@ export default async function Home({
     const topicMap = Object.fromEntries(
       (topicsRes.data ?? []).map((t) => [t.id, { title: t.title, slug: t.slug }])
     );
+    const tickerSubjectMap = Object.fromEntries(
+      (subjectsRes.data ?? []).map((s) => [s.id, s.name])
+    );
+    const tickerAttrMap = Object.fromEntries(
+      (attrsRes.data ?? []).map((a) => [a.id, a.name])
+    );
 
     tickerTakes = tickerTakesRaw
       .filter((t) => usernameMap[t.user_id] && topicMap[t.topic_id])
@@ -504,9 +517,12 @@ export default async function Home({
         id: t.id,
         content: t.content,
         flames: t.flames,
+        trashes: t.trashes,
         username: usernameMap[t.user_id],
         topic_title: topicMap[t.topic_id].title,
         topic_slug: topicMap[t.topic_id].slug,
+        subject_name: t.subject_id ? (tickerSubjectMap[t.subject_id] ?? null) : null,
+        attribute_name: t.attribute_id ? (tickerAttrMap[t.attribute_id] ?? null) : null,
       }));
   }
 
@@ -1002,7 +1018,7 @@ export default async function Home({
         </div>
       </div>
       {/* ── Hot Takes Ticker ── */}
-      <HotTakesTicker takes={tickerTakes} />
+      <HotTakesTicker takes={tickerTakes} userId={user?.id ?? null} />
     </main>
   );
 }
