@@ -52,16 +52,11 @@ async function notifyAdmins(service: string) {
 function buildPosterPrompt(
   topicTitle: string,
   top5: { rank: number; name: string }[],
-  displayName: string,
-  username: string,
-  tier: string,
-  aura: number,
   styleDesc: string,
 ): string {
   const rankColors = ["gold", "silver", "emerald", "teal", "blue"];
   const items = top5.slice(0, 5);
   const firstName = items[0]?.name ?? "Unknown";
-  const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
   const rankingRows = items
     .map((item, i) => {
@@ -74,16 +69,18 @@ function buildPosterPrompt(
 
 Layout from top to bottom with clear spacing between each section:
 
-TOP SECTION: A gold metallic shield emblem with the number 5 inside it, centered. Below it in large bold metallic gold text: "${topicTitle}". A horizontal gold glowing line separates the title from the content below.
+TOP AREA (top 10% of image): Leave this area as plain dark background with subtle atmosphere only. Do NOT place any logo, emblem, shield, or text here — a real logo will be overlaid later.
+
+TITLE SECTION: Below the top area, show "${topicTitle}" in large bold metallic gold text, centered. A horizontal gold glowing line separates the title from the content below.
 
 MIDDLE SECTION: A visual representation of the #1 ranked item "${firstName}" — if it is a product show the product, if it is a person show a dramatic silhouette with energy effects, if it is a place show a scenic view. This visual should be behind/between the ranking rows as atmospheric art, not competing with the text.
 
 RANKING SECTION: 5 horizontal rows with dark translucent backgrounds, evenly spaced:
 ${rankingRows}
 
-BOTTOM SECTION: Left side shows a circular avatar with the letter "${initial}" inside, next to the text "${displayName}" and below that "@${username}" with a badge showing "${tier}" and "${aura.toLocaleString()} Aura". Right side shows "TOP5DOA.APP" in bright yellow neon text.
+BOTTOM AREA (bottom 15% of image): Leave this area as dark space — do NOT generate any username, avatar, app name, watermark, URL, or branding text here. This area will have content overlaid later. Just keep it dark/atmospheric.
 
-CRITICAL: Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
+CRITICAL: Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The top 10% and bottom 15% must be kept clear of text/logos. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -109,8 +106,8 @@ export async function POST(req: NextRequest) {
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.comic;
 
-  // Build the fully-detailed poster prompt with all text/rankings/branding baked in
-  const imagePrompt = buildPosterPrompt(topicTitle, top5, displayName || username, username, tier, aura, styleDesc);
+  // Build the poster prompt — AI renders title + rankings + art; we overlay logo/user/branding
+  const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
 
   // Generate image via OpenAI gpt-image-1-mini with full text instructions
   const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
