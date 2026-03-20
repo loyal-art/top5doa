@@ -312,6 +312,13 @@ export function Header() {
                 HOT TAKES
               </Link>
 
+              <Link
+                href="/groups"
+                className="text-sm font-mono text-neutral-500 hover:text-brand-accent transition-colors"
+              >
+                GROUPS
+              </Link>
+
               {notifBell}
 
               {isAdmin && (
@@ -452,6 +459,14 @@ export function Header() {
                       style={{ color: "#FF4500" }}
                     >
                       HOT TAKES
+                    </Link>
+                    <Link
+                      href="/groups"
+                      onClick={() => setMenuOpen(false)}
+                      className="px-5 py-3 text-sm font-mono text-neutral-400 hover:text-brand-accent
+                                 hover:bg-white/5 transition-colors"
+                    >
+                      GROUPS
                     </Link>
                     {isAdmin && (
                       <Link

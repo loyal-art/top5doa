@@ -663,6 +663,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      groups: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          created_at?: string;
+        };
+        Update: {
+          owner_id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      group_members: {
+        Row: {
+          id: string;
+          group_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          group_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       scoring_configs: {
         Row: {
           id: string;
