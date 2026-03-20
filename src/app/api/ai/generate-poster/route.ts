@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${openaiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-image-1-mini",
+      model: "gpt-image-1",
       prompt: imagePrompt,
       size: "1024x1024",
       quality: "medium",
