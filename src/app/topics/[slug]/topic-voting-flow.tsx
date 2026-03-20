@@ -9,7 +9,7 @@ import { ShareButton } from "@/components/share-button";
 import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
-import { awardAura, getTierForAura, getNextTier, getGlowColor } from "@/lib/aura";
+import { awardAura, getTierForAura, getNextTier, getGlowColor, getTierBadgeClasses } from "@/lib/aura";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -254,6 +254,15 @@ export function TopicVotingFlow({
   const [groupRankings, setGroupRankings] = useState<{ subject: Subject; score: number }[] | null>(null);
   const [groupLoading, setGroupLoading] = useState(false);
   const [selectedGroupName, setSelectedGroupName] = useState<string>("GLOBAL");
+
+  // AI Poster state
+  const [posterStylePickerOpen, setPosterStylePickerOpen] = useState(false);
+  const [posterGenerating, setPosterGenerating] = useState(false);
+  const [posterImageUrl, setPosterImageUrl] = useState<string | null>(null);
+  const [posterImageBase64, setPosterImageBase64] = useState<string | null>(null);
+  const [posterOverlayOpen, setPosterOverlayOpen] = useState(false);
+  const [posterError, setPosterError] = useState<string | null>(null);
+  const [posterGeneratedForTopic, setPosterGeneratedForTopic] = useState(false);
 
   // Hot Take state
   const [hotTakeOpen, setHotTakeOpen] = useState(false);
@@ -1216,6 +1225,147 @@ export function TopicVotingFlow({
       )}
     </>
   );
+
+  // ── AI Poster helpers ──────────────────────────────────────────────────────
+  const POSTER_STYLES = [
+    { id: "comic", label: "Comic", icon: "💥", desc: "Marvel splash page" },
+    { id: "anime", label: "Anime", icon: "⚔️", desc: "Epic battle scene" },
+    { id: "classic", label: "Classic", icon: "🎨", desc: "Renaissance painting" },
+    { id: "sports", label: "Sports", icon: "🏆", desc: "ESPN magazine cover" },
+    { id: "meme", label: "Meme", icon: "😂", desc: "Exaggerated cartoon" },
+  ] as const;
+
+  const POSTER_AURA_COST = 50;
+
+  const handleGeneratePoster = async (style: string) => {
+    if (!userId || !results.length) return;
+
+    // Aura gating: check if first generation for this topic
+    const isFirstGen = !posterGeneratedForTopic;
+
+    if (!isFirstGen) {
+      // Check aura balance
+      if (userAuraPoints < POSTER_AURA_COST) {
+        setPosterError(`Not enough Aura. You need ${POSTER_AURA_COST} Aura to regenerate.`);
+        return;
+      }
+    }
+
+    setPosterStylePickerOpen(false);
+    setPosterGenerating(true);
+    setPosterError(null);
+
+    const top5 = results.slice(0, 5).map((r, idx) => ({
+      rank: idx + 1,
+      name: r.subject.name,
+    }));
+
+    const tierName = getTierForAura(userAuraPoints);
+
+    try {
+      const res = await fetch("/api/ai/generate-poster", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicTitle: topic.title,
+          top5,
+          username: username ?? "anonymous",
+          tier: tierName,
+          aura: userAuraPoints,
+          style,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to generate poster (${res.status})`);
+      }
+
+      const data = await res.json();
+
+      if (data.imageUrl) {
+        setPosterImageUrl(data.imageUrl);
+        setPosterImageBase64(null);
+      } else if (data.imageBase64) {
+        setPosterImageBase64(data.imageBase64);
+        setPosterImageUrl(null);
+      } else {
+        throw new Error("No image returned from API");
+      }
+
+      // Deduct aura for regeneration (not first time)
+      if (!isFirstGen) {
+        await supabase.rpc("award_aura", {
+          p_user_id: userId,
+          p_action: "poster_generated",
+          p_points: -POSTER_AURA_COST,
+          p_reference_id: topic.id,
+        });
+        setUserAuraPoints((prev) => prev - POSTER_AURA_COST);
+      } else {
+        // Log first free generation
+        await supabase.from("aura_log").insert({
+          user_id: userId,
+          action: "poster_generated",
+          points: 0,
+          reference_id: topic.id,
+        });
+      }
+
+      setPosterGeneratedForTopic(true);
+      setPosterOverlayOpen(true);
+    } catch (err) {
+      setPosterError(err instanceof Error ? err.message : "Failed to generate poster");
+    } finally {
+      setPosterGenerating(false);
+    }
+  };
+
+  const posterImageSrc = posterImageBase64
+    ? `data:image/png;base64,${posterImageBase64}`
+    : posterImageUrl;
+
+  const handleDownloadPoster = () => {
+    if (!posterImageSrc) return;
+    const link = document.createElement("a");
+    link.download = `top5-poster-${topic.slug ?? "list"}.png`;
+    link.href = posterImageSrc;
+    link.click();
+  };
+
+  const handleSharePoster = (platform: "facebook" | "twitter" | "whatsapp") => {
+    if (!listUrl) return;
+    const text = `Check out my AI-generated TOP 5 poster for ${topic.title}`;
+    switch (platform) {
+      case "facebook":
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(listUrl)}`, "_blank", "noopener");
+        break;
+      case "twitter":
+        window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(listUrl)}`, "_blank", "noopener");
+        break;
+      case "whatsapp":
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + " " + listUrl)}`, "_blank", "noopener");
+        break;
+    }
+    handleShareAura();
+  };
+
+  // Check on mount if poster was already generated for this topic
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("aura_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("action", "poster_generated")
+      .eq("reference_id", topic.id)
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setPosterGeneratedForTopic(true);
+        }
+      });
+  }, [userId, topic.id, supabase]);
 
   if (!attributes.length || !subjects.length) {
     return (
@@ -2729,8 +2879,36 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* Hot Takes button */}
-              <div className="pt-1">
+              {/* AI Poster + Hot Takes buttons */}
+              <div className="pt-1 space-y-3">
+                {userId && (
+                  <button
+                    onClick={() => {
+                      setPosterError(null);
+                      setPosterStylePickerOpen(true);
+                    }}
+                    disabled={posterGenerating}
+                    className="w-full px-5 py-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5
+                               font-mono font-bold text-sm transition-colors hover:bg-purple-500/10 hover:border-purple-500/50
+                               disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{ color: "#A855F7" }}
+                  >
+                    {posterGenerating ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Generating your poster...
+                      </>
+                    ) : (
+                      "✨ Generate AI Poster"
+                    )}
+                  </button>
+                )}
+                {posterError && (
+                  <p className="text-red-400 text-xs font-mono text-center">{posterError}</p>
+                )}
                 <button
                   onClick={() => openHtOverlay(null)}
                   className="w-full px-5 py-3.5 rounded-xl border border-[#FF4500]/30 bg-[#FF4500]/5
@@ -2878,6 +3056,172 @@ export function TopicVotingFlow({
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* AI Poster — Style Picker Modal */}
+      {posterStylePickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setPosterStylePickerOpen(false); }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-brand-border bg-brand-bg p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide">CHOOSE ART STYLE</h3>
+              <button
+                onClick={() => setPosterStylePickerOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs font-mono text-neutral-500">
+              {posterGeneratedForTopic
+                ? `Regeneration costs ${POSTER_AURA_COST} Aura (you have ${userAuraPoints.toLocaleString()})`
+                : "First poster FREE! Regeneration costs 50 Aura."}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {POSTER_STYLES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleGeneratePoster(s.id)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-brand-border bg-brand-surface
+                             hover:border-purple-500/50 hover:bg-purple-500/5 transition-all group"
+                >
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{s.icon}</span>
+                  <span className="font-mono text-sm font-bold text-white">{s.label}</span>
+                  <span className="text-xs text-neutral-500 text-center">{s.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Poster — Result Overlay */}
+      {posterOverlayOpen && posterImageSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setPosterOverlayOpen(false); }}
+        >
+          <div className="relative w-full max-w-2xl flex flex-col items-center gap-4 max-h-[90vh] overflow-y-auto">
+            {/* Close button */}
+            <button
+              onClick={() => setPosterOverlayOpen(false)}
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 flex items-center justify-center rounded-full
+                         bg-neutral-900 border border-neutral-700 text-neutral-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+
+            {/* Poster image */}
+            <div className="relative w-full rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 border border-neutral-800">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={posterImageSrc}
+                alt={`AI Poster for ${topic.title}`}
+                className="w-full h-auto"
+              />
+              {/* User info overlay at bottom */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-neutral-800 border border-brand-accent/30 flex items-center justify-center">
+                      <span className="font-display text-sm text-brand-accent">
+                        {(displayName || username || "?").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      {displayName && (
+                        <p className="text-white text-sm font-bold">{displayName}</p>
+                      )}
+                      {username && (
+                        <p className="text-neutral-400 text-xs">@{username}</p>
+                      )}
+                    </div>
+                    {userId && (() => {
+                      const tierName = getTierForAura(userAuraPoints);
+                      return (
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getTierBadgeClasses(tierName)}`}>
+                            {tierName}
+                          </span>
+                          <span className="text-xs font-mono text-neutral-400">
+                            {userAuraPoints.toLocaleString()} Aura
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <span className="font-display text-sm tracking-wider" style={{ color: "#e8ff00" }}>
+                    TOP5DOA.APP
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={handleDownloadPoster}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+                </svg>
+                Download PNG
+              </button>
+              <button
+                onClick={() => handleSharePoster("twitter")}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+                Share to X
+              </button>
+              <button
+                onClick={() => handleSharePoster("facebook")}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+                Facebook
+              </button>
+              <button
+                onClick={() => handleSharePoster("whatsapp")}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                </svg>
+                WhatsApp
+              </button>
+              <button
+                onClick={() => {
+                  setPosterOverlayOpen(false);
+                  setPosterStylePickerOpen(true);
+                }}
+                className="px-5 py-2.5 rounded-xl border border-purple-500/30 bg-purple-500/5
+                           text-purple-400 font-mono text-sm hover:bg-purple-500/10 hover:border-purple-500/50 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Regenerate{posterGeneratedForTopic ? ` (${POSTER_AURA_COST} Aura)` : ""}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
