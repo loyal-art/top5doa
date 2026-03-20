@@ -153,6 +153,7 @@ function TopicCard({
   viewCount,
   creatorUsername,
   heatingUp,
+  voterCount,
 }: {
   topic: Topic;
   attributes: { id: string; name: string }[];
@@ -161,6 +162,7 @@ function TopicCard({
   viewCount: number;
   creatorUsername: string | null;
   heatingUp: boolean;
+  voterCount: number;
 }) {
   const MAX_CHIPS = 3;
   const visibleAttrs = attributes.slice(0, MAX_CHIPS);
@@ -308,6 +310,11 @@ function TopicCard({
             <span className="w-1.5 h-1.5 rounded-full bg-brand-aura/60" />
             {formatCount(viewCount)} views
           </span>
+          {voterCount >= 10 && (
+            <span className="text-xs font-mono text-neutral-400">
+              👥 {voterCount} voters
+            </span>
+          )}
           <ShareButton title={topic.title} path={`/topics/${topic.slug}`} />
         </div>
       </div>
@@ -542,9 +549,10 @@ export default async function Home({
   let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
   let heatingUpTopics: Set<string> = new Set();
   let hotTakeContentByTopic: Record<string, string[]> = {};
+  let voterCountByTopic: Record<string, number> = {};
 
   if (topicIds.length > 0) {
-    const [subjectsRes, attrsRes, rankingsList, heatRes] = await Promise.all([
+    const [subjectsRes, attrsRes, rankingsList, heatRes, voterListsRes] = await Promise.all([
       supabase
         .from("subjects")
         .select("id, topic_id, name")
@@ -566,6 +574,11 @@ export default async function Home({
       supabase
         .from("hot_takes")
         .select("topic_id, subject_id, flames, content")
+        .in("topic_id", topicIds),
+      // Voter counts: distinct user_id per topic
+      supabase
+        .from("user_lists")
+        .select("topic_id, user_id")
         .in("topic_id", topicIds),
     ]);
 
@@ -608,6 +621,16 @@ export default async function Home({
       if (Object.values(subjects).some((total) => total >= 20)) {
         heatingUpTopics.add(topicId);
       }
+    }
+
+    // Voter counts: count distinct users per topic
+    const votersByTopic: Record<string, Set<string>> = {};
+    (voterListsRes.data ?? []).forEach((r: { topic_id: string; user_id: string }) => {
+      if (!votersByTopic[r.topic_id]) votersByTopic[r.topic_id] = new Set();
+      votersByTopic[r.topic_id].add(r.user_id);
+    });
+    for (const [topicId, users] of Object.entries(votersByTopic)) {
+      voterCountByTopic[topicId] = users.size;
     }
 
     // Current user's voted topics
@@ -1006,6 +1029,7 @@ export default async function Home({
                   viewCount={topic.view_count ?? 0}
                   creatorUsername={topic.created_by ? creatorUsernameMap[topic.created_by] ?? null : null}
                   heatingUp={heatingUpTopics.has(topic.id)}
+                  voterCount={voterCountByTopic[topic.id] ?? 0}
                 />
               ))}
             </TopicFeed>
