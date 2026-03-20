@@ -166,6 +166,15 @@ export function Header() {
                 FEED
               </Link>
 
+              {/* Leaderboard link */}
+              <Link
+                href="/leaderboard"
+                className="text-sm font-mono brand-glow transition-colors"
+                style={{ color: "#FFD700" }}
+              >
+                LEADERBOARD
+              </Link>
+
               {/* Hot Takes link */}
               <Link
                 href="/hot-takes"

@@ -7,6 +7,7 @@ import type { SuggestionRow } from "@/components/suggested-topics-panel";
 import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 import { brandHighlight } from "@/lib/utils";
 import { TopicFeed } from "@/components/topic-feed";
+import { getTierForAura, getGlowColor } from "@/lib/aura";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -463,6 +464,14 @@ export default async function Home({
     });
   }
 
+  // ── Top 3 Aura leaders ──────────────────────────────────────────────────────
+  const { data: auraLeaders } = await supabase
+    .from("profiles")
+    .select("id, display_name, username, avatar_url, aura_points")
+    .order("aura_points", { ascending: false })
+    .limit(3);
+  const top3Aura = (auraLeaders ?? []).filter((p) => p.aura_points > 0);
+
   // ── Parallel data fetches ──────────────────────────────────────────────────
   let subjectMap: Record<string, string> = {};
   let subjectsByTopic: Record<string, string[]> = {};
@@ -799,6 +808,78 @@ export default async function Home({
                 <p className="text-xs font-mono text-neutral-700 px-2">No debates yet</p>
               )}
             </div>
+
+            {/* Top 3 Aura */}
+            {top3Aura.length > 0 && (
+              <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="font-display text-xs tracking-[0.2em] text-neutral-500">
+                    TOP 3 <span style={{ color: "#FFD700" }}>AURA</span>
+                  </h3>
+                  <Link
+                    href="/leaderboard"
+                    className="text-[10px] font-mono text-neutral-600 hover:text-brand-accent transition-colors"
+                  >
+                    View all →
+                  </Link>
+                </div>
+                <ol className="flex flex-col gap-1">
+                  {top3Aura.map((leader, i) => {
+                    const tierName = getTierForAura(leader.aura_points);
+                    const glowColor = getGlowColor(tierName);
+                    const avatarGlow =
+                      glowColor === "rainbow"
+                        ? { boxShadow: "0 0 0 2px #e8ff00, 0 0 6px 1px rgba(232,255,0,0.3)" }
+                        : { boxShadow: `0 0 0 2px ${glowColor}, 0 0 6px 1px ${glowColor}30` };
+                    const medalColor = i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : "#CD7F32";
+                    return (
+                      <li key={leader.id}>
+                        <Link
+                          href={`/profile/${leader.username}`}
+                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors duration-150"
+                        >
+                          <span
+                            className="font-display text-base leading-none w-4 text-right flex-shrink-0"
+                            style={{ color: medalColor }}
+                          >
+                            {i + 1}
+                          </span>
+                          {leader.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={leader.avatar_url}
+                              alt=""
+                              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                              style={avatarGlow}
+                            />
+                          ) : (
+                            <div
+                              className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-accent/10"
+                              style={avatarGlow}
+                            >
+                              <span className="font-display text-[10px] text-brand-accent">
+                                {leader.display_name.split(" ").map((w) => w[0] ?? "").slice(0, 2).join("").toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-body text-neutral-300 truncate">
+                              {leader.display_name}
+                            </p>
+                          </div>
+                          <span
+                            className="text-xs font-mono font-bold flex-shrink-0"
+                            style={{ color: "#FFD700" }}
+                          >
+                            {leader.aura_points.toLocaleString()}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
 
           </aside>
 
