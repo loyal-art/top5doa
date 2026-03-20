@@ -260,7 +260,6 @@ export function TopicVotingFlow({
   const [posterGenerating, setPosterGenerating] = useState(false);
   const [posterImageUrl, setPosterImageUrl] = useState<string | null>(null);
   const [posterImageBase64, setPosterImageBase64] = useState<string | null>(null);
-  const [posterCompositeDataUrl, setPosterCompositeDataUrl] = useState<string | null>(null);
   const [posterOverlayOpen, setPosterOverlayOpen] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterGeneratedForTopic, setPosterGeneratedForTopic] = useState(false);
@@ -1284,52 +1283,15 @@ export function TopicVotingFlow({
 
       const data = await res.json();
 
-      let aiSrc: string;
       if (data.imageUrl) {
         setPosterImageUrl(data.imageUrl);
         setPosterImageBase64(null);
-        aiSrc = data.imageUrl;
       } else if (data.imageBase64) {
         setPosterImageBase64(data.imageBase64);
         setPosterImageUrl(null);
-        aiSrc = `data:image/png;base64,${data.imageBase64}`;
       } else {
         throw new Error("No image returned from API");
       }
-
-      // Set the AI background, then wait a tick for the hidden composite div to render
-      // before capturing it with html2canvas
-      setPosterImageUrl(data.imageUrl ?? null);
-      setPosterImageBase64(data.imageBase64 ?? null);
-
-      // Wait for the hidden composite card to render with the AI bg
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      await document.fonts.ready;
-
-      // Pre-load the AI image so html2canvas can paint it
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Failed to load AI image"));
-        img.src = aiSrc;
-      });
-
-      // Small extra tick for the DOM to settle
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const compositeEl = document.getElementById("poster-composite-card");
-      if (!compositeEl) throw new Error("Composite card element not found");
-
-      const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
-      const canvas = await html2canvas(compositeEl, {
-        width: 1080,
-        height: 1080,
-        scale: 1,
-        useCORS: true,
-        backgroundColor: "#0a0a0a",
-      });
-      setPosterCompositeDataUrl(canvas.toDataURL("image/png"));
 
       // Deduct aura for regeneration (not first time)
       if (!isFirstGen) {
@@ -1359,15 +1321,15 @@ export function TopicVotingFlow({
     }
   };
 
-  const posterAiImageSrc = posterImageBase64
+  const posterImageSrc = posterImageBase64
     ? `data:image/png;base64,${posterImageBase64}`
     : posterImageUrl;
 
   const handleDownloadPoster = () => {
-    if (!posterCompositeDataUrl) return;
+    if (!posterImageSrc) return;
     const link = document.createElement("a");
     link.download = `top5-poster-${topic.slug ?? "list"}.png`;
-    link.href = posterCompositeDataUrl;
+    link.href = posterImageSrc;
     link.click();
   };
 
@@ -2874,345 +2836,6 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* AI Poster composite card — hidden off-screen, captured by html2canvas */}
-              {posterAiImageSrc && (
-              <div
-                id="poster-composite-card"
-                style={{
-                  position: "fixed",
-                  left: "-9999px",
-                  top: 0,
-                  width: "1080px",
-                  height: "1080px",
-                  overflow: "hidden",
-                  boxSizing: "border-box",
-                  fontFamily: "'DM Sans', sans-serif",
-                  contain: "layout",
-                  border: "2px solid rgba(255,215,0,0.35)",
-                }}
-              >
-                {/* AI-generated background image */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={posterAiImageSrc}
-                  alt=""
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: "1080px",
-                    height: "1080px",
-                    objectFit: "cover",
-                    zIndex: 0,
-                  }}
-                />
-                {/* Dark overlay for text readability */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.4)",
-                  zIndex: 1,
-                }} />
-
-                {/* Inner subtle frame inset */}
-                <div style={{
-                  position: "absolute",
-                  inset: "6px",
-                  border: "1px solid rgba(255,215,0,0.12)",
-                  borderRadius: "2px",
-                  pointerEvents: "none",
-                  zIndex: 2,
-                }} />
-
-                {/* Logo section — centered at top */}
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  paddingTop: "56px",
-                  paddingBottom: "20px",
-                  flexShrink: 0,
-                  position: "relative",
-                  zIndex: 3,
-                }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/images/logo-full.png"
-                    alt="TOP5DOA"
-                    style={{ height: "88px", width: "auto", objectFit: "contain" }}
-                  />
-                </div>
-
-                {/* Topic title */}
-                <div style={{
-                  padding: "0 80px 32px",
-                  textAlign: "center",
-                  flexShrink: 0,
-                  position: "relative",
-                  zIndex: 3,
-                }}>
-                  <div style={{
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: "17px",
-                    color: "rgba(255,255,255,0.7)",
-                    letterSpacing: "5px",
-                    textTransform: "uppercase",
-                    marginBottom: "14px",
-                    textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                  }}>
-                    My Top 5
-                  </div>
-                  {selectedGroupId !== "global" && (
-                    <div style={{
-                      fontFamily: "'Space Mono', monospace",
-                      fontSize: "13px",
-                      color: "#e8ff00",
-                      letterSpacing: "3px",
-                      textTransform: "uppercase",
-                      marginBottom: "8px",
-                      marginTop: "-8px",
-                      textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                    }}>
-                      Group: {selectedGroupName}
-                    </div>
-                  )}
-                  {/* Title with gold "TOP" and "5" treatment */}
-                  <div style={{
-                    fontFamily: "'Bebas Neue', Impact, sans-serif",
-                    fontSize: "48px",
-                    lineHeight: 1.15,
-                    letterSpacing: "2px",
-                    wordBreak: "break-word",
-                    overflow: "visible",
-                    textShadow: "0 2px 12px rgba(0,0,0,0.9)",
-                  }}>
-                    {(() => {
-                      const title = topic.title.toUpperCase();
-                      const parts = title.split(/(TOP|(?<!\d)5(?!\d))/g);
-                      return parts.map((part, i) => {
-                        if (part === "TOP" || part === "5") {
-                          return <span key={i} style={{ color: "#FFD700" }}>{part}</span>;
-                        }
-                        return <span key={i} style={{ color: "#ffffff" }}>{part}</span>;
-                      });
-                    })()}
-                  </div>
-                  {/* Thin gold divider */}
-                  <div style={{
-                    height: "1px",
-                    background: "linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.4) 30%, rgba(255,215,0,0.4) 70%, transparent 100%)",
-                    marginTop: "24px",
-                  }} />
-                </div>
-
-                {/* Rankings list */}
-                <div style={{
-                  padding: "0 56px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "14px",
-                  flex: 1,
-                  position: "relative",
-                  zIndex: 3,
-                }}>
-                  {(() => {
-                    const top5 = results.slice(0, 5);
-                    const rankColors = [
-                      "#FFD700", "#E6C200", "#C0C0C0", "#A9A9A9", "#808080",
-                    ];
-                    const hslAccentColors = [
-                      "hsl(0, 85%, 50%)", "hsl(30, 95%, 50%)", "hsl(55, 90%, 50%)",
-                      "hsl(80, 85%, 45%)", "hsl(210, 85%, 55%)",
-                    ];
-                    return top5.map((r, idx) => {
-                      const rankColor = rankColors[idx] ?? "#808080";
-                      const accentColor = hslAccentColors[idx] ?? "hsl(210, 85%, 55%)";
-                      const isFirst = idx === 0;
-                      return (
-                        <div
-                          key={r.subject.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "16px",
-                            position: "relative",
-                            background: isFirst
-                              ? "radial-gradient(circle at left, rgba(255,215,0,0.25), transparent 70%)"
-                              : "none",
-                            borderRadius: "12px",
-                            padding: "4px 0",
-                          }}
-                        >
-                          <div style={{
-                            fontFamily: "'Bebas Neue', Impact, sans-serif",
-                            fontSize: isFirst ? "96px" : "80px",
-                            width: "96px",
-                            textAlign: "center",
-                            color: rankColor,
-                            flexShrink: 0,
-                            lineHeight: 1,
-                            textShadow: "0 2px 12px rgba(0,0,0,0.8)",
-                          }}>
-                            {idx + 1}
-                          </div>
-                          <div style={{
-                            flex: 1,
-                            height: isFirst ? "88px" : "76px",
-                            borderRadius: "10px",
-                            background: "rgba(0,0,0,0.45)",
-                            border: isFirst
-                              ? "1px solid rgba(255,215,0,0.3)"
-                              : "1px solid rgba(255,255,255,0.1)",
-                            position: "relative",
-                            overflow: "hidden",
-                            display: "flex",
-                            alignItems: "center",
-                            paddingLeft: "20px",
-                            paddingRight: "24px",
-                            backdropFilter: "blur(4px)",
-                          }}>
-                            <div style={{
-                              position: "absolute",
-                              left: 0,
-                              top: 0,
-                              bottom: 0,
-                              width: "3px",
-                              background: accentColor,
-                              borderRadius: "10px 0 0 10px",
-                            }} />
-                            <span style={{
-                              fontFamily: "'DM Sans', sans-serif",
-                              fontSize: isFirst ? "32px" : "28px",
-                              fontWeight: 700,
-                              color: "#ffffff",
-                              letterSpacing: "0.3px",
-                              flex: 1,
-                              paddingLeft: "14px",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              textShadow: "0 2px 8px rgba(0,0,0,0.9)",
-                            }}>
-                              {r.subject.name}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-
-                {/* Footer — absolutely anchored to the bottom */}
-                <div style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: "28px 56px 40px",
-                  background: "linear-gradient(0deg, rgba(0,0,0,0.95) 60%, transparent)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-end",
-                  zIndex: 4,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-                    <div style={{
-                      width: "64px",
-                      height: "64px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
-                      border: "2px solid rgba(255,215,0,0.3)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      overflow: "hidden",
-                    }}>
-                      <span style={{
-                        fontFamily: "'Bebas Neue', Impact, sans-serif",
-                        fontSize: "28px",
-                        color: "#FFD700",
-                        lineHeight: 1,
-                      }}>
-                        {(displayName || username || "?").charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                      {displayName && (
-                        <span style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: "24px",
-                          fontWeight: 700,
-                          color: "#ffffff",
-                          lineHeight: 1.2,
-                          textShadow: "0 1px 6px rgba(0,0,0,0.8)",
-                        }}>
-                          {displayName}
-                        </span>
-                      )}
-                      {username && (
-                        <span style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: "17px",
-                          color: "#999999",
-                          fontWeight: 400,
-                          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
-                        }}>
-                          @{username}
-                        </span>
-                      )}
-                      {userId && (() => {
-                        const tierName = getTierForAura(userAuraPoints);
-                        const glowColor = getGlowColor(tierName);
-                        const safeGlow = glowColor === "rainbow" ? "#ffffff" : glowColor;
-                        const rv = parseInt(safeGlow.slice(1, 3), 16);
-                        const gv = parseInt(safeGlow.slice(3, 5), 16);
-                        const bv = parseInt(safeGlow.slice(5, 7), 16);
-                        return (
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
-                            <span style={{
-                              fontFamily: "'DM Sans', sans-serif",
-                              fontSize: "14px",
-                              fontWeight: 800,
-                              color: "#ffffff",
-                              background: `rgba(${rv},${gv},${bv},0.35)`,
-                              border: `1px solid rgba(${rv},${gv},${bv},0.7)`,
-                              borderRadius: "6px",
-                              padding: "4px 12px",
-                              textTransform: "uppercase",
-                              letterSpacing: "1.5px",
-                              boxShadow: `0 0 14px rgba(${rv},${gv},${bv},0.45)`,
-                            }}>
-                              {tierName}
-                            </span>
-                            <span style={{
-                              fontFamily: "'Bebas Neue', Impact, sans-serif",
-                              fontSize: "20px",
-                              color: safeGlow,
-                              letterSpacing: "2px",
-                              textShadow: `0 0 12px rgba(${rv},${gv},${bv},0.5)`,
-                            }}>
-                              {userAuraPoints.toLocaleString()} AURA
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{
-                      fontFamily: "'Bebas Neue', Impact, sans-serif",
-                      fontSize: "30px",
-                      color: "#e8ff00",
-                      letterSpacing: "3px",
-                      textShadow: "0 0 20px rgba(232,255,0,0.4)",
-                    }}>
-                      TOP5DOA.APP
-                    </span>
-                  </div>
-                </div>
-              </div>
-              )}
-
               {/* Action buttons row */}
               <div className="flex flex-wrap justify-start gap-3 pt-2">
                 <button
@@ -3476,7 +3099,7 @@ export function TopicVotingFlow({
       )}
 
       {/* AI Poster — Result Overlay */}
-      {posterOverlayOpen && posterCompositeDataUrl && (
+      {posterOverlayOpen && posterImageSrc && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setPosterOverlayOpen(false); }}
@@ -3491,11 +3114,11 @@ export function TopicVotingFlow({
               ✕
             </button>
 
-            {/* Composite poster image */}
+            {/* AI-generated poster image */}
             <div className="relative w-full rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 border border-neutral-800">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={posterCompositeDataUrl}
+                src={posterImageSrc}
                 alt={`AI Poster for ${topic.title}`}
                 className="w-full h-auto"
               />

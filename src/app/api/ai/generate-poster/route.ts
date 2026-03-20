@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
-  comic: "Marvel comic book splash page with dramatic lighting, bold outlines, and action poses",
+  comic: "Marvel comic book splash page with dramatic lighting, bold outlines, energy effects, and vibrant colors",
   anime: "dramatic anime battle scene with dynamic energy effects, speed lines, and epic composition",
   classic: "renaissance oil painting with dramatic chiaroscuro lighting and classical composition",
-  sports: "ESPN magazine cover with bold typography, dramatic athlete poses, and stadium lighting",
+  sports: "ESPN magazine cover with bold typography, dramatic spotlight lighting, and stadium atmosphere",
   meme: "exaggerated cartoon style with over-the-top expressions, bright colors, and meme energy",
 };
 
@@ -49,6 +49,41 @@ async function notifyAdmins(service: string) {
   }
 }
 
+function buildPosterPrompt(
+  topicTitle: string,
+  top5: { rank: number; name: string }[],
+  username: string,
+  tier: string,
+  aura: number,
+  styleDesc: string,
+): string {
+  const rankColors = ["gold", "silver", "green", "teal", "blue"];
+  const rankingLines = top5
+    .slice(0, 5)
+    .map((item, i) => {
+      const color = rankColors[i] ?? "blue";
+      return `Row ${item.rank}: A large metallic "${item.rank}" number on the left inside a ${color} colored box, with "${item.name}" in white bold text to the right. Each row has a dark translucent background bar with a subtle ${color}-tinted border.`;
+    })
+    .join("\n");
+
+  return `Create a polished, professional ranking poster image. Style: ${styleDesc}.
+
+Background: dark space/galaxy theme with gold particle effects and subtle lens flares.
+
+At the top center, show a metallic gold shield emblem with "TOP 5" text inside it.
+
+Below that, display the title "${topicTitle}" in bold metallic gold text, centered. A horizontal gold glowing line separates the title from the rankings below.
+
+Show 5 ranking rows stacked vertically:
+${rankingLines}
+
+At the bottom left, show a circular avatar frame with the letter "${(username || "?").charAt(0).toUpperCase()}" inside, next to the text "${username}" and a tier badge showing "${tier} • ${aura.toLocaleString()} Aura".
+
+At the bottom right, show "TOP5DOA.APP" in bright yellow neon glowing text.
+
+The overall style should look like a premium ESPN or Spotify Wrapped graphic — cinematic, editorial, and social-media ready. Make the text crisp and readable. Do NOT include any real human faces or likenesses. Use abstract/symbolic imagery only.`;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { topicTitle, top5, username, tier, aura, style } = body as {
@@ -64,11 +99,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not configured" }, { status: 500 });
-  }
-
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 500 });
@@ -76,49 +106,10 @@ export async function POST(req: NextRequest) {
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.comic;
 
-  // Step 1: Generate image prompt via Claude
-  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      system: `You are an expert art director. Generate a detailed image generation prompt for a dramatic poster showing a Top 5 ranking. The #1 item should be the hero/centerpiece. The style should be: ${styleDesc}. Include the topic title "${topicTitle}" as text at the top. Make it bold, dynamic, and social-media worthy. Do NOT include any real people's faces or likenesses. Return ONLY the image prompt text, nothing else.`,
-      messages: [
-        {
-          role: "user",
-          content: `Create a poster image prompt for this Top 5 list:\n\nTopic: ${topicTitle}\n\n${top5.map((item) => `#${item.rank} - ${item.name}`).join("\n")}\n\nBy: @${username} (${tier} tier, ${aura} Aura)`,
-        },
-      ],
-    }),
-  });
+  // Build the fully-detailed poster prompt with all text/rankings/branding baked in
+  const imagePrompt = buildPosterPrompt(topicTitle, top5, username, tier, aura, styleDesc);
 
-  if (!claudeRes.ok) {
-    const text = await claudeRes.text();
-
-    if (isBillingError(claudeRes.status, text)) {
-      await notifyAdmins("Anthropic");
-      return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
-    }
-
-    return NextResponse.json(
-      { error: `Claude API error: ${claudeRes.status} ${text}` },
-      { status: 502 }
-    );
-  }
-
-  const claudeData = await claudeRes.json();
-  const imagePrompt = claudeData.content?.[0]?.text;
-
-  if (!imagePrompt) {
-    return NextResponse.json({ error: "No prompt generated from Claude" }, { status: 502 });
-  }
-
-  // Step 2: Generate image via OpenAI
+  // Generate image via OpenAI gpt-image-1-mini with full text instructions
   const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
