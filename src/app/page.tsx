@@ -541,6 +541,7 @@ export default async function Home({
   let votedTopicIds: Set<string> = new Set();
   let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
   let heatingUpTopics: Set<string> = new Set();
+  let hotTakeContentByTopic: Record<string, string[]> = {};
 
   if (topicIds.length > 0) {
     const [subjectsRes, attrsRes, rankingsList, heatRes] = await Promise.all([
@@ -561,12 +562,11 @@ export default async function Home({
           return { topicId: t.id, rankings: (data ?? []) as GlobalRanking[] };
         })
       ),
-      // Heat data: all hot takes with a subject for these topics
+      // Hot takes data: heat indicators + content for search
       supabase
         .from("hot_takes")
-        .select("topic_id, subject_id, flames")
-        .in("topic_id", topicIds)
-        .not("subject_id", "is", null),
+        .select("topic_id, subject_id, flames, content")
+        .in("topic_id", topicIds),
     ]);
 
     // Subject id → name map + subjects grouped by topic
@@ -592,9 +592,13 @@ export default async function Home({
         }));
     });
 
-    // Compute which topics have a subject with 20+ total flames
+    // Compute heat data + hot take content per topic
     const heatByTopicSubject: Record<string, Record<string, number>> = {};
-    (heatRes.data ?? []).forEach((r: { topic_id: string; subject_id: string | null; flames: number }) => {
+    (heatRes.data ?? []).forEach((r: { topic_id: string; subject_id: string | null; flames: number; content: string }) => {
+      // Collect content for search
+      if (!hotTakeContentByTopic[r.topic_id]) hotTakeContentByTopic[r.topic_id] = [];
+      hotTakeContentByTopic[r.topic_id].push(r.content);
+      // Heat aggregation (subject-level)
       if (!r.subject_id) return;
       if (!heatByTopicSubject[r.topic_id]) heatByTopicSubject[r.topic_id] = {};
       heatByTopicSubject[r.topic_id][r.subject_id] =
@@ -991,7 +995,7 @@ export default async function Home({
               })}
             </div>
 
-            <TopicFeed titles={displayTopics.map((t) => t.title)} subjectNames={displayTopics.map((t) => subjectsByTopic[t.id] ?? [])}>
+            <TopicFeed titles={displayTopics.map((t) => t.title)} subjectNames={displayTopics.map((t) => subjectsByTopic[t.id] ?? [])} hotTakeContents={displayTopics.map((t) => hotTakeContentByTopic[t.id] ?? [])}>
               {displayTopics.map((topic) => (
                 <TopicCard
                   key={topic.id}
