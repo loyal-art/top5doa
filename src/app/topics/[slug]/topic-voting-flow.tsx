@@ -260,6 +260,7 @@ export function TopicVotingFlow({
   const [posterGenerating, setPosterGenerating] = useState(false);
   const [posterImageUrl, setPosterImageUrl] = useState<string | null>(null);
   const [posterImageBase64, setPosterImageBase64] = useState<string | null>(null);
+  const [posterCompositeDataUrl, setPosterCompositeDataUrl] = useState<string | null>(null);
   const [posterOverlayOpen, setPosterOverlayOpen] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterGeneratedForTopic, setPosterGeneratedForTopic] = useState(false);
@@ -1284,15 +1285,46 @@ export function TopicVotingFlow({
 
       const data = await res.json();
 
+      let aiSrc: string;
       if (data.imageUrl) {
         setPosterImageUrl(data.imageUrl);
         setPosterImageBase64(null);
+        aiSrc = data.imageUrl;
       } else if (data.imageBase64) {
         setPosterImageBase64(data.imageBase64);
         setPosterImageUrl(null);
+        aiSrc = `data:image/png;base64,${data.imageBase64}`;
       } else {
         throw new Error("No image returned from API");
       }
+
+      // Wait for the hidden composite card to render with the AI background
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await document.fonts.ready;
+
+      // Pre-load the AI image so html2canvas can paint it
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load AI image"));
+        img.src = aiSrc;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const compositeEl = document.getElementById("poster-composite-card");
+      if (!compositeEl) throw new Error("Composite card element not found");
+
+      const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
+      const canvas = await html2canvas(compositeEl, {
+        width: 1080,
+        height: 1080,
+        scale: 1,
+        useCORS: true,
+        backgroundColor: "#0a0a0a",
+      });
+      setPosterCompositeDataUrl(canvas.toDataURL("image/png"));
 
       // Deduct aura for regeneration (not first time)
       if (!isFirstGen) {
@@ -1322,15 +1354,15 @@ export function TopicVotingFlow({
     }
   };
 
-  const posterImageSrc = posterImageBase64
+  const posterAiSrc = posterImageBase64
     ? `data:image/png;base64,${posterImageBase64}`
     : posterImageUrl;
 
   const handleDownloadPoster = () => {
-    if (!posterImageSrc) return;
+    if (!posterCompositeDataUrl) return;
     const link = document.createElement("a");
     link.download = `top5-poster-${topic.slug ?? "list"}.png`;
-    link.href = posterImageSrc;
+    link.href = posterCompositeDataUrl;
     link.click();
   };
 
@@ -2837,6 +2869,185 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
+              {/* Hybrid poster composite — AI image bg + overlaid logo, user info, branding */}
+              {posterAiSrc && (
+              <div
+                id="poster-composite-card"
+                style={{
+                  position: "fixed",
+                  left: "-9999px",
+                  top: 0,
+                  width: "1080px",
+                  height: "1080px",
+                  overflow: "hidden",
+                  boxSizing: "border-box",
+                  fontFamily: "'DM Sans', sans-serif",
+                  contain: "layout",
+                }}
+              >
+                {/* AI-generated poster as full background */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={posterAiSrc}
+                  alt=""
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "1080px",
+                    height: "1080px",
+                    objectFit: "cover",
+                    zIndex: 0,
+                  }}
+                />
+
+                {/* TOP: Real logo overlay */}
+                <div style={{
+                  position: "absolute",
+                  top: "28px",
+                  left: 0,
+                  right: 0,
+                  display: "flex",
+                  justifyContent: "center",
+                  zIndex: 3,
+                }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/logo-full.png"
+                    alt="TOP5DOA"
+                    style={{ height: "80px", width: "auto", objectFit: "contain" }}
+                  />
+                </div>
+
+                {/* BOTTOM: Dark gradient for text readability */}
+                <div style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: "200px",
+                  background: "linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+                  zIndex: 2,
+                }} />
+
+                {/* BOTTOM: User info + branding overlay */}
+                <div style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "0 48px 36px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  zIndex: 4,
+                }}>
+                  {/* User info: avatar + name + handle + tier + aura */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    {/* Avatar circle with tier glow */}
+                    {(() => {
+                      const tierName = getTierForAura(userAuraPoints);
+                      const glowColor = getGlowColor(tierName);
+                      const safeGlow = glowColor === "rainbow" ? "#ffffff" : glowColor;
+                      const rv = parseInt(safeGlow.slice(1, 3), 16);
+                      const gv = parseInt(safeGlow.slice(3, 5), 16);
+                      const bv = parseInt(safeGlow.slice(5, 7), 16);
+                      return (
+                        <>
+                          <div style={{
+                            width: "64px",
+                            height: "64px",
+                            borderRadius: "50%",
+                            background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
+                            border: `2px solid rgba(${rv},${gv},${bv},0.6)`,
+                            boxShadow: `0 0 16px rgba(${rv},${gv},${bv},0.4)`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            overflow: "hidden",
+                          }}>
+                            <span style={{
+                              fontFamily: "'Bebas Neue', Impact, sans-serif",
+                              fontSize: "28px",
+                              color: "#FFD700",
+                              lineHeight: 1,
+                            }}>
+                              {(displayName || username || "?").charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                            {displayName && (
+                              <span style={{
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: "24px",
+                                fontWeight: 700,
+                                color: "#ffffff",
+                                lineHeight: 1.2,
+                                textShadow: "0 1px 6px rgba(0,0,0,0.9)",
+                              }}>
+                                {displayName}
+                              </span>
+                            )}
+                            {username && (
+                              <span style={{
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: "17px",
+                                color: "#999999",
+                                fontWeight: 400,
+                                textShadow: "0 1px 4px rgba(0,0,0,0.9)",
+                              }}>
+                                @{username}
+                              </span>
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                              <span style={{
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: "14px",
+                                fontWeight: 800,
+                                color: "#ffffff",
+                                background: `rgba(${rv},${gv},${bv},0.35)`,
+                                border: `1px solid rgba(${rv},${gv},${bv},0.7)`,
+                                borderRadius: "6px",
+                                padding: "4px 12px",
+                                textTransform: "uppercase",
+                                letterSpacing: "1.5px",
+                                boxShadow: `0 0 14px rgba(${rv},${gv},${bv},0.45)`,
+                              }}>
+                                {tierName}
+                              </span>
+                              <span style={{
+                                fontFamily: "'Bebas Neue', Impact, sans-serif",
+                                fontSize: "20px",
+                                color: safeGlow,
+                                letterSpacing: "2px",
+                                textShadow: `0 0 12px rgba(${rv},${gv},${bv},0.5)`,
+                              }}>
+                                {userAuraPoints.toLocaleString()} AURA
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* TOP5DOA.APP branding */}
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{
+                      fontFamily: "'Bebas Neue', Impact, sans-serif",
+                      fontSize: "30px",
+                      color: "#e8ff00",
+                      fontWeight: "bold",
+                      letterSpacing: "3px",
+                      textShadow: "0 0 20px rgba(232,255,0,0.4)",
+                    }}>
+                      TOP5DOA.APP
+                    </span>
+                  </div>
+                </div>
+              </div>
+              )}
+
               {/* Action buttons row */}
               <div className="flex flex-wrap justify-start gap-3 pt-2">
                 <button
@@ -3100,7 +3311,7 @@ export function TopicVotingFlow({
       )}
 
       {/* AI Poster — Result Overlay */}
-      {posterOverlayOpen && posterImageSrc && (
+      {posterOverlayOpen && posterCompositeDataUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setPosterOverlayOpen(false); }}
@@ -3115,11 +3326,11 @@ export function TopicVotingFlow({
               ✕
             </button>
 
-            {/* AI-generated poster image */}
+            {/* Hybrid composite poster */}
             <div className="relative w-full rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 border border-neutral-800">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={posterImageSrc}
+                src={posterCompositeDataUrl}
                 alt={`AI Poster for ${topic.title}`}
                 className="w-full h-auto"
               />
