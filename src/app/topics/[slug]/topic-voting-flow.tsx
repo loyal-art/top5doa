@@ -2900,10 +2900,21 @@ export function TopicVotingFlow({
                   }}
                 />
 
+                {/* TOP: Dark gradient for logo readability */}
+                <div style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "180px",
+                  background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)",
+                  zIndex: 1,
+                }} />
+
                 {/* TOP: Real logo overlay */}
                 <div style={{
                   position: "absolute",
-                  top: "28px",
+                  top: "20px",
                   left: 0,
                   right: 0,
                   display: "flex",
@@ -2914,7 +2925,7 @@ export function TopicVotingFlow({
                   <img
                     src="/images/logo-full.png"
                     alt="TOP5DOA"
-                    style={{ height: "80px", width: "auto", objectFit: "contain" }}
+                    style={{ height: "120px", width: "auto", objectFit: "contain" }}
                   />
                 </div>
 
