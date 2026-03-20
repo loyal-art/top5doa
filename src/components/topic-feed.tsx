@@ -8,9 +8,10 @@ type TopicFeedProps = {
   children: React.ReactNode;
   titles: string[];
   subjectNames?: string[][];
+  hotTakeContents?: string[][];
 };
 
-export function TopicFeed({ children, titles, subjectNames }: TopicFeedProps) {
+export function TopicFeed({ children, titles, subjectNames, hotTakeContents }: TopicFeedProps) {
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -25,10 +26,28 @@ export function TopicFeed({ children, titles, subjectNames }: TopicFeedProps) {
         if (title.toLowerCase().includes(q)) return i;
         const subjects = subjectNames?.[i];
         if (subjects?.some((s) => s.toLowerCase().includes(q))) return i;
+        const takes = hotTakeContents?.[i];
+        if (takes?.some((t) => t.toLowerCase().includes(q))) return i;
         return -1;
       })
       .filter((i) => i !== -1);
-  }, [search, titles, subjectNames]);
+  }, [search, titles, subjectNames, hotTakeContents]);
+
+  // Track which indices matched via hot take content (not title or subject)
+  const hotTakeMatchIndices = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return new Set<number>();
+    const set = new Set<number>();
+    for (const i of matchingIndices) {
+      const titleMatch = titles[i].toLowerCase().includes(q);
+      const subjectMatch = subjectNames?.[i]?.some((s) => s.toLowerCase().includes(q));
+      if (!titleMatch && !subjectMatch) {
+        // Matched only via hot take content
+        set.add(i);
+      }
+    }
+    return set;
+  }, [search, matchingIndices, titles, subjectNames]);
 
   const paginatedIndices = matchingIndices.slice(0, visibleCount);
   const hasMore = matchingIndices.length > visibleCount;
@@ -60,7 +79,7 @@ export function TopicFeed({ children, titles, subjectNames }: TopicFeedProps) {
           type="text"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search topics or subjects..."
+          placeholder="Search topics, subjects, or hot takes..."
           className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-brand-surface border border-brand-border text-white font-body text-sm placeholder-neutral-600 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
         />
         {search && (
@@ -80,7 +99,16 @@ export function TopicFeed({ children, titles, subjectNames }: TopicFeedProps) {
       {paginatedIndices.length > 0 ? (
         <div className="flex flex-col gap-4">
           {paginatedIndices.map((i) => (
-            <div key={i}>{childArray[i]}</div>
+            <div key={i}>
+              {childArray[i]}
+              {hotTakeMatchIndices.has(i) && search && (
+                <div className="mt-1 px-4">
+                  <span className="inline-flex items-center gap-1 text-xs font-mono" style={{ color: "#FF4500" }}>
+                    🔥 Has hot takes matching &ldquo;{search.trim()}&rdquo;
+                  </span>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       ) : (

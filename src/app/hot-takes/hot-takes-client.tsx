@@ -131,12 +131,25 @@ export function HotTakesClient({
   const [items, setItems] = useState(initialItems);
   const [votes, setVotes] = useState(initialVotes);
   const [filterTopicId, setFilterTopicId] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  const filteredItems = filterTopicId === "all"
-    ? items
-    : items.filter((i) => i.topicId === filterTopicId);
+  const filteredItems = (() => {
+    let result = filterTopicId === "all"
+      ? items
+      : items.filter((i) => i.topicId === filterTopicId);
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      result = result.filter((i) =>
+        i.content.toLowerCase().includes(q) ||
+        i.username.toLowerCase().includes(q) ||
+        i.topicTitle.toLowerCase().includes(q) ||
+        (i.subjectName && i.subjectName.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  })();
 
   async function handleVote(takeId: string, voteType: "flame" | "trash") {
     if (!userId) return;
@@ -234,6 +247,41 @@ export function HotTakesClient({
           </p>
         </div>
 
+        {/* Search bar */}
+        <div className="relative">
+          <svg
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search hot takes, users, topics..."
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-brand-surface border border-brand-border text-white font-body text-sm placeholder-neutral-600 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
         {/* Topic filter */}
         <div className="flex items-center gap-3">
           <label className="text-xs font-mono text-neutral-500 uppercase tracking-wider">Filter:</label>
@@ -252,9 +300,13 @@ export function HotTakesClient({
         {/* Takes list */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-16 rounded-2xl border border-brand-border bg-brand-surface">
-            <p className="font-display text-2xl text-neutral-600">NO HOT TAKES YET</p>
+            <p className="font-display text-2xl text-neutral-600">
+              {searchQuery ? "NO MATCHING HOT TAKES" : "NO HOT TAKES YET"}
+            </p>
             <p className="text-sm text-neutral-600 mt-2 font-body">
-              Be the first to drop a spicy take while voting on a topic.
+              {searchQuery
+                ? "Try a different search term."
+                : "Be the first to drop a spicy take while voting on a topic."}
             </p>
           </div>
         ) : (
