@@ -152,6 +152,7 @@ function TopicCard({
   top3,
   viewCount,
   creatorUsername,
+  heatingUp,
 }: {
   topic: Topic;
   attributes: { id: string; name: string }[];
@@ -159,6 +160,7 @@ function TopicCard({
   top3: { name: string; score: number }[];
   viewCount: number;
   creatorUsername: string | null;
+  heatingUp: boolean;
 }) {
   const MAX_CHIPS = 3;
   const visibleAttrs = attributes.slice(0, MAX_CHIPS);
@@ -261,6 +263,12 @@ function TopicCard({
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-xs font-mono text-brand-accent">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
               LIVE
+            </span>
+          )}
+          {heatingUp && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-xs font-mono"
+              style={{ color: "#FF4500" }}>
+              🔥 Heating Up
             </span>
           )}
         </div>
@@ -532,9 +540,10 @@ export default async function Home({
   let attributesByTopic: Record<string, { id: string; name: string }[]> = {};
   let votedTopicIds: Set<string> = new Set();
   let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
+  let heatingUpTopics: Set<string> = new Set();
 
   if (topicIds.length > 0) {
-    const [subjectsRes, attrsRes, rankingsList] = await Promise.all([
+    const [subjectsRes, attrsRes, rankingsList, heatRes] = await Promise.all([
       supabase
         .from("subjects")
         .select("id, topic_id, name")
@@ -552,6 +561,12 @@ export default async function Home({
           return { topicId: t.id, rankings: (data ?? []) as GlobalRanking[] };
         })
       ),
+      // Heat data: all hot takes with a subject for these topics
+      supabase
+        .from("hot_takes")
+        .select("topic_id, subject_id, flames")
+        .in("topic_id", topicIds)
+        .not("subject_id", "is", null),
     ]);
 
     // Subject id → name map + subjects grouped by topic
@@ -576,6 +591,20 @@ export default async function Home({
           score: Math.round(r.avg_score),
         }));
     });
+
+    // Compute which topics have a subject with 20+ total flames
+    const heatByTopicSubject: Record<string, Record<string, number>> = {};
+    (heatRes.data ?? []).forEach((r: { topic_id: string; subject_id: string | null; flames: number }) => {
+      if (!r.subject_id) return;
+      if (!heatByTopicSubject[r.topic_id]) heatByTopicSubject[r.topic_id] = {};
+      heatByTopicSubject[r.topic_id][r.subject_id] =
+        (heatByTopicSubject[r.topic_id][r.subject_id] ?? 0) + r.flames;
+    });
+    for (const [topicId, subjects] of Object.entries(heatByTopicSubject)) {
+      if (Object.values(subjects).some((total) => total >= 20)) {
+        heatingUpTopics.add(topicId);
+      }
+    }
 
     // Current user's voted topics
     if (user) {
@@ -972,6 +1001,7 @@ export default async function Home({
                   top3={globalTop3ByTopic[topic.id] ?? []}
                   viewCount={topic.view_count ?? 0}
                   creatorUsername={topic.created_by ? creatorUsernameMap[topic.created_by] ?? null : null}
+                  heatingUp={heatingUpTopics.has(topic.id)}
                 />
               ))}
             </TopicFeed>
