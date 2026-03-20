@@ -69,18 +69,18 @@ function buildPosterPrompt(
 
 Layout from top to bottom with clear spacing between each section:
 
-TOP AREA (top 10% of image): Leave this area as plain dark background with subtle atmosphere only. Do NOT place any logo, emblem, shield, or text here — a real logo will be overlaid later.
+TOP AREA (top 12% of image): Leave this area as plain dark background with subtle atmosphere only. Do NOT place any logo, emblem, shield, or text here — a real logo will be overlaid later.
 
 TITLE SECTION: Below the top area, show "${topicTitle}" in large bold metallic gold text, centered. A horizontal gold glowing line separates the title from the content below.
 
-MIDDLE SECTION: A visual representation of the #1 ranked item "${firstName}" — if it is a product show the product, if it is a person show a dramatic silhouette with energy effects, if it is a place show a scenic view. This visual should be behind/between the ranking rows as atmospheric art, not competing with the text.
+MIDDLE SECTION: A SMALL, SUBTLE visual representation of the #1 ranked item "${firstName}" — if it is a product show a small version of the product, if it is a person show a subtle dramatic silhouette with energy effects, if it is a place show a faint scenic view. This visual must be a SMALL background element behind the ranking rows — NOT a large centerpiece. It should be faded/transparent so it does not compete with the ranking text.
 
-RANKING SECTION: 5 horizontal rows with dark translucent backgrounds, evenly spaced:
+RANKING SECTION: 5 compact horizontal rows with dark translucent backgrounds, evenly spaced. The ranking rows should take up approximately 50% of the total image height. Each row should be compact — just tall enough for the number and text, not oversized:
 ${rankingRows}
 
-BOTTOM AREA (bottom 15% of image): Leave this area as dark space — do NOT generate any username, avatar, app name, watermark, URL, or branding text here. This area will have content overlaid later. Just keep it dark/atmospheric.
+BOTTOM AREA (bottom 12% of image): Leave this area as dark space — do NOT generate any username, avatar, app name, watermark, URL, or branding text here. This area will have content overlaid later. Just keep it dark/atmospheric.
 
-CRITICAL: Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The top 10% and bottom 15% must be kept clear of text/logos. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
+CRITICAL: All 5 ranking rows MUST be fully visible within the image. Keep the #1 subject visual art SMALL — it should be a subtle background element behind the rankings, NOT a large centerpiece that pushes rankings off screen. The ranking rows should take up approximately 50% of the image height. Each row should be compact — just tall enough for the number and text. Leave the top 12% empty for logo overlay and the bottom 12% empty for user info overlay. Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
 }
 
 export async function POST(req: NextRequest) {
