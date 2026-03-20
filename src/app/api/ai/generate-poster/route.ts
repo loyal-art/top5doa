@@ -52,43 +52,46 @@ async function notifyAdmins(service: string) {
 function buildPosterPrompt(
   topicTitle: string,
   top5: { rank: number; name: string }[],
+  displayName: string,
   username: string,
   tier: string,
   aura: number,
   styleDesc: string,
 ): string {
-  const rankColors = ["gold", "silver", "green", "teal", "blue"];
-  const rankingLines = top5
-    .slice(0, 5)
+  const rankColors = ["gold", "silver", "emerald", "teal", "blue"];
+  const items = top5.slice(0, 5);
+  const firstName = items[0]?.name ?? "Unknown";
+  const initial = (displayName || username || "?").charAt(0).toUpperCase();
+
+  const rankingRows = items
     .map((item, i) => {
       const color = rankColors[i] ?? "blue";
-      return `Row ${item.rank}: A large metallic "${item.rank}" number on the left inside a ${color} colored box, with "${item.name}" in white bold text to the right. Each row has a dark translucent background bar with a subtle ${color}-tinted border.`;
+      return `  Row ${item.rank}: Large bold number "${item.rank}" in a ${color}-colored square on the left, then "${item.name}" in large white bold text to the right. Dark translucent background bar with a subtle ${color}-tinted border.`;
     })
     .join("\n");
 
-  return `Create a polished, professional ranking poster image. Style: ${styleDesc}.
+  return `Create a 1:1 square poster image with ALL content fitting within the frame with generous padding on all sides. Style: ${styleDesc}. Dark cinematic background with subtle gold particles and lens flares.
 
-Background: dark space/galaxy theme with gold particle effects and subtle lens flares.
+Layout from top to bottom with clear spacing between each section:
 
-At the top center, show a metallic gold shield emblem with "TOP 5" text inside it.
+TOP SECTION: A gold metallic shield emblem with the number 5 inside it, centered. Below it in large bold metallic gold text: "${topicTitle}". A horizontal gold glowing line separates the title from the content below.
 
-Below that, display the title "${topicTitle}" in bold metallic gold text, centered. A horizontal gold glowing line separates the title from the rankings below.
+MIDDLE SECTION: A visual representation of the #1 ranked item "${firstName}" — if it is a product show the product, if it is a person show a dramatic silhouette with energy effects, if it is a place show a scenic view. This visual should be behind/between the ranking rows as atmospheric art, not competing with the text.
 
-Show 5 ranking rows stacked vertically:
-${rankingLines}
+RANKING SECTION: 5 horizontal rows with dark translucent backgrounds, evenly spaced:
+${rankingRows}
 
-At the bottom left, show a circular avatar frame with the letter "${(username || "?").charAt(0).toUpperCase()}" inside, next to the text "${username}" and a tier badge showing "${tier} • ${aura.toLocaleString()} Aura".
+BOTTOM SECTION: Left side shows a circular avatar with the letter "${initial}" inside, next to the text "${displayName}" and below that "@${username}" with a badge showing "${tier}" and "${aura.toLocaleString()} Aura". Right side shows "TOP5DOA.APP" in bright yellow neon text.
 
-At the bottom right, show "TOP5DOA.APP" in bright yellow neon glowing text.
-
-The overall style should look like a premium ESPN or Spotify Wrapped graphic — cinematic, editorial, and social-media ready. Make the text crisp and readable. Do NOT include any real human faces or likenesses. Use abstract/symbolic imagery only.`;
+CRITICAL: Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { topicTitle, top5, username, tier, aura, style } = body as {
+  const { topicTitle, top5, displayName, username, tier, aura, style } = body as {
     topicTitle: string;
     top5: { rank: number; name: string }[];
+    displayName: string;
     username: string;
     tier: string;
     aura: number;
@@ -107,7 +110,7 @@ export async function POST(req: NextRequest) {
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.comic;
 
   // Build the fully-detailed poster prompt with all text/rankings/branding baked in
-  const imagePrompt = buildPosterPrompt(topicTitle, top5, username, tier, aura, styleDesc);
+  const imagePrompt = buildPosterPrompt(topicTitle, top5, displayName || username, username, tier, aura, styleDesc);
 
   // Generate image via OpenAI gpt-image-1-mini with full text instructions
   const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {

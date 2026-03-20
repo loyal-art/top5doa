@@ -1269,6 +1269,7 @@ export function TopicVotingFlow({
         body: JSON.stringify({
           topicTitle: topic.title,
           top5,
+          displayName: displayName ?? username ?? "anonymous",
           username: username ?? "anonymous",
           tier: tierName,
           aura: userAuraPoints,
