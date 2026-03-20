@@ -1,0 +1,20 @@
+{
+  "name": "Top 5 Dead or Alive",
+  "short_name": "TOP5DOA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#e8ff00",
+  "icons": [
+    {
+      "src": "/images/logo-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
