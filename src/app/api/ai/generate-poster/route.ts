@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
   comic: "Marvel comic book splash page with dramatic lighting, bold outlines, and action poses",
@@ -7,6 +8,46 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
   sports: "ESPN magazine cover with bold typography, dramatic athlete poses, and stadium lighting",
   meme: "exaggerated cartoon style with over-the-top expressions, bright colors, and meme energy",
 };
+
+const USER_FRIENDLY_UNAVAILABLE =
+  "AI Poster generation is temporarily unavailable. Please try again later.";
+
+function isBillingError(status: number, body: string): boolean {
+  if (status === 402) return true;
+  if (status === 429 && body.includes("insufficient_quota")) return true;
+  if (status === 400 && body.includes("billing_hard_limit_reached")) return true;
+  if (body.includes("insufficient_quota") || body.includes("billing_hard_limit_reached"))
+    return true;
+  return false;
+}
+
+async function notifyAdmins(service: string) {
+  try {
+    const supabase = await createClient();
+    const { data: admins } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("is_admin", true);
+
+    if (!admins?.length) return;
+
+    const platformUrl =
+      service === "OpenAI"
+        ? "platform.openai.com"
+        : "console.anthropic.com";
+
+    const rows = admins.map((admin) => ({
+      user_id: admin.id,
+      type: "billing_alert",
+      title: `${service} API Billing Alert`,
+      message: `ALERT: ${service} API billing limit reached. Add credits at ${platformUrl}`,
+    }));
+
+    await supabase.from("notifications").insert(rows);
+  } catch (err) {
+    console.error(`[generate-poster] Failed to notify admins about ${service} billing:`, err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -58,6 +99,12 @@ export async function POST(req: NextRequest) {
 
   if (!claudeRes.ok) {
     const text = await claudeRes.text();
+
+    if (isBillingError(claudeRes.status, text)) {
+      await notifyAdmins("Anthropic");
+      return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: `Claude API error: ${claudeRes.status} ${text}` },
       { status: 502 }
@@ -88,6 +135,12 @@ export async function POST(req: NextRequest) {
 
   if (!openaiRes.ok) {
     const text = await openaiRes.text();
+
+    if (isBillingError(openaiRes.status, text)) {
+      await notifyAdmins("OpenAI");
+      return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: `OpenAI API error: ${openaiRes.status} ${text}` },
       { status: 502 }
