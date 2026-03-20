@@ -222,6 +222,7 @@ export function TopicVotingFlow({
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [currentSubjectIdx, setCurrentSubjectIdx] = useState(0);
   const [voteMode, setVoteMode] = useState<VoteMode>("by-subject");
   const [currentAttrIdx, setCurrentAttrIdx] = useState(0);
@@ -839,6 +840,7 @@ export function TopicVotingFlow({
     if (!userId) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
 
     try {
       // Delete then insert attribute ranks to avoid unique constraint violations
@@ -900,9 +902,9 @@ export function TopicVotingFlow({
         }
       }
 
-      // Upsert all score rows
-      for (const row of allScoreRows) {
-        await supabase.from("user_subject_scores").upsert(row, {
+      // Upsert all score rows in a single batch
+      if (allScoreRows.length > 0) {
+        await supabase.from("user_subject_scores").upsert(allScoreRows, {
           onConflict: "user_id,subject_id,attribute_id",
         });
       }
@@ -930,6 +932,9 @@ export function TopicVotingFlow({
       // Refetch so the community tally reflects this user's new vote
       await fetchGlobalRankings();
       await fetchRecentVoters();
+    } catch (err) {
+      console.error("[handleSave] error:", err);
+      setSaveError("Failed to save your list. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -2687,6 +2692,9 @@ export function TopicVotingFlow({
                   >
                     Sign In to Save
                   </a>
+                )}
+                {saveError && (
+                  <p className="text-red-400 text-xs font-mono">{saveError}</p>
                 )}
               </div>
             </>
