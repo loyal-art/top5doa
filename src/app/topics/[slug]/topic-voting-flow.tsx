@@ -235,6 +235,8 @@ export function TopicVotingFlow({
   const [recentVoters, setRecentVoters] = useState<
     { username: string; display_name: string; avatar_url: string | null; topPick: string | null }[]
   >([]);
+  // Heat data: subject_id → total flames across all hot takes for that subject
+  const [subjectHeat, setSubjectHeat] = useState<Record<string, number>>({});
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -538,6 +540,26 @@ export function TopicVotingFlow({
     });
   }, [supabase]);
 
+  // Fetch subject heat data: one query for all hot takes in this topic grouped by subject
+  useEffect(() => {
+    async function loadHeat() {
+      const { data: rows } = await supabase
+        .from("hot_takes")
+        .select("subject_id, flames")
+        .eq("topic_id", topic.id)
+        .not("subject_id", "is", null);
+      if (!rows) return;
+      const heat: Record<string, number> = {};
+      for (const row of rows) {
+        if (row.subject_id) {
+          heat[row.subject_id] = (heat[row.subject_id] ?? 0) + row.flames;
+        }
+      }
+      setSubjectHeat(heat);
+    }
+    loadHeat();
+  }, [supabase, topic.id]);
+
   // Fetch community global rankings from the security-definer RPC.
   // Runs whenever the user reaches the results step, and again after saving.
   const fetchGlobalRankings = useCallback(async () => {
@@ -809,6 +831,29 @@ export function TopicVotingFlow({
 
   const currentSubject = selectedSubjects[currentSubjectIdx];
   const currentAttr = rankedAttributes[currentAttrIdx];
+
+  /** Render heat indicator for a subject based on total flames. */
+  function heatIndicator(subjectId: string) {
+    const flames = subjectHeat[subjectId] ?? 0;
+    if (flames < 5) return null;
+    if (flames >= 50) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-mono font-bold"
+          style={{ color: "#FF4500", textShadow: "0 0 8px rgba(255,69,0,0.6)" }}>
+          🔥🔥🔥 <span className="uppercase tracking-wider">Heating Up</span>
+        </span>
+      );
+    }
+    if (flames >= 20) {
+      return (
+        <span className="inline-flex items-center text-xs"
+          style={{ color: "#FF8C00", textShadow: "0 0 6px rgba(255,140,0,0.3)" }}>
+          🔥🔥
+        </span>
+      );
+    }
+    return <span className="text-xs">🔥</span>;
+  }
 
   // Calculate weighted score for a single subject
   const calculateSubjectScore = useCallback(
@@ -1565,9 +1610,12 @@ export function TopicVotingFlow({
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-mono text-neutral-200 uppercase tracking-wider">
-                      {subject.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-mono text-neutral-200 uppercase tracking-wider">
+                        {subject.name}
+                      </p>
+                      {heatIndicator(subject.id)}
+                    </div>
                     {subject.era && (
                       <p className="text-xs font-mono text-neutral-600">{subject.era}</p>
                     )}
@@ -1656,10 +1704,11 @@ export function TopicVotingFlow({
               {/* Subject header card */}
               <div className="flex items-center justify-between p-5 rounded-2xl bg-brand-surface border border-brand-border">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="font-display text-3xl tracking-wide">
                       {currentSubject.name.toUpperCase()}
                     </h2>
+                    {heatIndicator(currentSubject.id)}
                     <SubjectLinks subject={currentSubject} topicTitle={topic.title} onOpen={openPip} />
                     {userId && (
                       <button
@@ -1843,6 +1892,7 @@ export function TopicVotingFlow({
                           <p className="text-sm font-mono text-neutral-300 uppercase tracking-wider">
                             {subject.name}
                           </p>
+                          {heatIndicator(subject.id)}
                           <SubjectLinks subject={subject} topicTitle={topic.title} onOpen={openPip} />
                         </div>
                         {subject.era && (
