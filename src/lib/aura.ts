@@ -77,6 +77,7 @@ export type AuraAction =
   | "flame"
   | "suggest_topic"
   | "suggestion_vote"
+  | "create_topic"
   | "streak_bonus";  // Awarded by update_streak() SQL; points vary by milestone
 
 export const AURA_POINTS: Record<AuraAction, number> = {
@@ -87,6 +88,7 @@ export const AURA_POINTS: Record<AuraAction, number> = {
   flame:            2,
   suggest_topic:    3,
   suggestion_vote:  1,
+  create_topic:    20,
   streak_bonus:     0,  // Variable — SQL milestone logic sets the actual amount
 };
 

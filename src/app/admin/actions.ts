@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { awardAura } from "@/lib/aura";
 
 async function getAdminUser() {
   const supabase = await createClient();
@@ -43,6 +44,7 @@ export async function createTopic(
       description,
       status: status as "draft" | "coming_soon" | "active" | "archived",
       creator_id: userId,
+      created_by: userId,
     })
     .select("id")
     .single();
@@ -59,6 +61,8 @@ export async function createTopic(
         p_title: title,
       });
     }
+    // Award +20 Aura to the creator
+    await awardAura(supabase, userId, "create_topic", newTopic.id);
   }
 
   revalidatePath("/admin");
@@ -316,10 +320,14 @@ export async function createTopicWithContent(data: {
   status: string;
   subjects: { name: string; description: string | null; era: string | null }[];
   attributes: { name: string; description: string | null }[];
+  created_by?: string | null;
 }): Promise<{ error: string | null; topicId: string | null }> {
   const { supabase, userId, error: authError } = await getAdminUser();
   if (authError || !supabase || !userId)
     return { error: authError ?? "Auth failed", topicId: null };
+
+  // created_by: use the provided user (e.g. suggestion submitter), fall back to admin
+  const createdBy = data.created_by ?? userId;
 
   // 1. Create topic
   const { data: newTopic, error: topicError } = await supabase
@@ -331,6 +339,7 @@ export async function createTopicWithContent(data: {
       description: data.description,
       status: data.status as "draft" | "coming_soon" | "active" | "archived",
       creator_id: userId,
+      created_by: createdBy,
     })
     .select("id")
     .single();
@@ -371,6 +380,9 @@ export async function createTopicWithContent(data: {
       p_title: data.title,
     });
   }
+
+  // Award +20 Aura to the creator
+  await awardAura(supabase, createdBy, "create_topic", topicId);
 
   revalidatePath("/admin");
   revalidatePath("/");

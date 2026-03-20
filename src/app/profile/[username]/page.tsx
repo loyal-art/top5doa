@@ -26,6 +26,13 @@ export type VotedTopic = {
   top_pick_era: string | null;
 };
 
+export type CreatedTopic = {
+  id: string;
+  title: string;
+  slug: string;
+  voter_count: number;
+};
+
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
   const supabase = await createClient();
@@ -122,6 +129,39 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     }
   }
 
+  // ── Topics created by this user ──────────────────────────────────────────
+  let createdTopics: CreatedTopic[] = [];
+  if (canSeeFullProfile) {
+    const { data: createdRows } = await supabase
+      .from("topics")
+      .select("id, title, slug")
+      .eq("created_by", profile.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+
+    if (createdRows && createdRows.length > 0) {
+      // Get voter counts per topic
+      const cTopicIds = createdRows.map((t) => t.id);
+      const { data: voterRows } = await supabase
+        .from("user_lists")
+        .select("topic_id, user_id")
+        .in("topic_id", cTopicIds);
+
+      const voterCountMap: Record<string, Set<string>> = {};
+      (voterRows ?? []).forEach((r) => {
+        if (!voterCountMap[r.topic_id]) voterCountMap[r.topic_id] = new Set();
+        voterCountMap[r.topic_id].add(r.user_id);
+      });
+
+      createdTopics = createdRows.map((t) => ({
+        id: t.id,
+        title: t.title,
+        slug: t.slug,
+        voter_count: voterCountMap[t.id]?.size ?? 0,
+      }));
+    }
+  }
+
   return (
     <ProfileClient
       profile={profile}
@@ -131,6 +171,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       canSeeFullProfile={canSeeFullProfile}
       viewerId={viewerId}
       votedTopics={votedTopics}
+      createdTopics={createdTopics}
       savedCategories={savedCategories}
     />
   );

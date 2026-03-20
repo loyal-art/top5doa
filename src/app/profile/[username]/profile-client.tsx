@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import type { VotedTopic } from "./page";
+import type { VotedTopic, CreatedTopic } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura } from "@/lib/aura";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -33,6 +33,7 @@ interface ProfileClientProps {
   canSeeFullProfile: boolean;
   viewerId: string | null;
   votedTopics: VotedTopic[];
+  createdTopics: CreatedTopic[];
   savedCategories: string[];
 }
 
@@ -44,6 +45,7 @@ export function ProfileClient({
   canSeeFullProfile: initialCanSeeFullProfile,
   viewerId,
   votedTopics,
+  createdTopics,
   savedCategories,
 }: ProfileClientProps) {
   const supabase = createClient();
@@ -528,6 +530,46 @@ export function ProfileClient({
                           </p>
                         )}
                       </div>
+                    </div>
+                    <svg
+                      className="w-4 h-4 flex-shrink-0 text-neutral-600 group-hover:text-brand-accent transition-colors"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ── Created topics ─────────────────────────────────────────── */}
+        {canSeeFullProfile && (
+          <div className="space-y-3">
+            <h2 className="font-display text-xl tracking-wide">CREATED</h2>
+            {createdTopics.length === 0 ? (
+              <p className="text-neutral-500 text-sm font-mono py-4">
+                No topics created yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {createdTopics.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/topics/${t.slug}`}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-brand-surface border
+                               border-brand-border hover:border-brand-accent/40 transition-colors group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-base tracking-wide truncate text-white group-hover:text-brand-accent transition-colors">
+                        {t.title.toUpperCase()}
+                      </p>
+                      <p className="text-xs font-mono text-neutral-600 mt-1">
+                        {t.voter_count} {t.voter_count === 1 ? "voter" : "voters"}
+                      </p>
                     </div>
                     <svg
                       className="w-4 h-4 flex-shrink-0 text-neutral-600 group-hover:text-brand-accent transition-colors"

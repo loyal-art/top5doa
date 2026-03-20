@@ -78,6 +78,7 @@ export type Database = {
           video_url: string | null;
           status: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
+          created_by: string | null;
           view_count: number;
           is_featured: boolean;
           created_at: string;
@@ -95,6 +96,7 @@ export type Database = {
           video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id: string;
+          created_by?: string | null;
           view_count?: number;
           is_featured?: boolean;
           created_at?: string;
@@ -111,6 +113,7 @@ export type Database = {
           video_url?: string | null;
           status?: "draft" | "coming_soon" | "active" | "archived";
           creator_id?: string;
+          created_by?: string | null;
           view_count?: number;
           is_featured?: boolean;
           updated_at?: string;

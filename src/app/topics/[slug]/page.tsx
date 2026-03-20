@@ -81,6 +81,17 @@ export default async function TopicPage({ params }: TopicPageProps) {
     .eq("topic_id", topic.id);
   const voterCount = new Set((voterRows ?? []).map((r) => r.user_id)).size;
 
+  // Fetch creator username
+  let creatorUsername: string | null = null;
+  if (topic.created_by) {
+    const { data: creatorProfile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", topic.created_by)
+      .single();
+    creatorUsername = creatorProfile?.username ?? null;
+  }
+
   const subjectMap = Object.fromEntries((subjects ?? []).map((s) => [s.id, s]));
   const globalRankings = (globalRankingsData ?? [])
     .map((r) => ({ subject: subjectMap[r.subject_id], score: Number(r.avg_score) }))
@@ -150,6 +161,14 @@ export default async function TopicPage({ params }: TopicPageProps) {
               {topic.description}
             </p>
           )}
+          {creatorUsername && (
+            <p className="text-xs font-mono text-neutral-600 mt-2">
+              Created by{" "}
+              <Link href={`/profile/${creatorUsername}`} className="text-neutral-500 hover:text-brand-accent transition-colors">
+                @{creatorUsername}
+              </Link>
+            </p>
+          )}
           <p className="text-xs italic text-neutral-600 mt-1.5 font-body">
             Scores reflect ranking within this topic only.
           </p>
@@ -187,6 +206,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
           }
           globalRankings={globalRankings}
           voterCount={voterCount}
+          creatorUsername={creatorUsername}
         />
       </section>
     </main>
