@@ -248,6 +248,13 @@ export function TopicVotingFlow({
   const shareMenuBottomRef = useRef<HTMLDivElement>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Friend Groups state
+  const [userGroups, setUserGroups] = useState<{ id: string; name: string; memberIds: string[] }[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("global");
+  const [groupRankings, setGroupRankings] = useState<{ subject: Subject; score: number }[] | null>(null);
+  const [groupLoading, setGroupLoading] = useState(false);
+  const [selectedGroupName, setSelectedGroupName] = useState<string>("GLOBAL");
+
   // Hot Take state
   const [hotTakeOpen, setHotTakeOpen] = useState(false);
   const [hotTakeTarget, setHotTakeTarget] = useState<{
@@ -583,6 +590,47 @@ export function TopicVotingFlow({
     setGlobalLoading(false);
   }, [supabase, topic.id, subjects]);
 
+  // Fetch group-filtered rankings: same logic as global but only for group member votes
+  const fetchGroupRankings = useCallback(async (memberIds: string[]) => {
+    setGroupLoading(true);
+    if (memberIds.length === 0) {
+      setGroupRankings([]);
+      setGroupLoading(false);
+      return;
+    }
+    // Fetch all scores from group members for this topic
+    const { data: scoreRows } = await supabase
+      .from("user_subject_scores")
+      .select("subject_id, attribute_id, score")
+      .eq("topic_id", topic.id)
+      .in("user_id", memberIds);
+
+    if (!scoreRows || scoreRows.length === 0) {
+      setGroupRankings([]);
+      setGroupLoading(false);
+      return;
+    }
+
+    // Aggregate: for each subject, compute avg score across all attributes and users
+    const subjectScores: Record<string, number[]> = {};
+    for (const row of scoreRows) {
+      if (!subjectScores[row.subject_id]) subjectScores[row.subject_id] = [];
+      subjectScores[row.subject_id].push(row.score);
+    }
+
+    const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s]));
+    const ranked = Object.entries(subjectScores)
+      .map(([subjectId, scores]) => ({
+        subject: subjectMap[subjectId],
+        score: scores.reduce((a, b) => a + b, 0) / scores.length,
+      }))
+      .filter((r): r is { subject: Subject; score: number } => r.subject != null)
+      .sort((a, b) => b.score - a.score);
+
+    setGroupRankings(ranked);
+    setGroupLoading(false);
+  }, [supabase, topic.id, subjects]);
+
   // Fetch the most recent 10 distinct voters for this topic
   const fetchRecentVoters = useCallback(async () => {
     // Get distinct user_ids ordered by most recent vote
@@ -728,6 +776,30 @@ export function TopicVotingFlow({
         setSaved(true);
         fetchGlobalRankings();
         fetchRecentVoters();
+      }
+
+      // Fetch user's friend groups + member IDs
+      const { data: ownedGroups } = await supabase
+        .from("groups")
+        .select("id, name")
+        .eq("owner_id", userId!)
+        .order("name");
+      if (ownedGroups && ownedGroups.length > 0) {
+        const gIds = ownedGroups.map((g) => g.id);
+        const { data: memberRows } = await supabase
+          .from("group_members")
+          .select("group_id, user_id")
+          .in("group_id", gIds);
+        const membersByGroup: Record<string, string[]> = {};
+        (memberRows ?? []).forEach((m) => {
+          if (!membersByGroup[m.group_id]) membersByGroup[m.group_id] = [];
+          membersByGroup[m.group_id].push(m.user_id);
+        });
+        setUserGroups(ownedGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          memberIds: membersByGroup[g.id] ?? [],
+        })));
       }
 
       console.log("[loadExistingData] done — calling setInitializing(false)");
@@ -2083,105 +2155,149 @@ export function TopicVotingFlow({
 
                 {/* Right: community tally */}
                 <div className="space-y-3">
-                  <h3 className="font-display text-lg tracking-wide text-neutral-300">HOW THE WORLD RANKED IT</h3>
-                  {globalLoading || globalRankings === null ? (
-                    <div className="space-y-3">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-14 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+                  {/* Group selector dropdown */}
+                  {userGroups.length > 0 ? (
+                    <select
+                      value={selectedGroupId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedGroupId(val);
+                        if (val === "global") {
+                          setSelectedGroupName("GLOBAL");
+                          setGroupRankings(null);
+                        } else {
+                          const group = userGroups.find((g) => g.id === val);
+                          if (group) {
+                            setSelectedGroupName(group.name.toUpperCase());
+                            fetchGroupRankings(group.memberIds);
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-sm font-display tracking-wide text-neutral-300
+                                 focus:outline-none focus:border-brand-accent/50 transition-colors"
+                    >
+                      <option value="global">GLOBAL RANKINGS</option>
+                      {userGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name.toUpperCase()}</option>
                       ))}
-                    </div>
-                  ) : globalRankings.length === 0 ? (
-                    <p className="text-neutral-500 text-sm font-mono py-6 text-center">
-                      No community votes yet.<br />You&apos;re among the first!
-                    </p>
+                    </select>
                   ) : (
-                    <>
-                      {/* Global #1 — always visible */}
-                      {globalRankings[0] && (() => {
-                        const r = globalRankings[0];
-                        return (
-                          <div
-                            key={r.subject.id}
-                            className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40"
-                          >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 bg-brand-accent/20 text-brand-accent">
-                              1
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-brand-accent">
-                                  {r.subject.name.toUpperCase()}
-                                </p>
-                                <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
-                              </div>
-                              {r.subject.era && (
-                                <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                              )}
-                            </div>
-                            <p className="font-mono font-bold text-sm flex-shrink-0 text-brand-accent">
-                              {r.score.toFixed(1)}
-                            </p>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Global positions 2+: blurred for free users, fully visible for premium */}
-                      {globalRankings.slice(1, showFullList ? undefined : 5).length > 0 && (
-                        <div className="relative">
-                          <div className={!isPremium ? "blur-sm pointer-events-none select-none" : ""}>
-                            <div className="space-y-3">
-                              {globalRankings.slice(1, showFullList ? undefined : 5).map((r, relIdx) => {
-                                const idx = relIdx + 1;
-                                const isSilver = idx === 1;
-                                const isBronze = idx === 2;
-                                return (
-                                  <div
-                                    key={r.subject.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-surface border-brand-border"
-                                  >
-                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
-                                      isSilver ? "bg-neutral-400/20 text-neutral-300"
-                                      : isBronze ? "bg-orange-500/20 text-orange-400"
-                                      : "bg-brand-border text-neutral-600"
-                                    }`}>
-                                      {idx + 1}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-white">
-                                          {r.subject.name.toUpperCase()}
-                                        </p>
-                                        <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
-                                      </div>
-                                      {r.subject.era && (
-                                        <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
-                                      )}
-                                    </div>
-                                    <p className="font-mono font-bold text-sm flex-shrink-0 text-neutral-400">
-                                      {r.score.toFixed(1)}
-                                    </p>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {!isPremium && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
-                              <p className="font-display text-base tracking-wide text-white text-center px-4">
-                                Upgrade to see the full rankings
-                              </p>
-                              <a
-                                href="/signup"
-                                className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
-                              >
-                                Unlock Full Rankings
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
+                    <h3 className="font-display text-lg tracking-wide text-neutral-300">HOW THE WORLD RANKED IT</h3>
                   )}
+
+                  {/* Rankings display — switches between global and group */}
+                  {(() => {
+                    const isGroup = selectedGroupId !== "global";
+                    const activeRankings = isGroup ? groupRankings : globalRankings;
+                    const isLoading = isGroup ? groupLoading : (globalLoading || globalRankings === null);
+
+                    if (isLoading) {
+                      return (
+                        <div className="space-y-3">
+                          {[...Array(5)].map((_, i) => (
+                            <div key={i} className="h-14 rounded-xl bg-brand-surface border border-brand-border animate-pulse" />
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    if (!activeRankings || activeRankings.length === 0) {
+                      return (
+                        <p className="text-neutral-500 text-sm font-mono py-6 text-center">
+                          {isGroup ? "No group member votes for this topic yet." : (<>No community votes yet.<br />You&apos;re among the first!</>)}
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {/* #1 — always visible */}
+                        {activeRankings[0] && (() => {
+                          const r = activeRankings[0];
+                          return (
+                            <div
+                              key={r.subject.id}
+                              className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-accent/5 border-brand-accent/40"
+                            >
+                              <span className="w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 bg-brand-accent/20 text-brand-accent">
+                                1
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-brand-accent">
+                                    {r.subject.name.toUpperCase()}
+                                  </p>
+                                  <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
+                                </div>
+                                {r.subject.era && (
+                                  <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                                )}
+                              </div>
+                              <p className="font-mono font-bold text-sm flex-shrink-0 text-brand-accent">
+                                {r.score.toFixed(1)}
+                              </p>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Positions 2+: blurred for free users on global, always visible for groups */}
+                        {activeRankings.slice(1, showFullList ? undefined : 5).length > 0 && (
+                          <div className="relative">
+                            <div className={!isPremium && !isGroup ? "blur-sm pointer-events-none select-none" : ""}>
+                              <div className="space-y-3">
+                                {activeRankings.slice(1, showFullList ? undefined : 5).map((r, relIdx) => {
+                                  const idx = relIdx + 1;
+                                  const isSilver = idx === 1;
+                                  const isBronze = idx === 2;
+                                  return (
+                                    <div
+                                      key={r.subject.id}
+                                      className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-brand-surface border-brand-border"
+                                    >
+                                      <span className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-base flex-shrink-0 ${
+                                        isSilver ? "bg-neutral-400/20 text-neutral-300"
+                                        : isBronze ? "bg-orange-500/20 text-orange-400"
+                                        : "bg-brand-border text-neutral-600"
+                                      }`}>
+                                        {idx + 1}
+                                      </span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <p className="font-display text-sm tracking-wide truncate flex-1 min-w-0 text-white">
+                                            {r.subject.name.toUpperCase()}
+                                          </p>
+                                          <SubjectLinks subject={r.subject} topicTitle={topic.title} onOpen={openPip} />
+                                        </div>
+                                        {r.subject.era && (
+                                          <p className="text-xs font-mono text-neutral-600">{r.subject.era}</p>
+                                        )}
+                                      </div>
+                                      <p className="font-mono font-bold text-sm flex-shrink-0 text-neutral-400">
+                                        {r.score.toFixed(1)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {!isPremium && !isGroup && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
+                                <p className="font-display text-base tracking-wide text-white text-center px-4">
+                                  Upgrade to see the full rankings
+                                </p>
+                                <a
+                                  href="/signup"
+                                  className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
+                                >
+                                  Unlock Full Rankings
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -2303,6 +2419,19 @@ export function TopicVotingFlow({
                   }}>
                     My Top 5
                   </div>
+                  {selectedGroupId !== "global" && (
+                    <div style={{
+                      fontFamily: "'Space Mono', monospace",
+                      fontSize: "13px",
+                      color: "#e8ff00",
+                      letterSpacing: "3px",
+                      textTransform: "uppercase",
+                      marginBottom: "8px",
+                      marginTop: "-8px",
+                    }}>
+                      Group: {selectedGroupName}
+                    </div>
+                  )}
                   {/* Title with gold "TOP" and "5" treatment */}
                   <div style={{
                     fontFamily: "'Bebas Neue', Impact, sans-serif",
