@@ -1241,6 +1241,22 @@ export function TopicVotingFlow({
 
   const POSTER_AURA_COST = 50;
 
+  // Helper: capture the standard share card as a data URL via html2canvas
+  const captureShareCard = async (): Promise<string | null> => {
+    const el = document.getElementById("share-card");
+    if (!el) return null;
+    await document.fonts.ready;
+    const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
+    const canvas = await html2canvas(el, {
+      width: 1080,
+      height: 1080,
+      scale: 1,
+      useCORS: true,
+      backgroundColor: "#0a0a0a",
+    });
+    return canvas.toDataURL("image/png");
+  };
+
   const handleGeneratePoster = async (style: string) => {
     if (!userId || !results.length) return;
 
@@ -1258,6 +1274,7 @@ export function TopicVotingFlow({
     setPosterStylePickerOpen(false);
     setPosterGenerating(true);
     setPosterError(null);
+    setPosterFallbackUsed(false);
 
     const top5 = results.slice(0, 5).map((r, idx) => ({
       rank: idx + 1,
@@ -1281,17 +1298,60 @@ export function TopicVotingFlow({
         }),
       });
 
+      // ── API error OR fallback used → fall back to share card ──
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to generate poster (${res.status})`);
+        // API failed entirely — generate share card instead, no aura charged
+        const shareCardDataUrl = await captureShareCard();
+        if (!shareCardDataUrl) throw new Error("Failed to capture share card");
+        setPosterCompositeDataUrl(shareCardDataUrl);
+        setPosterFallbackUsed(true);
+
+        // Auto-download
+        const autoLink = document.createElement("a");
+        autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
+        autoLink.href = shareCardDataUrl;
+        autoLink.click();
+
+        // Save to poster_images
+        const b64ForSave = shareCardDataUrl.replace(/^data:image\/png;base64,/, "");
+        await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
+        await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: b64ForSave });
+        setSavedPosterData(b64ForSave);
+        setSavedPosterStyle("share-card");
+
+        setPosterOverlayOpen(true);
+        // No aura deducted, no posterGeneratedForTopic set
+        return;
       }
 
       const data = await res.json();
 
-      // Set fallback flag BEFORE rendering so the composite card can use it
-      const isFallback = !!data.fallbackUsed;
-      setPosterFallbackUsed(isFallback);
+      // If the AI used the moderation fallback, use share card instead
+      if (data.fallbackUsed) {
+        const shareCardDataUrl = await captureShareCard();
+        if (!shareCardDataUrl) throw new Error("Failed to capture share card");
+        setPosterCompositeDataUrl(shareCardDataUrl);
+        setPosterFallbackUsed(true);
 
+        // Auto-download
+        const autoLink = document.createElement("a");
+        autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
+        autoLink.href = shareCardDataUrl;
+        autoLink.click();
+
+        // Save to poster_images
+        const b64ForSave = shareCardDataUrl.replace(/^data:image\/png;base64,/, "");
+        await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
+        await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: b64ForSave });
+        setSavedPosterData(b64ForSave);
+        setSavedPosterStyle("share-card");
+
+        setPosterOverlayOpen(true);
+        // No aura deducted, no posterGeneratedForTopic set
+        return;
+      }
+
+      // ── Normal AI poster flow ──
       let aiSrc: string;
       if (data.imageUrl) {
         setPosterImageUrl(data.imageUrl);
@@ -1378,6 +1438,16 @@ export function TopicVotingFlow({
       setPosterGeneratedForTopic(true);
       setPosterOverlayOpen(true);
     } catch (err) {
+      // Last resort: try share card fallback even on unexpected errors
+      try {
+        const shareCardDataUrl = await captureShareCard();
+        if (shareCardDataUrl) {
+          setPosterCompositeDataUrl(shareCardDataUrl);
+          setPosterFallbackUsed(true);
+          setPosterOverlayOpen(true);
+          return;
+        }
+      } catch { /* ignore */ }
       setPosterError(err instanceof Error ? err.message : "Failed to generate poster");
     } finally {
       setPosterGenerating(false);
@@ -2944,92 +3014,6 @@ export function TopicVotingFlow({
                   }}
                 />
 
-                {/* FALLBACK: When moderation blocked the original, overlay real title + names */}
-                {posterFallbackUsed && (
-                  <div style={{
-                    position: "absolute",
-                    top: "40px",
-                    left: 0,
-                    right: 0,
-                    bottom: "270px",
-                    display: "flex",
-                    flexDirection: "column",
-                    zIndex: 6,
-                    padding: "0 60px",
-                  }}>
-                    {/* Topic title — small, gold, top area */}
-                    <div style={{
-                      textAlign: "center",
-                      marginBottom: "20px",
-                    }}>
-                      <span style={{
-                        fontFamily: "'Bebas Neue', Impact, sans-serif",
-                        fontSize: "36px",
-                        color: "#FFD700",
-                        letterSpacing: "3px",
-                        textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 20px rgba(255,215,0,0.3)",
-                        textTransform: "uppercase",
-                      }}>
-                        {topic.title}
-                      </span>
-                    </div>
-
-                    {/* Spacer to push rankings toward middle/lower */}
-                    <div style={{ flex: 1 }} />
-
-                    {/* Ranking rows with real names */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {results.slice(0, 5).map((r, idx) => {
-                        const rankColors = ["#FFD700", "#C0C0C0", "#50C878", "#008080", "#4682B4"];
-                        return (
-                          <div key={r.subject.id} style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "16px",
-                            background: "rgba(0,0,0,0.65)",
-                            borderRadius: "8px",
-                            padding: "10px 16px",
-                          }}>
-                            <div style={{
-                              width: "44px",
-                              height: "44px",
-                              borderRadius: "6px",
-                              background: rankColors[idx] ?? "#4682B4",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}>
-                              <span style={{
-                                fontFamily: "'Bebas Neue', Impact, sans-serif",
-                                fontSize: "28px",
-                                color: "#000",
-                                fontWeight: "bold",
-                                lineHeight: 1,
-                              }}>
-                                {idx + 1}
-                              </span>
-                            </div>
-                            <span style={{
-                              fontFamily: "'DM Sans', sans-serif",
-                              fontSize: "26px",
-                              fontWeight: 700,
-                              color: "#ffffff",
-                              textShadow: "0 2px 8px rgba(0,0,0,0.9)",
-                              lineHeight: 1.2,
-                            }}>
-                              {r.subject.name}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Bottom spacer */}
-                    <div style={{ height: "20px" }} />
-                  </div>
-                )}
-
                 {/* BOTTOM: Dark gradient for text readability */}
                 <div style={{
                   position: "absolute",
@@ -3481,8 +3465,8 @@ export function TopicVotingFlow({
 
             {/* Fallback note */}
             {posterFallbackUsed && (
-              <p className="text-xs font-mono text-amber-400/80 text-center">
-                Generic poster generated — celebrity restrictions applied.
+              <p className="text-xs font-mono text-amber-400/80 text-center px-4">
+                AI poster blocked due to content restrictions on this topic. Here&apos;s your share card instead — no Aura charged.
               </p>
             )}
 
