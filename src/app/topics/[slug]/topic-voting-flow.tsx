@@ -1229,11 +1229,11 @@ export function TopicVotingFlow({
 
   // ── AI Poster helpers ──────────────────────────────────────────────────────
   const POSTER_STYLES = [
-    { id: "comic", label: "Comic", icon: "💥", desc: "Marvel splash page" },
-    { id: "anime", label: "Anime", icon: "⚔️", desc: "Epic battle scene" },
-    { id: "classic", label: "Classic", icon: "🎨", desc: "Renaissance painting" },
-    { id: "sports", label: "Sports", icon: "🏆", desc: "ESPN magazine cover" },
-    { id: "meme", label: "Meme", icon: "😂", desc: "Exaggerated cartoon" },
+    { id: "cinematic", label: "Cinematic", icon: "🎬", desc: "Dark dramatic lighting" },
+    { id: "comic", label: "Comic", icon: "💥", desc: "Bold ink & halftone" },
+    { id: "sports-card", label: "Sports Card", icon: "🏆", desc: "Metallic holographic" },
+    { id: "editorial", label: "Editorial", icon: "📰", desc: "Clean magazine layout" },
+    { id: "tournament", label: "Tournament", icon: "⚔️", desc: "Gritty versus energy" },
   ] as const;
 
   const POSTER_AURA_COST = 50;
@@ -2900,47 +2900,36 @@ export function TopicVotingFlow({
                   }}
                 />
 
-                {/* TOP: Dark gradient for logo readability */}
-                <div style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: "180px",
-                  background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)",
-                  zIndex: 1,
-                }} />
-
-                {/* TOP: Real logo overlay */}
-                <div style={{
-                  position: "absolute",
-                  top: "20px",
-                  left: 0,
-                  right: 0,
-                  display: "flex",
-                  justifyContent: "center",
-                  zIndex: 3,
-                }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/images/logo-full.png"
-                    alt="TOP5DOA"
-                    style={{ height: "120px", width: "auto", objectFit: "contain" }}
-                  />
-                </div>
-
                 {/* BOTTOM: Dark gradient for text readability */}
                 <div style={{
                   position: "absolute",
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: "200px",
-                  background: "linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+                  height: "270px",
+                  background: "linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 60%, transparent 100%)",
                   zIndex: 2,
                 }} />
 
-                {/* BOTTOM: User info + branding overlay */}
+                {/* BOTTOM CENTER: Logo */}
+                <div style={{
+                  position: "absolute",
+                  bottom: "90px",
+                  left: 0,
+                  right: 0,
+                  display: "flex",
+                  justifyContent: "center",
+                  zIndex: 5,
+                }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/logo-full.png"
+                    alt="TOP5DOA"
+                    style={{ height: "100px", width: "auto", objectFit: "contain" }}
+                  />
+                </div>
+
+                {/* BOTTOM: User info (left) + branding (right) */}
                 <div style={{
                   position: "absolute",
                   bottom: 0,
