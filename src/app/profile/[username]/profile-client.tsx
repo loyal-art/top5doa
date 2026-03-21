@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import type { VotedTopic, CreatedTopic } from "./page";
+import type { VotedTopic, CreatedTopic, SavedPoster } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura } from "@/lib/aura";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -35,6 +35,7 @@ interface ProfileClientProps {
   votedTopics: VotedTopic[];
   createdTopics: CreatedTopic[];
   savedCategories: string[];
+  savedPosters: SavedPoster[];
 }
 
 export function ProfileClient({
@@ -47,6 +48,7 @@ export function ProfileClient({
   votedTopics,
   createdTopics,
   savedCategories,
+  savedPosters,
 }: ProfileClientProps) {
   const supabase = createClient();
   const router = useRouter();
@@ -69,6 +71,9 @@ export function ProfileClient({
     new Set(savedCategories)
   );
   const [categoryLoading, setCategoryLoading] = useState<string | null>(null);
+
+  // Poster overlay
+  const [viewingPoster, setViewingPoster] = useState<SavedPoster | null>(null);
 
   // Recompute visibility live so the toggle instantly reveals/hides topics
   // on the owner's own view.
@@ -546,6 +551,34 @@ export function ProfileClient({
             )}
           </div>
         )}
+        {/* ── Saved posters ──────────────────────────────────────────── */}
+        {canSeeFullProfile && savedPosters.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-display text-xl tracking-wide">MY POSTERS</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {savedPosters.map((poster) => (
+                <button
+                  key={poster.id}
+                  onClick={() => setViewingPoster(poster)}
+                  className="group relative rounded-xl overflow-hidden border border-brand-border
+                             hover:border-purple-500/40 transition-colors aspect-square"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`data:image/png;base64,${poster.image_data}`}
+                    alt={`Poster for ${poster.topic_title}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6">
+                    <p className="font-mono text-xs text-white truncate">{poster.topic_title}</p>
+                    <p className="font-mono text-[10px] text-neutral-400 uppercase">{poster.style}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Created topics ─────────────────────────────────────────── */}
         {canSeeFullProfile && (
           <div className="space-y-3">
@@ -621,6 +654,57 @@ export function ProfileClient({
           </div>
         )}
       </div>
+
+      {/* Poster viewer overlay */}
+      {viewingPoster && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setViewingPoster(null); }}
+        >
+          <div className="relative w-full max-w-2xl flex flex-col items-center gap-4 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setViewingPoster(null)}
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 flex items-center justify-center rounded-full
+                         bg-neutral-900 border border-neutral-700 text-neutral-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+            <div className="relative w-full rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 border border-neutral-800">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`data:image/png;base64,${viewingPoster.image_data}`}
+                alt={`Poster for ${viewingPoster.topic_title}`}
+                className="w-full h-auto"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.download = `top5-poster-${viewingPoster.topic_slug}.png`;
+                  link.href = `data:image/png;base64,${viewingPoster.image_data}`;
+                  link.click();
+                }}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors
+                           flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+                </svg>
+                Download
+              </button>
+              <Link
+                href={`/topics/${viewingPoster.topic_slug}`}
+                className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
+                           text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
+              >
+                View Topic
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

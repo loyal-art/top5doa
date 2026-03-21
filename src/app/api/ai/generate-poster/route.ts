@@ -186,20 +186,31 @@ export async function POST(req: NextRequest) {
   // Build the poster prompt — AI renders title + rankings + art; we overlay logo/user/branding
   const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
 
-  // Generate image via OpenAI gpt-image-1-mini with full text instructions
-  const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-image-1-mini",
-      prompt: imagePrompt,
-      size: "1024x1024",
-      quality: "medium",
-    }),
-  });
+  // Helper to call the OpenAI image generation API
+  async function callOpenAI(prompt: string) {
+    return fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1-mini",
+        prompt,
+        size: "1024x1024",
+        quality: "medium",
+      }),
+    });
+  }
+
+  function isModerationBlocked(status: number, body: string): boolean {
+    if (status !== 400) return false;
+    return body.includes("moderation_blocked") || body.includes("content_policy_violation");
+  }
+
+  // First attempt with the original prompt
+  let openaiRes = await callOpenAI(imagePrompt);
+  let fallbackUsed = false;
 
   if (!openaiRes.ok) {
     const text = await openaiRes.text();
@@ -209,22 +220,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
     }
 
-    return NextResponse.json(
-      { error: `OpenAI API error: ${openaiRes.status} ${text}` },
-      { status: 502 }
-    );
+    // Moderation blocked — retry with generic fallback prompt
+    if (isModerationBlocked(openaiRes.status, text)) {
+      const genericTop5 = top5.slice(0, 5).map((item) => ({
+        rank: item.rank,
+        name: `ranked subject #${item.rank}`,
+      }));
+      const fallbackPrompt = buildPosterPrompt(topicTitle, genericTop5, styleDesc)
+        + "\n\nIMPORTANT: Do NOT depict any recognizable real person. Use completely generic stylized characters. Replace all specific people with anonymous stylized figures.";
+
+      openaiRes = await callOpenAI(fallbackPrompt);
+      if (!openaiRes.ok) {
+        const fallbackText = await openaiRes.text();
+
+        if (isBillingError(openaiRes.status, fallbackText)) {
+          await notifyAdmins("OpenAI");
+          return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
+        }
+
+        // Both attempts failed — user-friendly error
+        return NextResponse.json(
+          { error: "Poster generation unavailable for this topic. Try a different style!" },
+          { status: 502 }
+        );
+      }
+      fallbackUsed = true;
+    } else {
+      // Non-moderation, non-billing error — user-friendly message
+      return NextResponse.json(
+        { error: "Poster generation unavailable for this topic. Try a different style!" },
+        { status: 502 }
+      );
+    }
   }
 
   const openaiData = await openaiRes.json();
   const imageData = openaiData.data?.[0];
 
   if (!imageData) {
-    return NextResponse.json({ error: "No image generated from OpenAI" }, { status: 502 });
+    return NextResponse.json(
+      { error: "Poster generation unavailable for this topic. Try a different style!" },
+      { status: 502 }
+    );
   }
 
   return NextResponse.json({
     imageUrl: imageData.url ?? null,
     imageBase64: imageData.b64_json ?? null,
     prompt: imagePrompt,
+    fallbackUsed,
   });
 }
