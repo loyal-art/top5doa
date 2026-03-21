@@ -264,6 +264,9 @@ export function TopicVotingFlow({
   const [posterOverlayOpen, setPosterOverlayOpen] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterGeneratedForTopic, setPosterGeneratedForTopic] = useState(false);
+  const [posterFallbackUsed, setPosterFallbackUsed] = useState(false);
+  const [savedPosterData, setSavedPosterData] = useState<string | null>(null);
+  const [savedPosterStyle, setSavedPosterStyle] = useState<string | null>(null);
 
   // Hot Take state
   const [hotTakeOpen, setHotTakeOpen] = useState(false);
@@ -1324,7 +1327,14 @@ export function TopicVotingFlow({
         useCORS: true,
         backgroundColor: "#0a0a0a",
       });
-      setPosterCompositeDataUrl(canvas.toDataURL("image/png"));
+      const compositeDataUrl = canvas.toDataURL("image/png");
+      setPosterCompositeDataUrl(compositeDataUrl);
+
+      // Auto-download the poster immediately
+      const autoLink = document.createElement("a");
+      autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
+      autoLink.href = compositeDataUrl;
+      autoLink.click();
 
       // Deduct aura for regeneration (not first time)
       if (!isFirstGen) {
@@ -1344,6 +1354,29 @@ export function TopicVotingFlow({
           reference_id: topic.id,
         });
       }
+
+      // Handle fallback flag from API
+      if (data.fallbackUsed) {
+        setPosterFallbackUsed(true);
+      } else {
+        setPosterFallbackUsed(false);
+      }
+
+      // Save poster to poster_images (upsert: delete old, insert new)
+      const b64ForSave = compositeDataUrl.replace(/^data:image\/png;base64,/, "");
+      await supabase
+        .from("poster_images")
+        .delete()
+        .eq("user_id", userId)
+        .eq("topic_id", topic.id);
+      await supabase.from("poster_images").insert({
+        user_id: userId,
+        topic_id: topic.id,
+        style,
+        image_data: b64ForSave,
+      });
+      setSavedPosterData(b64ForSave);
+      setSavedPosterStyle(style);
 
       setPosterGeneratedForTopic(true);
       setPosterOverlayOpen(true);
@@ -1396,6 +1429,20 @@ export function TopicVotingFlow({
       .then(({ data }) => {
         if (data && data.length > 0) {
           setPosterGeneratedForTopic(true);
+        }
+      });
+    // Load saved poster if one exists
+    supabase
+      .from("poster_images")
+      .select("image_data, style")
+      .eq("user_id", userId)
+      .eq("topic_id", topic.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setSavedPosterData(data[0].image_data);
+          setSavedPosterStyle(data[0].style);
         }
       });
   }, [userId, topic.id, supabase]);
@@ -2925,7 +2972,7 @@ export function TopicVotingFlow({
                   <img
                     src="/images/logo-full.png"
                     alt="TOP5DOA"
-                    style={{ height: "100px", width: "auto", objectFit: "contain" }}
+                    style={{ height: "200px", width: "auto", objectFit: "contain" }}
                   />
                 </div>
 
@@ -3116,6 +3163,19 @@ export function TopicVotingFlow({
                     ) : (
                       "✨ Generate AI Poster"
                     )}
+                  </button>
+                )}
+                {userId && savedPosterData && !posterGenerating && (
+                  <button
+                    onClick={() => {
+                      setPosterCompositeDataUrl(`data:image/png;base64,${savedPosterData}`);
+                      setPosterOverlayOpen(true);
+                    }}
+                    className="w-full px-5 py-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5
+                               font-mono text-sm transition-colors hover:bg-purple-500/10 hover:border-purple-500/40
+                               flex items-center justify-center gap-2 text-purple-400"
+                  >
+                    View Saved Poster{savedPosterStyle ? ` (${savedPosterStyle})` : ""}
                   </button>
                 )}
                 {posterError && (
@@ -3335,6 +3395,13 @@ export function TopicVotingFlow({
                 className="w-full h-auto"
               />
             </div>
+
+            {/* Fallback note */}
+            {posterFallbackUsed && (
+              <p className="text-xs font-mono text-amber-400/80 text-center">
+                Generic poster generated — celebrity restrictions applied.
+              </p>
+            )}
 
             {/* Action buttons */}
             <div className="flex flex-wrap items-center justify-center gap-3">

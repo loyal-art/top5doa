@@ -33,6 +33,16 @@ export type CreatedTopic = {
   voter_count: number;
 };
 
+export type SavedPoster = {
+  id: string;
+  topic_id: string;
+  topic_title: string;
+  topic_slug: string;
+  style: string;
+  image_data: string;
+  created_at: string;
+};
+
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
   const supabase = await createClient();
@@ -162,6 +172,40 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     }
   }
 
+  // ── Saved posters ───────────────────────────────────────────────────────
+  let savedPosters: SavedPoster[] = [];
+  if (canSeeFullProfile) {
+    const { data: posterRows } = await supabase
+      .from("poster_images")
+      .select("id, topic_id, style, image_data, created_at")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+
+    if (posterRows && posterRows.length > 0) {
+      const posterTopicIds = posterRows.map((p) => p.topic_id);
+      const { data: posterTopicRows } = await supabase
+        .from("topics")
+        .select("id, title, slug")
+        .in("id", posterTopicIds);
+
+      const posterTopicMap = Object.fromEntries(
+        (posterTopicRows ?? []).map((t) => [t.id, t])
+      );
+
+      savedPosters = posterRows
+        .filter((p) => posterTopicMap[p.topic_id])
+        .map((p) => ({
+          id: p.id,
+          topic_id: p.topic_id,
+          topic_title: posterTopicMap[p.topic_id].title,
+          topic_slug: posterTopicMap[p.topic_id].slug,
+          style: p.style,
+          image_data: p.image_data,
+          created_at: p.created_at,
+        }));
+    }
+  }
+
   return (
     <ProfileClient
       profile={profile}
@@ -173,6 +217,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       votedTopics={votedTopics}
       createdTopics={createdTopics}
       savedCategories={savedCategories}
+      savedPosters={savedPosters}
     />
   );
 }
