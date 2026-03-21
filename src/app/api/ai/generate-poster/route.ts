@@ -104,6 +104,62 @@ CRITICAL RULES:
 - The poster should feel like a premium ESPN or sports media graphic`;
 }
 
+// BACKUP: GPT Image 1.5 version — revert to this if mini quality is insufficient
+function buildPosterPromptV2(
+  topicTitle: string,
+  top5: { rank: number; name: string }[],
+  styleDesc: string,
+): string {
+  const items = top5.slice(0, 5);
+  const rank1 = items[0]?.name ?? "Unknown";
+  const rank2 = items[1]?.name ?? "Unknown";
+  const rank3 = items[2]?.name ?? "Unknown";
+  const rank4 = items[3]?.name ?? "Unknown";
+  const rank5 = items[4]?.name ?? "Unknown";
+
+  return `Create a 1:1 square poster illustration. This is a ranking poster for an app called Top 5 DOA.
+
+LAYOUT (follow this EXACTLY):
+- Top 75%: The ranking content, illustration, and title go here
+- Bottom 25%: Leave completely black/dark — this area will have a logo, user info, and app link overlaid later. Do NOT put any content here.
+
+ILLUSTRATION — MOST IMPORTANT:
+The #1 ranked subject "${rank1}" should have a large, dramatic, stylized cartoon caricature illustration or symbolic representation as the HERO of the poster. This is the centerpiece.
+If the subject is a person, show a stylized non-identifiable cartoon caricature — exaggerated features, jersey number and team colors if applicable, dynamic action pose, energy effects — NOT a realistic likeness.
+If the subject is a product (shoes, food, etc), show a large stylized illustrated version of the product with dramatic lighting and effects.
+If the subject is abstract, show symbolic energy art.
+The illustration should be large and visually dominant, positioned in the upper portion behind or above the ranking rows.
+
+RANKING SECTION — SECOND MOST IMPORTANT:
+Show exactly 5 ranking rows in the middle/lower portion of the top 75%. Each row MUST be fully visible — do NOT let any row get cut off. Each row has:
+- A bold number (1-5) inside a colored square: 1=GOLD, 2=SILVER, 3=EMERALD GREEN, 4=TEAL, 5=STEEL BLUE
+- The subject name in large white bold text to the right of the number
+- Row 1: "${rank1}"
+- Row 2: "${rank2}"
+- Row 3: "${rank3}"
+- Row 4: "${rank4}"
+- Row 5: "${rank5}"
+- Each row has a dark translucent background bar
+- Rows are compact and evenly spaced
+
+TITLE — LEAST IMPORTANT:
+Show "${topicTitle}" in small metallic gold text above the rankings. Keep it subtle and compact — one line if possible, small font. The title should NOT compete with the illustration or rankings.
+
+STYLE: ${styleDesc}
+
+BACKGROUND: Dark cinematic atmosphere matching the style. Rich blacks, dramatic lighting. Gold/amber accent tones.
+
+CRITICAL RULES:
+- ALL 5 ranking rows MUST be fully visible and not cropped
+- The illustration of #1 is the HERO — make it large and dramatic
+- The title is small and subtle — do NOT make it large
+- Leave bottom 25% completely dark and empty — NO content there
+- Do NOT generate any logo, user profile info, or app link text in the image
+- Do NOT generate realistic human faces or likenesses
+- Use stylized cartoon caricatures for people-based subjects
+- The poster should feel like a premium ESPN or sports media graphic`;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { topicTitle, top5, displayName, username, tier, aura, style } = body as {
@@ -130,7 +186,7 @@ export async function POST(req: NextRequest) {
   // Build the poster prompt — AI renders title + rankings + art; we overlay logo/user/branding
   const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
 
-  // Generate image via OpenAI gpt-image-1.5 with full text instructions
+  // Generate image via OpenAI gpt-image-1-mini with full text instructions
   const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -138,7 +194,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${openaiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-image-1.5",
+      model: "gpt-image-1-mini",
       prompt: imagePrompt,
       size: "1024x1024",
       quality: "medium",
