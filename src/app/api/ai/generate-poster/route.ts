@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
-  comic: "Marvel comic book splash page with dramatic lighting, bold outlines, energy effects, and vibrant colors",
-  anime: "dramatic anime battle scene with dynamic energy effects, speed lines, and epic composition",
-  classic: "renaissance oil painting with dramatic chiaroscuro lighting and classical composition",
-  sports: "ESPN magazine cover with bold typography, dramatic spotlight lighting, and stadium atmosphere",
-  meme: "exaggerated cartoon style with over-the-top expressions, bright colors, and meme energy",
+  cinematic: "dark dramatic lighting, gold particles, lens flares",
+  comic: "bold ink lines, halftone dots, action energy",
+  "sports-card": "metallic frame, holographic shimmer",
+  editorial: "clean minimalist, magazine layout",
+  tournament: "gritty, competitive, versus energy",
 };
 
 const USER_FRIENDLY_UNAVAILABLE =
@@ -54,33 +54,54 @@ function buildPosterPrompt(
   top5: { rank: number; name: string }[],
   styleDesc: string,
 ): string {
-  const rankColors = ["gold", "silver", "emerald", "teal", "blue"];
   const items = top5.slice(0, 5);
-  const firstName = items[0]?.name ?? "Unknown";
+  const rank1 = items[0]?.name ?? "Unknown";
+  const rank2 = items[1]?.name ?? "Unknown";
+  const rank3 = items[2]?.name ?? "Unknown";
+  const rank4 = items[3]?.name ?? "Unknown";
+  const rank5 = items[4]?.name ?? "Unknown";
 
-  const rankingRows = items
-    .map((item, i) => {
-      const color = rankColors[i] ?? "blue";
-      return `  Row ${item.rank}: Large bold number "${item.rank}" in a ${color}-colored square on the left, then "${item.name}" in large white bold text to the right. Dark translucent background bar with a subtle ${color}-tinted border.`;
-    })
-    .join("\n");
+  return `Create a 1:1 square poster illustration. This is a ranking poster for an app called Top 5 DOA.
 
-  return `Create a 1:1 square poster image with ALL content fitting within the frame with generous padding on all sides. Style: ${styleDesc}. Dark cinematic background with subtle gold particles and lens flares.
+LAYOUT (follow this EXACTLY):
+- Top 75%: The ranking content, illustration, and title go here
+- Bottom 25%: Leave completely black/dark — this area will have a logo, user info, and app link overlaid later. Do NOT put any content here.
 
-Layout from top to bottom with clear spacing between each section:
+ILLUSTRATION — MOST IMPORTANT:
+The #1 ranked subject "${rank1}" should have a large, dramatic, stylized cartoon caricature illustration or symbolic representation as the HERO of the poster. This is the centerpiece.
+If the subject is a person, show a stylized non-identifiable cartoon caricature — exaggerated features, jersey number and team colors if applicable, dynamic action pose, energy effects — NOT a realistic likeness.
+If the subject is a product (shoes, food, etc), show a large stylized illustrated version of the product with dramatic lighting and effects.
+If the subject is abstract, show symbolic energy art.
+The illustration should be large and visually dominant, positioned in the upper portion behind or above the ranking rows.
 
-TOP AREA (top 12% of image): Leave this area as plain dark background with subtle atmosphere only. Do NOT place any logo, emblem, shield, or text here — a real logo will be overlaid later.
+RANKING SECTION — SECOND MOST IMPORTANT:
+Show exactly 5 ranking rows in the middle/lower portion of the top 75%. Each row MUST be fully visible — do NOT let any row get cut off. Each row has:
+- A bold number (1-5) inside a colored square: 1=GOLD, 2=SILVER, 3=EMERALD GREEN, 4=TEAL, 5=STEEL BLUE
+- The subject name in large white bold text to the right of the number
+- Row 1: "${rank1}"
+- Row 2: "${rank2}"
+- Row 3: "${rank3}"
+- Row 4: "${rank4}"
+- Row 5: "${rank5}"
+- Each row has a dark translucent background bar
+- Rows are compact and evenly spaced
 
-TITLE SECTION: Below the top area, show "${topicTitle}" in large bold metallic gold text, centered. A horizontal gold glowing line separates the title from the content below.
+TITLE — LEAST IMPORTANT:
+Show "${topicTitle}" in small metallic gold text above the rankings. Keep it subtle and compact — one line if possible, small font. The title should NOT compete with the illustration or rankings.
 
-MIDDLE SECTION: A SMALL, SUBTLE visual representation of the #1 ranked item "${firstName}" — if it is a product show a small version of the product, if it is a person show a subtle dramatic silhouette with energy effects, if it is a place show a faint scenic view. This visual must be a SMALL background element behind the ranking rows — NOT a large centerpiece. It should be faded/transparent so it does not compete with the ranking text.
+STYLE: ${styleDesc}
 
-RANKING SECTION: 5 compact horizontal rows with dark translucent backgrounds, evenly spaced. The ranking rows should take up approximately 50% of the total image height. Each row should be compact — just tall enough for the number and text, not oversized:
-${rankingRows}
+BACKGROUND: Dark cinematic atmosphere matching the style. Rich blacks, dramatic lighting. Gold/amber accent tones.
 
-BOTTOM AREA (bottom 12% of image): Leave this area as dark space — do NOT generate any username, avatar, app name, watermark, URL, or branding text here. This area will have content overlaid later. Just keep it dark/atmospheric.
-
-CRITICAL: All 5 ranking rows MUST be fully visible within the image. Keep the #1 subject visual art SMALL — it should be a subtle background element behind the rankings, NOT a large centerpiece that pushes rankings off screen. The ranking rows should take up approximately 50% of the image height. Each row should be compact — just tall enough for the number and text. Leave the top 12% empty for logo overlay and the bottom 12% empty for user info overlay. Everything must fit inside the square frame. Leave at least 40px padding on all edges. Do not crop any text or elements. The poster must look complete and polished like a premium ESPN or Spotify Wrapped graphic. Do NOT include any real human faces.`;
+CRITICAL RULES:
+- ALL 5 ranking rows MUST be fully visible and not cropped
+- The illustration of #1 is the HERO — make it large and dramatic
+- The title is small and subtle — do NOT make it large
+- Leave bottom 25% completely dark and empty — NO content there
+- Do NOT generate any logo, user profile info, or app link text in the image
+- Do NOT generate realistic human faces or likenesses
+- Use stylized cartoon caricatures for people-based subjects
+- The poster should feel like a premium ESPN or sports media graphic`;
 }
 
 export async function POST(req: NextRequest) {
@@ -109,7 +130,7 @@ export async function POST(req: NextRequest) {
   // Build the poster prompt — AI renders title + rankings + art; we overlay logo/user/branding
   const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
 
-  // Generate image via OpenAI gpt-image-1-mini with full text instructions
+  // Generate image via OpenAI gpt-image-1.5 with full text instructions
   const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -117,7 +138,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${openaiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-image-1",
+      model: "gpt-image-1.5",
       prompt: imagePrompt,
       size: "1024x1024",
       quality: "medium",
