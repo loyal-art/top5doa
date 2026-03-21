@@ -231,17 +231,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
     }
 
-    // Moderation blocked — retry with a fully sanitized fallback prompt
+    // Moderation blocked — retry with a completely sanitized fallback prompt
+    // The AI generates only an abstract background; real names/title are overlaid by the client
     if (isModerationBlocked(openaiRes.status, text)) {
-      console.log("[generate-poster] Moderation blocked, retrying with generic fallback...");
-      const genericTop5 = top5.slice(0, 5).map((item) => ({
-        rank: item.rank,
-        name: `ranked subject #${item.rank}`,
-      }));
-      // Strip the topic title of specific names too — use a generic title
-      const safeTitle = topicTitle.replace(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/g, "Top Picks");
-      const fallbackPrompt = buildPosterPrompt(safeTitle, genericTop5, styleDesc)
-        + "\n\nIMPORTANT: Do NOT depict any recognizable real person. Do NOT reference any celebrity, public figure, or copyrighted character by name or likeness. Use completely generic stylized characters with no identifying features. Replace all specific people with anonymous stylized figures in dynamic poses.";
+      console.log("[generate-poster] Moderation blocked, retrying with safe abstract fallback...");
+      const fallbackPrompt = `Create a 1:1 square ranking poster with a dark cinematic background, gold particles, and dramatic lighting. Show 5 ranking rows with numbers 1-5 in colored squares (gold, silver, green, teal, blue) and placeholder text: RANK 1, RANK 2, RANK 3, RANK 4, RANK 5. Each row has a dark translucent bar. Leave the bottom 25% dark and empty. Style: ${styleDesc}. Do NOT include any people, faces, characters, or likenesses. The poster should feel like a premium ESPN or sports media graphic with dramatic energy effects and rich blacks.`;
 
       openaiRes = await callOpenAI(fallbackPrompt);
       if (!openaiRes.ok) {
