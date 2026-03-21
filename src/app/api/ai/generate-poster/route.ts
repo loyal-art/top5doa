@@ -204,8 +204,18 @@ export async function POST(req: NextRequest) {
   }
 
   function isModerationBlocked(status: number, body: string): boolean {
-    if (status !== 400) return false;
-    return body.includes("moderation_blocked") || body.includes("content_policy_violation");
+    // OpenAI uses various error formats for content policy rejections
+    const lower = body.toLowerCase();
+    return (
+      lower.includes("moderation") ||
+      lower.includes("content_policy") ||
+      lower.includes("safety_system") ||
+      lower.includes("safety system") ||
+      lower.includes("rejected") ||
+      lower.includes("not allowed") ||
+      lower.includes("policy violation") ||
+      lower.includes("content policy")
+    );
   }
 
   // First attempt with the original prompt
@@ -214,24 +224,23 @@ export async function POST(req: NextRequest) {
 
   if (!openaiRes.ok) {
     const text = await openaiRes.text();
+    console.error(`[generate-poster] OpenAI error (${openaiRes.status}):`, text.slice(0, 500));
 
     if (isBillingError(openaiRes.status, text)) {
       await notifyAdmins("OpenAI");
       return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
     }
 
-    // Moderation blocked — retry with generic fallback prompt
+    // Moderation blocked — retry with a completely sanitized fallback prompt
+    // The AI generates only an abstract background; real names/title are overlaid by the client
     if (isModerationBlocked(openaiRes.status, text)) {
-      const genericTop5 = top5.slice(0, 5).map((item) => ({
-        rank: item.rank,
-        name: `ranked subject #${item.rank}`,
-      }));
-      const fallbackPrompt = buildPosterPrompt(topicTitle, genericTop5, styleDesc)
-        + "\n\nIMPORTANT: Do NOT depict any recognizable real person. Use completely generic stylized characters. Replace all specific people with anonymous stylized figures.";
+      console.log("[generate-poster] Moderation blocked, retrying with safe abstract fallback...");
+      const fallbackPrompt = `Create a 1:1 square ranking poster with a dark cinematic background, gold particles, and dramatic lighting. Show 5 ranking rows with numbers 1-5 in colored squares (gold, silver, green, teal, blue) and placeholder text: RANK 1, RANK 2, RANK 3, RANK 4, RANK 5. Each row has a dark translucent bar. Leave the bottom 25% dark and empty. Style: ${styleDesc}. Do NOT include any people, faces, characters, or likenesses. The poster should feel like a premium ESPN or sports media graphic with dramatic energy effects and rich blacks.`;
 
       openaiRes = await callOpenAI(fallbackPrompt);
       if (!openaiRes.ok) {
         const fallbackText = await openaiRes.text();
+        console.error(`[generate-poster] Fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));
 
         if (isBillingError(openaiRes.status, fallbackText)) {
           await notifyAdmins("OpenAI");

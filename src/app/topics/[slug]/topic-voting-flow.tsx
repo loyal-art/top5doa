@@ -1288,6 +1288,10 @@ export function TopicVotingFlow({
 
       const data = await res.json();
 
+      // Set fallback flag BEFORE rendering so the composite card can use it
+      const isFallback = !!data.fallbackUsed;
+      setPosterFallbackUsed(isFallback);
+
       let aiSrc: string;
       if (data.imageUrl) {
         setPosterImageUrl(data.imageUrl);
@@ -1353,13 +1357,6 @@ export function TopicVotingFlow({
           points: 0,
           reference_id: topic.id,
         });
-      }
-
-      // Handle fallback flag from API
-      if (data.fallbackUsed) {
-        setPosterFallbackUsed(true);
-      } else {
-        setPosterFallbackUsed(false);
       }
 
       // Save poster to poster_images (upsert: delete old, insert new)
@@ -2946,6 +2943,92 @@ export function TopicVotingFlow({
                     zIndex: 0,
                   }}
                 />
+
+                {/* FALLBACK: When moderation blocked the original, overlay real title + names */}
+                {posterFallbackUsed && (
+                  <div style={{
+                    position: "absolute",
+                    top: "40px",
+                    left: 0,
+                    right: 0,
+                    bottom: "270px",
+                    display: "flex",
+                    flexDirection: "column",
+                    zIndex: 6,
+                    padding: "0 60px",
+                  }}>
+                    {/* Topic title — small, gold, top area */}
+                    <div style={{
+                      textAlign: "center",
+                      marginBottom: "20px",
+                    }}>
+                      <span style={{
+                        fontFamily: "'Bebas Neue', Impact, sans-serif",
+                        fontSize: "36px",
+                        color: "#FFD700",
+                        letterSpacing: "3px",
+                        textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 20px rgba(255,215,0,0.3)",
+                        textTransform: "uppercase",
+                      }}>
+                        {topic.title}
+                      </span>
+                    </div>
+
+                    {/* Spacer to push rankings toward middle/lower */}
+                    <div style={{ flex: 1 }} />
+
+                    {/* Ranking rows with real names */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {results.slice(0, 5).map((r, idx) => {
+                        const rankColors = ["#FFD700", "#C0C0C0", "#50C878", "#008080", "#4682B4"];
+                        return (
+                          <div key={r.subject.id} style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            background: "rgba(0,0,0,0.65)",
+                            borderRadius: "8px",
+                            padding: "10px 16px",
+                          }}>
+                            <div style={{
+                              width: "44px",
+                              height: "44px",
+                              borderRadius: "6px",
+                              background: rankColors[idx] ?? "#4682B4",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}>
+                              <span style={{
+                                fontFamily: "'Bebas Neue', Impact, sans-serif",
+                                fontSize: "28px",
+                                color: "#000",
+                                fontWeight: "bold",
+                                lineHeight: 1,
+                              }}>
+                                {idx + 1}
+                              </span>
+                            </div>
+                            <span style={{
+                              fontFamily: "'DM Sans', sans-serif",
+                              fontSize: "26px",
+                              fontWeight: 700,
+                              color: "#ffffff",
+                              textShadow: "0 2px 8px rgba(0,0,0,0.9)",
+                              lineHeight: 1.2,
+                            }}>
+                              {r.subject.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bottom spacer */}
+                    <div style={{ height: "20px" }} />
+                  </div>
+                )}
 
                 {/* BOTTOM: Dark gradient for text readability */}
                 <div style={{
