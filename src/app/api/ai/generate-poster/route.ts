@@ -204,8 +204,18 @@ export async function POST(req: NextRequest) {
   }
 
   function isModerationBlocked(status: number, body: string): boolean {
-    if (status !== 400) return false;
-    return body.includes("moderation_blocked") || body.includes("content_policy_violation");
+    // OpenAI uses various error formats for content policy rejections
+    const lower = body.toLowerCase();
+    return (
+      lower.includes("moderation") ||
+      lower.includes("content_policy") ||
+      lower.includes("safety_system") ||
+      lower.includes("safety system") ||
+      lower.includes("rejected") ||
+      lower.includes("not allowed") ||
+      lower.includes("policy violation") ||
+      lower.includes("content policy")
+    );
   }
 
   // First attempt with the original prompt
@@ -214,24 +224,29 @@ export async function POST(req: NextRequest) {
 
   if (!openaiRes.ok) {
     const text = await openaiRes.text();
+    console.error(`[generate-poster] OpenAI error (${openaiRes.status}):`, text.slice(0, 500));
 
     if (isBillingError(openaiRes.status, text)) {
       await notifyAdmins("OpenAI");
       return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
     }
 
-    // Moderation blocked — retry with generic fallback prompt
+    // Moderation blocked — retry with a fully sanitized fallback prompt
     if (isModerationBlocked(openaiRes.status, text)) {
+      console.log("[generate-poster] Moderation blocked, retrying with generic fallback...");
       const genericTop5 = top5.slice(0, 5).map((item) => ({
         rank: item.rank,
         name: `ranked subject #${item.rank}`,
       }));
-      const fallbackPrompt = buildPosterPrompt(topicTitle, genericTop5, styleDesc)
-        + "\n\nIMPORTANT: Do NOT depict any recognizable real person. Use completely generic stylized characters. Replace all specific people with anonymous stylized figures.";
+      // Strip the topic title of specific names too — use a generic title
+      const safeTitle = topicTitle.replace(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/g, "Top Picks");
+      const fallbackPrompt = buildPosterPrompt(safeTitle, genericTop5, styleDesc)
+        + "\n\nIMPORTANT: Do NOT depict any recognizable real person. Do NOT reference any celebrity, public figure, or copyrighted character by name or likeness. Use completely generic stylized characters with no identifying features. Replace all specific people with anonymous stylized figures in dynamic poses.";
 
       openaiRes = await callOpenAI(fallbackPrompt);
       if (!openaiRes.ok) {
         const fallbackText = await openaiRes.text();
+        console.error(`[generate-poster] Fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));
 
         if (isBillingError(openaiRes.status, fallbackText)) {
           await notifyAdmins("OpenAI");
