@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic, CreatedTopic, SavedPoster } from "./page";
-import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura } from "@/lib/aura";
+import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura, TIERS } from "@/lib/aura";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -338,14 +338,97 @@ export function ProfileClient({
                   </span>
                 )}
               </div>
-              {nextTier && (
-                <p className="text-xs font-mono text-neutral-600 mt-1.5">
-                  {nextTier.remaining.toLocaleString()} Aura until{" "}
-                  <span style={{ color: getGlowColor(nextTier.name) }}>
-                    {nextTier.name}
-                  </span>
-                </p>
-              )}
+              {/* Tier progression wedge */}
+              {(() => {
+                const currentTierColor = glowColor === "rainbow" ? "#FFD700" : glowColor;
+                const currentTierObj = TIERS.find((t) => t.name === tierName);
+                const currentMin = currentTierObj?.minPoints ?? 0;
+
+                if (!nextTier) {
+                  // Max tier — full golden wedge
+                  return (
+                    <div className="mt-3 w-full max-w-xs">
+                      <div className="relative h-8">
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            clipPath: "polygon(0 35%, 100% 0, 100% 100%, 0 65%)",
+                            background: "linear-gradient(to right, #FFD700, #FFA500, #FFD700)",
+                          }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                          <span className="text-[11px] font-display font-bold text-black tracking-widest">
+                            MAX TIER
+                          </span>
+                          <svg className="w-3.5 h-3.5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const tierRange = nextTier.auraNeeded - currentMin;
+                const progress = tierRange > 0
+                  ? Math.min(((profile.aura_points - currentMin) / tierRange) * 100, 100)
+                  : 0;
+                const nextTierColor = getGlowColor(nextTier.name);
+
+                return (
+                  <div className="mt-3 w-full max-w-xs">
+                    {/* Tier labels */}
+                    <div className="flex items-end justify-between mb-1">
+                      <span
+                        className="text-[10px] font-mono font-bold uppercase tracking-wider"
+                        style={{ color: currentTierColor }}
+                      >
+                        {tierName}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono font-bold uppercase tracking-wider"
+                        style={{ color: nextTierColor }}
+                      >
+                        {nextTier.name}
+                      </span>
+                    </div>
+                    {/* Wedge bar */}
+                    <div className="relative h-7">
+                      {/* Track (empty wedge) */}
+                      <div
+                        className="absolute inset-0 opacity-20"
+                        style={{
+                          clipPath: "polygon(0 35%, 100% 0, 100% 100%, 0 65%)",
+                          background: `linear-gradient(to right, ${currentTierColor}, ${nextTierColor})`,
+                        }}
+                      />
+                      {/* Fill (progress wedge) */}
+                      <div
+                        className="absolute inset-0 transition-all duration-500"
+                        style={{
+                          clipPath: "polygon(0 35%, 100% 0, 100% 100%, 0 65%)",
+                          background: `linear-gradient(to right, ${currentTierColor}, ${nextTierColor})`,
+                          width: `${Math.max(progress, 2)}%`,
+                        }}
+                      />
+                      {/* Progress text */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[10px] font-mono font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                          {profile.aura_points.toLocaleString()} / {nextTier.auraNeeded.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Remaining text */}
+                    <p className="text-[10px] font-mono text-neutral-600 mt-1 text-center">
+                      {nextTier.remaining.toLocaleString()} Aura to reach{" "}
+                      <span style={{ color: nextTierColor }}>{nextTier.name}</span>
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Action: privacy toggle (own) · follow button (other) · sign-in link (anon) */}
