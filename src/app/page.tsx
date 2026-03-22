@@ -747,7 +747,9 @@ export default async function Home({
                     />
 
                     {/* Background media */}
-                    <div className="relative aspect-[4/5] sm:aspect-[3/4]">
+                    <div className="relative">
+                      {/* Background image/video layer */}
+                      <div className="absolute inset-0 overflow-hidden rounded-2xl">
                       {(() => {
                         const videoId = heroBannerTopic.card_video_url
                           ? extractYouTubeId(heroBannerTopic.card_video_url)
@@ -809,9 +811,10 @@ export default async function Home({
                             "linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 50%, rgba(0,0,0,0.2) 100%)",
                         }}
                       />
+                      </div>
 
-                      {/* Card content */}
-                      <div className="absolute inset-0 flex flex-col justify-between p-5 sm:p-6">
+                      {/* Card content — flow layout, not absolute */}
+                      <div className="relative flex flex-col gap-4 p-5 sm:p-6">
 
                         {/* Top: tags */}
                         <div className="flex items-center gap-2 flex-wrap">
@@ -837,29 +840,29 @@ export default async function Home({
                         </div>
 
                         {/* Bottom: title + rankings + CTA */}
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3">
                           {/* Topic title */}
                           <div>
                             <p
-                              className="font-display text-xs tracking-[0.2em] mb-1.5"
+                              className="font-display text-[10px] tracking-[0.2em] mb-1"
                               style={{ color: "#FFD700" }}
                             >
                               TOP 5
                             </p>
-                            <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight">
+                            <h2 className="font-display text-xl sm:text-2xl tracking-wide text-white leading-tight">
                               {heroBannerTopic.title.toUpperCase()}
                             </h2>
                           </div>
 
                           {/* Ranked list */}
-                          <div className="rounded-xl bg-black/50 border border-white/[0.06] backdrop-blur-sm p-4">
-                            <ol className="flex flex-col gap-2">
+                          <div className="rounded-lg bg-black/50 border border-white/[0.06] backdrop-blur-sm px-3 py-2.5">
+                            <ol className="flex flex-col gap-1.5">
                               {heroSlots.map((entry, i) => {
                                 const rankColors = ["#FFD700", "#C0C0C0", "#CD7F32", "#6b7280", "#6b7280"];
                                 return (
-                                  <li key={i} className="flex items-center gap-3">
+                                  <li key={i} className="flex items-center gap-2.5">
                                     <span
-                                      className="font-display text-lg leading-none w-5 text-right flex-shrink-0"
+                                      className="font-display text-base leading-none w-4 text-right flex-shrink-0"
                                       style={{ color: rankColors[i] }}
                                     >
                                       {i + 1}
@@ -868,7 +871,7 @@ export default async function Home({
                                       className="flex-1 h-px"
                                       style={{ background: "linear-gradient(to right, rgba(255,255,255,0.08), transparent)" }}
                                     />
-                                    <span className={`text-sm font-body truncate ${entry ? "text-neutral-200" : "text-neutral-600 italic"}`}>
+                                    <span className={`text-xs font-body truncate ${entry ? "text-neutral-200" : "text-neutral-600 italic"}`}>
                                       {entry ? entry.name : "—"}
                                     </span>
                                     {entry && (
@@ -883,7 +886,7 @@ export default async function Home({
                           </div>
 
                           {/* CTA */}
-                          <span className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest group-hover:bg-[#d4e600] transition-colors duration-200 w-full text-center">
+                          <span className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest group-hover:bg-[#d4e600] transition-colors duration-200 w-full text-center">
                             REVEAL YOUR TOP 5
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
