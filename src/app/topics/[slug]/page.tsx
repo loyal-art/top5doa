@@ -45,12 +45,13 @@ export default async function TopicPage({ params }: TopicPageProps) {
 
   if (!topic) notFound();
 
-  // Fetch subjects for this topic
+  // Fetch subjects for this topic (sort_order first, then creation order as tiebreaker)
   const { data: subjects } = await supabase
     .from("subjects")
     .select("*")
     .eq("topic_id", topic.id)
-    .order("name");
+    .order("sort_order")
+    .order("created_at");
 
   // Fetch active attributes for this topic
   const { data: attributes } = await supabase

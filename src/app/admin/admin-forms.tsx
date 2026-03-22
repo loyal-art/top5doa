@@ -37,6 +37,7 @@ type SubjectRow = {
   link_music: string | null;
   link_video: string | null;
   video_url: string | null;
+  sort_order: number;
 };
 
 type AttributeRow = {
@@ -597,6 +598,7 @@ function EditSubjectForm({
     link_music: subject.link_music ?? "",
     link_video: subject.link_video ?? "",
     video_url: subject.video_url ?? "",
+    sort_order: subject.sort_order ?? 0,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -617,6 +619,7 @@ function EditSubjectForm({
       link_music: fields.link_music || null,
       link_video: fields.link_video || null,
       video_url: fields.video_url || null,
+      sort_order: fields.sort_order,
     });
 
     if (result.error) {
@@ -632,6 +635,7 @@ function EditSubjectForm({
         link_music: fields.link_music || null,
         link_video: fields.link_video || null,
         video_url: fields.video_url || null,
+        sort_order: fields.sort_order,
       });
     }
   }
@@ -657,6 +661,16 @@ function EditSubjectForm({
             value={fields.name}
             onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
             className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Sort Order</label>
+          <input
+            type="number"
+            value={fields.sort_order}
+            onChange={(e) => setFields((f) => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))}
+            className={inputClass}
+            placeholder="0"
           />
         </div>
         <div>
@@ -1120,9 +1134,11 @@ function EditTopicForm({
 function TopicsList({
   onSelect,
   selectedId,
+  deletedId,
 }: {
   onSelect: (topic: TopicRow) => void;
   selectedId: string | null;
+  deletedId: string | null;
 }) {
   const [topics, setTopics] = useState<TopicRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1141,6 +1157,13 @@ function TopicsList({
       setLoading(false);
     })();
   }, []);
+
+  // Remove deleted topic from local state
+  useEffect(() => {
+    if (deletedId) {
+      setTopics((prev) => prev.filter((t) => t.id !== deletedId));
+    }
+  }, [deletedId]);
 
   // Expose updated topic back to parent after save
   const handleSaved = useCallback(
@@ -1288,6 +1311,50 @@ function SubjectsList({
     }
   }
 
+  // Sort order state
+  const [autoNumberLoading, setAutoNumberLoading] = useState(false);
+
+  async function handleAutoNumber() {
+    if (subjects.length === 0) return;
+    setAutoNumberLoading(true);
+    let errCount = 0;
+    const updated = subjects.map((s, i) => ({ ...s, sort_order: i + 1 }));
+    for (const s of updated) {
+      const result = await updateSubject(s.id, {
+        name: s.name,
+        description: s.description,
+        era: s.era,
+        link_photo: s.link_photo,
+        link_music: s.link_music,
+        link_video: s.link_video,
+        video_url: s.video_url,
+        sort_order: s.sort_order,
+      });
+      if (result.error) errCount++;
+    }
+    setSubjects(updated);
+    setAutoNumberLoading(false);
+    if (errCount > 0) {
+      setListError(`Auto-number: ${errCount} failed to save`);
+    }
+  }
+
+  async function handleSortOrderBlur(subjectId: string, newOrder: number) {
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject || subject.sort_order === newOrder) return;
+    await updateSubject(subjectId, {
+      name: subject.name,
+      description: subject.description,
+      era: subject.era,
+      link_photo: subject.link_photo,
+      link_music: subject.link_music,
+      link_video: subject.link_video,
+      video_url: subject.video_url,
+      sort_order: newOrder,
+    });
+    setSubjects((prev) => prev.map((s) => s.id === subjectId ? { ...s, sort_order: newOrder } : s));
+  }
+
   // Music link finder state
   const [musicResults, setMusicResults] = useState<MusicLinkResult[] | null>(null);
   const [musicLoading, setMusicLoading] = useState(false);
@@ -1407,6 +1474,7 @@ function SubjectsList({
         link_music: url,
         link_video: subject.link_video,
         video_url: subject.video_url,
+        sort_order: subject.sort_order,
       });
       if (result.error) {
         errored++;
@@ -1605,8 +1673,20 @@ function SubjectsList({
             </div>
           )}
 
-          {/* Subject list with checkboxes */}
+          {/* Auto-number + Subject list with checkboxes */}
           {subjects.length > 0 && (
+            <div className="space-y-1">
+            <div className="flex items-center justify-between px-3">
+              <button
+                type="button"
+                onClick={handleAutoNumber}
+                disabled={autoNumberLoading}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-brand-accent/40 text-brand-accent font-mono text-[10px] tracking-wider hover:bg-brand-accent/10 hover:border-brand-accent disabled:opacity-50 transition-colors"
+              >
+                {autoNumberLoading ? "Saving..." : "Auto-number"}
+              </button>
+              <span className="text-[10px] font-mono text-neutral-600">#</span>
+            </div>
             <ul className="space-y-0.5">
               <li className="flex items-center gap-2 px-3 py-1">
                 <input
@@ -1645,9 +1725,17 @@ function SubjectsList({
                       <span className="text-xs font-mono text-neutral-600">{subject.era}</span>
                     )}
                   </button>
+                  <input
+                    type="number"
+                    defaultValue={subject.sort_order}
+                    onBlur={(e) => handleSortOrderBlur(subject.id, parseInt(e.target.value) || 0)}
+                    className="w-10 h-7 text-center text-xs font-mono bg-brand-surface border border-brand-border rounded text-neutral-400 focus:border-brand-accent focus:text-white outline-none flex-shrink-0"
+                    title="Sort order"
+                  />
                 </li>
               ))}
             </ul>
+            </div>
           )}
         </div>
       )}
@@ -2514,8 +2602,7 @@ function AiTopicBuilder() {
 export function AdminForms({ topics }: { topics: Topic[] }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [selectedItem, setSelectedItem] = useState<TopicRow | SubjectRow | AttributeRow | SuggestionRow | null>(null);
-  // Increment to force TopicsList to re-fetch after a delete
-  const [refreshTopicsKey, setRefreshTopicsKey] = useState(0);
+  const [lastDeletedTopicId, setLastDeletedTopicId] = useState<string | null>(null);
 
   // Column widths (desktop)
   const [col1W, setCol1W] = useState(220);
@@ -2543,9 +2630,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       case "manage-topics":
         return (
           <TopicsList
-            key={refreshTopicsKey}
             onSelect={(t) => setSelectedItem(t)}
             selectedId={selectedItem?.id ?? null}
+            deletedId={lastDeletedTopicId}
           />
         );
       case "manage-subjects":
@@ -2595,8 +2682,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
           onSave={(updated) => setSelectedItem(updated)}
           onCancel={() => setSelectedItem(null)}
           onDelete={() => {
+            const deletedId = (selectedItem as TopicRow).id;
             setSelectedItem(null);
-            setRefreshTopicsKey((k) => k + 1);
+            setLastDeletedTopicId(deletedId);
           }}
         />
       );
