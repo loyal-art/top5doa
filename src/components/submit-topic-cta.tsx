@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { awardAura } from "@/lib/aura";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 const ALL_CATEGORIES = [
   "NFL", "NBA", "MLB", "Music", "Movies", "Gaming",
@@ -49,6 +50,10 @@ export function SubmitTopicCTA({
     const trimmedDesc = description.trim();
     if (!trimmedTitle || !trimmedDesc) {
       setError("Title and description are required.");
+      return;
+    }
+    if (containsProfanity(trimmedTitle) || containsProfanity(trimmedDesc)) {
+      setError(PROFANITY_MESSAGE);
       return;
     }
     if (categories.size === 0) {

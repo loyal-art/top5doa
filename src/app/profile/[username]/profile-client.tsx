@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic, CreatedTopic, SavedPoster } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura, TIERS } from "@/lib/aura";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -175,6 +176,10 @@ export function ProfileClient({
     const trimmed = usernameInput.trim();
     if (!USERNAME_RE.test(trimmed)) {
       setUsernameError("3–20 chars: lowercase letters, numbers, underscores only");
+      return;
+    }
+    if (containsProfanity(trimmed)) {
+      setUsernameError(PROFANITY_MESSAGE);
       return;
     }
     if (trimmed === currentUsername) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 type FollowedUser = {
   id: string;
@@ -77,6 +78,7 @@ export function GroupsClient({
   async function handleSave() {
     const name = groupName.trim();
     if (!name) { setError("Group name is required."); return; }
+    if (containsProfanity(name)) { setError(PROFANITY_MESSAGE); return; }
     setSaving(true);
     setError(null);
 
