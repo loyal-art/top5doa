@@ -546,7 +546,7 @@ export default async function Home({
   let subjectsByTopic: Record<string, string[]> = {};
   let attributesByTopic: Record<string, { id: string; name: string }[]> = {};
   let votedTopicIds: Set<string> = new Set();
-  let globalTop5ByTopic: Record<string, { name: string; score: number }[]> = {};
+  let globalTop3ByTopic: Record<string, { name: string; score: number }[]> = {};
   let heatingUpTopics: Set<string> = new Set();
   let hotTakeContentByTopic: Record<string, string[]> = {};
   let voterCountByTopic: Record<string, number> = {};
@@ -595,10 +595,10 @@ export default async function Home({
       attributesByTopic[a.topic_id].push({ id: a.id, name: a.name });
     });
 
-    // Global top 5 per topic (topic cards use first 3, hero poster uses all 5)
+    // Global top 3 per topic
     rankingsList.forEach(({ topicId, rankings }: { topicId: string; rankings: GlobalRanking[] }) => {
-      globalTop5ByTopic[topicId] = rankings
-        .slice(0, 5)
+      globalTop3ByTopic[topicId] = rankings
+        .slice(0, 3)
         .map((r: GlobalRanking) => ({
           name: subjectMap[r.subject_id] ?? "—",
           score: Math.round(r.avg_score),
@@ -681,226 +681,128 @@ export default async function Home({
 
       {/* ── Site Hero ── */}
       <section className="relative overflow-hidden border-b border-brand-border">
-        {/* Cinematic background layers */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0a0a0a] to-[#0d0d0d]" />
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full blur-[160px] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse, rgba(232,255,0,0.06), transparent 70%)" }}
-        />
-        <div
-          className="absolute bottom-0 right-0 w-[500px] h-[300px] rounded-full blur-[120px] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse, rgba(255,215,0,0.04), transparent 70%)" }}
-        />
-        <div
-          className="absolute top-1/3 left-0 w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse, rgba(167,139,250,0.03), transparent 70%)" }}
-        />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-brand-accent/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[300px] h-[200px] bg-brand-aura/5 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 lg:py-28 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-
-            {/* ── Left column: Value proposition ── */}
-            <div className="flex flex-col gap-8">
-              <div>
-                <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl xl:text-8xl leading-[0.9] tracking-wide">
-                  <span className="block text-white">TELL US WHAT</span>
-                  <span className="block text-white mt-1">YOU VALUE.</span>
-                  <span className="block mt-3">
-                    <span className="text-white">WE&apos;LL REVEAL YOUR{" "}</span>
-                    <span
-                      className="brand-glow"
-                      style={{ color: "#FFD700", textShadow: "0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2)" }}
-                    >
-                      TOP 5
-                    </span>
-                    <span className="text-white">.</span>
+        <div className="max-w-7xl mx-auto px-4 py-14 sm:py-20 relative">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left: headline */}
+            <div>
+              <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl leading-[0.9] tracking-wide">
+                <span className="block text-white">TELL US WHAT YOU VALUE.</span>
+                <span className="block mt-2">
+                  <span className="text-white">WE&apos;LL REVEAL YOUR </span>
+                  <span
+                    className="brand-glow"
+                    style={{ color: "#FFD700", textShadow: "0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2)" }}
+                  >
+                    TOP 5
                   </span>
-                </h1>
-
-                <p className="text-neutral-400 font-body text-lg sm:text-xl mt-8 max-w-md leading-relaxed">
-                  Your rankings aren&apos;t random.
-                  <br className="hidden sm:block" />{" "}
-                  Set what matters&mdash;skill, impact, legacy&mdash;and watch your Top 5 take shape.
-                </p>
-              </div>
-
-              <p className="text-sm font-mono text-neutral-600 tracking-wide">
-                Same topic. Different values. Different{" "}
-                <span style={{ color: "#FFD700" }}>Top 5</span>.
+                  <span className="text-white">.</span>
+                </span>
+              </h1>
+              <p className="text-neutral-400 font-body text-lg mt-6 max-w-lg leading-relaxed">
+                Your rankings aren&apos;t random. Define what matters — skill, impact, legacy — and watch your Top 5 take shape.
               </p>
             </div>
 
-            {/* ── Right column: Premium poster card ── */}
-            {heroBannerTopic && (() => {
-              const heroRankings = globalTop5ByTopic[heroBannerTopic.id] ?? [];
-              const heroSlots = Array.from({ length: 5 }, (_, i) => heroRankings[i] ?? null);
-              return (
-                <div className="flex flex-col gap-3">
+            {/* Right: featured topic card */}
+            {heroBannerTopic && (
+              <div>
+              <div className="relative rounded-2xl overflow-hidden border border-brand-border aspect-[16/10]">
+                {/* Background media */}
+                {(() => {
+                  const videoId = heroBannerTopic.card_video_url
+                    ? extractYouTubeId(heroBannerTopic.card_video_url)
+                    : null;
+                  if (videoId) {
+                    return (
+                      <>
+                        <div className="absolute inset-0 hidden md:block pointer-events-none">
+                          <iframe
+                            src={youtubeBackgroundSrc(videoId)}
+                            className="absolute inset-0 w-full h-full"
+                            style={{ border: 0, transform: "scale(1.5)" }}
+                            allow="autoplay; encrypted-media"
+                            tabIndex={-1}
+                            title="Featured topic background"
+                          />
+                        </div>
+                        {heroBannerTopic.card_image_url && (
+                          <img
+                            src={heroBannerTopic.card_image_url}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none md:hidden"
+                          />
+                        )}
+                      </>
+                    );
+                  }
+                  if (heroBannerTopic.cover_image_url || heroBannerTopic.card_image_url) {
+                    return (
+                      <img
+                        src={(heroBannerTopic.cover_image_url ?? heroBannerTopic.card_image_url)!}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      />
+                    );
+                  }
+                  return (
+                    <div className="absolute inset-0 bg-gradient-to-br from-brand-surface to-brand-bg" />
+                  );
+                })()}
+                {/* Dark gradient overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%)",
+                  }}
+                />
+                {/* Content */}
+                <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-6">
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+                      ★ FEATURED
+                    </span>
+                    {heroBannerTopic.category.map((cat) => {
+                      const color = categoryColor(cat);
+                      return (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 border border-white/10 text-xs font-mono uppercase tracking-wider"
+                          style={{ color }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          {cat}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight mb-4">
+                    {brandHighlight(heroBannerTopic.title)}
+                  </h2>
                   <Link
                     href={`/topics/${heroBannerTopic.slug}`}
-                    className="group relative block rounded-2xl overflow-hidden border border-brand-border/60 hover:border-brand-accent/40 transition-all duration-300 hover:scale-[1.015] hover:shadow-2xl hover:shadow-brand-accent/10"
+                    className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 self-start"
                   >
-                    {/* Card ambient glow */}
-                    <div
-                      className="absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none blur-xl"
-                      style={{ background: "radial-gradient(ellipse at center, rgba(232,255,0,0.08), transparent 70%)" }}
-                    />
-
-                    {/* Background media */}
-                    <div className="relative aspect-[4/5] sm:aspect-[3/4]">
-                      {(() => {
-                        const videoId = heroBannerTopic.card_video_url
-                          ? extractYouTubeId(heroBannerTopic.card_video_url)
-                          : null;
-                        if (videoId) {
-                          return (
-                            <>
-                              <div className="absolute inset-0 hidden md:block pointer-events-none">
-                                <iframe
-                                  src={youtubeBackgroundSrc(videoId)}
-                                  className="absolute inset-0 w-full h-full"
-                                  style={{ border: 0, transform: "scale(1.8)" }}
-                                  allow="autoplay; encrypted-media"
-                                  tabIndex={-1}
-                                  title="Featured topic background"
-                                />
-                              </div>
-                              {heroBannerTopic.card_image_url && (
-                                <img
-                                  src={heroBannerTopic.card_image_url}
-                                  alt=""
-                                  className="absolute inset-0 w-full h-full object-cover pointer-events-none md:hidden"
-                                />
-                              )}
-                            </>
-                          );
-                        }
-                        if (heroBannerTopic.cover_image_url || heroBannerTopic.card_image_url) {
-                          return (
-                            <img
-                              src={(heroBannerTopic.cover_image_url ?? heroBannerTopic.card_image_url)!}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                            />
-                          );
-                        }
-                        return (
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 40%, #0f0f23 100%)",
-                            }}
-                          />
-                        );
-                      })()}
-
-                      {/* Cinematic overlays */}
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                          background:
-                            "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.15) 100%)",
-                        }}
-                      />
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                          background:
-                            "linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 50%, rgba(0,0,0,0.2) 100%)",
-                        }}
-                      />
-
-                      {/* Card content */}
-                      <div className="absolute inset-0 flex flex-col justify-between p-5 sm:p-6">
-
-                        {/* Top: tags */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-accent/15 border border-brand-accent/30 text-[11px] font-mono text-brand-accent tracking-widest">
-                            ★ FEATURED
-                          </span>
-                          {heroBannerTopic.category.map((cat) => {
-                            const color = categoryColor(cat);
-                            return (
-                              <span
-                                key={cat}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/50 border border-white/10 text-[11px] font-mono uppercase tracking-wider backdrop-blur-sm"
-                                style={{ color }}
-                              >
-                                <span
-                                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: color }}
-                                />
-                                {cat}
-                              </span>
-                            );
-                          })}
-                        </div>
-
-                        {/* Bottom: title + rankings + CTA */}
-                        <div className="flex flex-col gap-4">
-                          {/* Topic title */}
-                          <div>
-                            <p
-                              className="font-display text-xs tracking-[0.2em] mb-1.5"
-                              style={{ color: "#FFD700" }}
-                            >
-                              TOP 5
-                            </p>
-                            <h2 className="font-display text-2xl sm:text-3xl tracking-wide text-white leading-tight">
-                              {heroBannerTopic.title.toUpperCase()}
-                            </h2>
-                          </div>
-
-                          {/* Ranked list */}
-                          <div className="rounded-xl bg-black/50 border border-white/[0.06] backdrop-blur-sm p-4">
-                            <ol className="flex flex-col gap-2">
-                              {heroSlots.map((entry, i) => {
-                                const rankColors = ["#FFD700", "#C0C0C0", "#CD7F32", "#6b7280", "#6b7280"];
-                                return (
-                                  <li key={i} className="flex items-center gap-3">
-                                    <span
-                                      className="font-display text-lg leading-none w-5 text-right flex-shrink-0"
-                                      style={{ color: rankColors[i] }}
-                                    >
-                                      {i + 1}
-                                    </span>
-                                    <div
-                                      className="flex-1 h-px"
-                                      style={{ background: "linear-gradient(to right, rgba(255,255,255,0.08), transparent)" }}
-                                    />
-                                    <span className={`text-sm font-body truncate ${entry ? "text-neutral-200" : "text-neutral-600 italic"}`}>
-                                      {entry ? entry.name : "—"}
-                                    </span>
-                                    {entry && (
-                                      <span className="text-[10px] font-mono text-neutral-500 flex-shrink-0 tabular-nums">
-                                        {entry.score}
-                                      </span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ol>
-                          </div>
-
-                          {/* CTA */}
-                          <span className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest group-hover:bg-[#d4e600] transition-colors duration-200 w-full text-center">
-                            REVEAL YOUR TOP 5
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                    REVEAL YOUR TOP 5 →
                   </Link>
-
-                  {/* Below-card supporting text */}
-                  <p className="text-[11px] font-mono text-neutral-600 text-center tracking-wide">
-                    Dead or Alive &mdash; rank the greatest, past and present.
-                  </p>
                 </div>
-              );
-            })()}
+              </div>
+              <div className="mt-3 flex flex-col gap-1">
+                <span className="text-xs font-mono text-neutral-500">
+                  Same topic. Different values. Different Top 5.
+                </span>
+                <span className="text-[11px] font-mono text-neutral-600">
+                  Dead or Alive — rank the greatest, past and present.
+                </span>
+              </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1130,7 +1032,7 @@ export default async function Home({
                   topic={topic}
                   attributes={attributesByTopic[topic.id] ?? []}
                   hasVoted={votedTopicIds.has(topic.id)}
-                  top3={(globalTop5ByTopic[topic.id] ?? []).slice(0, 3)}
+                  top3={globalTop3ByTopic[topic.id] ?? []}
                   viewCount={topic.view_count ?? 0}
                   creatorUsername={topic.created_by ? creatorUsernameMap[topic.created_by] ?? null : null}
                   heatingUp={heatingUpTopics.has(topic.id)}
