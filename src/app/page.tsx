@@ -697,12 +697,12 @@ export default async function Home({
         />
 
         <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 lg:py-28 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8 lg:gap-10 items-center">
 
             {/* ── Left column: Value proposition ── */}
-            <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-6">
               <div>
-                <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl xl:text-8xl leading-[0.9] tracking-wide">
+                <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] xl:text-6xl leading-[0.9] tracking-wide">
                   <span className="block text-white">TELL US WHAT</span>
                   <span className="block text-white mt-1">YOU VALUE.</span>
                   <span className="block mt-3">
@@ -717,7 +717,7 @@ export default async function Home({
                   </span>
                 </h1>
 
-                <p className="text-neutral-400 font-body text-lg sm:text-xl mt-8 max-w-md leading-relaxed">
+                <p className="text-neutral-400 font-body text-base sm:text-lg mt-6 max-w-md leading-relaxed">
                   Your rankings aren&apos;t random.
                   <br className="hidden sm:block" />{" "}
                   Set what matters&mdash;skill, impact, legacy&mdash;and watch your Top 5 take shape.
@@ -747,7 +747,7 @@ export default async function Home({
                     />
 
                     {/* Background media */}
-                    <div className="relative">
+                    <div className="relative min-h-[420px]">
                       {/* Background image/video layer */}
                       <div className="absolute inset-0 overflow-hidden rounded-2xl">
                       {(() => {
@@ -813,8 +813,8 @@ export default async function Home({
                       />
                       </div>
 
-                      {/* Card content — flow layout, not absolute */}
-                      <div className="relative flex flex-col gap-4 p-5 sm:p-6">
+                      {/* Card content — flow layout with justified spacing */}
+                      <div className="relative flex flex-col justify-between min-h-[420px] p-5 sm:p-6">
 
                         {/* Top: tags */}
                         <div className="flex items-center gap-2 flex-wrap">
