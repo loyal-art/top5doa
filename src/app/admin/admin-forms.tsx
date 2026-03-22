@@ -1134,9 +1134,11 @@ function EditTopicForm({
 function TopicsList({
   onSelect,
   selectedId,
+  deletedId,
 }: {
   onSelect: (topic: TopicRow) => void;
   selectedId: string | null;
+  deletedId: string | null;
 }) {
   const [topics, setTopics] = useState<TopicRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1155,6 +1157,13 @@ function TopicsList({
       setLoading(false);
     })();
   }, []);
+
+  // Remove deleted topic from local state
+  useEffect(() => {
+    if (deletedId) {
+      setTopics((prev) => prev.filter((t) => t.id !== deletedId));
+    }
+  }, [deletedId]);
 
   // Expose updated topic back to parent after save
   const handleSaved = useCallback(
@@ -2593,8 +2602,7 @@ function AiTopicBuilder() {
 export function AdminForms({ topics }: { topics: Topic[] }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [selectedItem, setSelectedItem] = useState<TopicRow | SubjectRow | AttributeRow | SuggestionRow | null>(null);
-  // Increment to force TopicsList to re-fetch after a delete
-  const [refreshTopicsKey, setRefreshTopicsKey] = useState(0);
+  const [lastDeletedTopicId, setLastDeletedTopicId] = useState<string | null>(null);
 
   // Column widths (desktop)
   const [col1W, setCol1W] = useState(220);
@@ -2622,9 +2630,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       case "manage-topics":
         return (
           <TopicsList
-            key={refreshTopicsKey}
             onSelect={(t) => setSelectedItem(t)}
             selectedId={selectedItem?.id ?? null}
+            deletedId={lastDeletedTopicId}
           />
         );
       case "manage-subjects":
@@ -2674,8 +2682,9 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
           onSave={(updated) => setSelectedItem(updated)}
           onCancel={() => setSelectedItem(null)}
           onDelete={() => {
+            const deletedId = (selectedItem as TopicRow).id;
             setSelectedItem(null);
-            setRefreshTopicsKey((k) => k + 1);
+            setLastDeletedTopicId(deletedId);
           }}
         />
       );
