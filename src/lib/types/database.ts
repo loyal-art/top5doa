@@ -133,6 +133,7 @@ export type Database = {
           link_music: string | null;
           link_video: string | null;
           video_url: string | null;
+          sort_order: number;
           created_at: string;
         };
         Insert: {
@@ -147,6 +148,7 @@ export type Database = {
           link_music?: string | null;
           link_video?: string | null;
           video_url?: string | null;
+          sort_order?: number;
           created_at?: string;
         };
         Update: {
@@ -160,6 +162,7 @@ export type Database = {
           link_music?: string | null;
           link_video?: string | null;
           video_url?: string | null;
+          sort_order?: number;
         };
         Relationships: [];
       };
