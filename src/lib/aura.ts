@@ -78,7 +78,8 @@ export type AuraAction =
   | "suggest_topic"
   | "suggestion_vote"
   | "create_topic"
-  | "streak_bonus";  // Awarded by update_streak() SQL; points vary by milestone
+  | "streak_bonus"   // Awarded by update_streak() SQL; points vary by milestone
+  | "combo_bonus";   // Awarded by check_combo_bonus() SQL when 3 actions within 10 min
 
 export const AURA_POINTS: Record<AuraAction, number> = {
   vote:            10,
@@ -90,6 +91,7 @@ export const AURA_POINTS: Record<AuraAction, number> = {
   suggestion_vote:  1,
   create_topic:    20,
   streak_bonus:     0,  // Variable — SQL milestone logic sets the actual amount
+  combo_bonus:      0,  // Variable — SQL sets +10 per combo
 };
 
 // ── Client-side awardAura ─────────────────────────────────────────────────────
@@ -138,7 +140,20 @@ export async function awardAura(
     console.error("[awardAura] RPC error:", error);
     return false;
   }
-  return data === true;
+
+  const awarded = data === true;
+
+  // Check for combo bonus after awarding (skip for meta-actions to avoid loops)
+  if (awarded && action !== "streak_bonus" && action !== "combo_bonus") {
+    const { error: comboError } = await supabase.rpc("check_combo_bonus", {
+      p_user_id: userId,
+    });
+    if (comboError) {
+      console.error("[awardAura] combo check error:", comboError);
+    }
+  }
+
+  return awarded;
 }
 
 // ── Tier badge CSS classes (Tailwind) ─────────────────────────────────────────
