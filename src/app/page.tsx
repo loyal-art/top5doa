@@ -689,32 +689,21 @@ export default async function Home({
             {/* Left: headline */}
             <div>
               <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl leading-[0.9] tracking-wide">
-                <span className="block text-white">YOU DON&apos;T PICK YOUR</span>
-                <span
-                  className="block mt-2 brand-glow"
-                  style={{ color: "#FFD700", textShadow: "0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2)" }}
-                >
-                  TOP 5.
+                <span className="block text-white">TELL US WHAT YOU VALUE.</span>
+                <span className="block mt-2">
+                  <span className="text-white">WE&apos;LL REVEAL YOUR </span>
+                  <span
+                    className="brand-glow"
+                    style={{ color: "#FFD700", textShadow: "0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2)" }}
+                  >
+                    TOP 5
+                  </span>
+                  <span className="text-white">.</span>
                 </span>
-                <span className="block mt-2 text-white">YOUR VALUES DO.</span>
               </h1>
               <p className="text-neutral-400 font-body text-lg mt-6 max-w-lg leading-relaxed">
-                Your Top 5 wasn&apos;t chosen. It was revealed. Define what matters to you — skill, legacy, impact, heart — and watch your rankings emerge. Same topic, different values, completely different results. Because your list is a reflection of who you are.
+                Your rankings aren&apos;t random. Define what matters — skill, impact, legacy — and watch your Top 5 take shape.
               </p>
-              <div className="flex flex-col items-start gap-3 mt-8">
-                <Link
-                  href={heroBannerTopic ? `/topics/${heroBannerTopic.slug}` : "/"}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
-                >
-                  REVEAL YOUR TOP 5
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </Link>
-                <span className="text-xs font-mono text-neutral-600">
-                  Dead or Alive — rank the greatest, past and present.
-                </span>
-              </div>
             </div>
 
             {/* Right: featured topic card */}
@@ -797,14 +786,19 @@ export default async function Home({
                   </h2>
                   <Link
                     href={`/topics/${heroBannerTopic.slug}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 self-start"
+                    className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200 self-start"
                   >
-                    MAKE YOUR LIST
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
+                    REVEAL YOUR TOP 5 →
                   </Link>
                 </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-1">
+                <span className="text-xs font-mono text-neutral-500">
+                  Same topic. Different values. Different Top 5.
+                </span>
+                <span className="text-[11px] font-mono text-neutral-600">
+                  Dead or Alive — rank the greatest, past and present.
+                </span>
               </div>
             )}
           </div>
