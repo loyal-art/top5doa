@@ -75,6 +75,9 @@ export function ProfileClient({
   // Poster overlay
   const [viewingPoster, setViewingPoster] = useState<SavedPoster | null>(null);
 
+  // Premium gate message for privacy toggle
+  const [premiumGateMsg, setPremiumGateMsg] = useState(false);
+
   // Recompute visibility live so the toggle instantly reveals/hides topics
   // on the owner's own view.
   const canSeeFullProfile = isPublic || isOwn || isFollowing;
@@ -140,6 +143,12 @@ export function ProfileClient({
 
   // ── Privacy toggle ───────────────────────────────────────────────────────
   async function handlePrivacyToggle() {
+    // Non-premium users cannot change privacy setting
+    if (!profile.is_premium) {
+      setPremiumGateMsg(true);
+      setTimeout(() => setPremiumGateMsg(false), 4000);
+      return;
+    }
     setPrivacyLoading(true);
     const next = !isPublic;
     const { error } = await supabase
@@ -434,51 +443,68 @@ export function ProfileClient({
             {/* Action: privacy toggle (own) · follow button (other) · sign-in link (anon) */}
             <div className="flex-shrink-0 pt-1">
               {isOwn ? (
-                <button
-                  onClick={handlePrivacyToggle}
-                  disabled={privacyLoading}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm border
-                               transition-all disabled:opacity-50
-                               ${isPublic
-                      ? "bg-brand-surface border-brand-border text-neutral-400 hover:border-neutral-500"
-                      : "bg-brand-accent/10 border-brand-accent/40 text-brand-accent"
-                    }`}
-                >
-                  {/* Eye / lock icon */}
-                  <svg
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
+                <div className="flex flex-col items-end gap-1.5">
+                  <button
+                    onClick={handlePrivacyToggle}
+                    disabled={privacyLoading}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm border
+                                 transition-all disabled:opacity-50
+                                 ${isPublic
+                        ? "bg-brand-surface border-brand-border text-neutral-400 hover:border-neutral-500"
+                        : "bg-brand-accent/10 border-brand-accent/40 text-brand-accent"
+                      }`}
                   >
-                    {isPublic ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0
-                           8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5
-                           12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0
-                           002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0
-                           00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                      />
+                    {/* Eye / lock icon */}
+                    <svg
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      {isPublic ? (
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0
+                             8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5
+                             12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                        />
+                      ) : (
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0
+                             002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0
+                             00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                        />
+                      )}
+                      {isPublic && (
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      )}
+                    </svg>
+                    {isPublic ? "Public" : "Private"}
+                    {!profile.is_premium && (
+                      <span className="text-[10px] opacity-60">🔒</span>
                     )}
-                    {isPublic && (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    )}
-                  </svg>
-                  {isPublic ? "Public" : "Private"}
-                </button>
+                  </button>
+                  {/* Premium gate message */}
+                  {premiumGateMsg && (
+                    <p className="text-xs font-mono text-brand-accent max-w-[220px] text-right leading-snug animate-pulse">
+                      🔒 Private profiles are a Premium feature. Keep engaging to unlock!
+                    </p>
+                  )}
+                  {/* Expired premium note: private but no longer premium */}
+                  {!profile.is_premium && !isPublic && !premiumGateMsg && (
+                    <p className="text-[10px] font-mono text-neutral-600 max-w-[220px] text-right leading-snug">
+                      Your profile is private. Renew Premium to change this setting.
+                    </p>
+                  )}
+                </div>
               ) : viewerId ? (
                 <button
                   onClick={handleFollow}
