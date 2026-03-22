@@ -688,20 +688,31 @@ export default async function Home({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left: headline */}
             <div>
-              <h1 className="font-display text-6xl sm:text-8xl leading-[0.85] tracking-wide">
-                DEBATE THE GREATS.
-                <br />
-                <span className="block mt-2">
-                  {brandHighlight("CREATE AND SHARE YOUR TOP 5 DOA.")}
+              <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl leading-[0.9] tracking-wide">
+                <span className="block text-white">YOU DON&apos;T PICK YOUR</span>
+                <span
+                  className="block mt-2 brand-glow"
+                  style={{ color: "#FFD700", textShadow: "0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2)" }}
+                >
+                  TOP 5.
                 </span>
+                <span className="block mt-2 text-white">YOUR VALUES DO.</span>
               </h1>
-              <p className="text-neutral-400 font-body text-lg mt-6 max-w-md leading-relaxed">
-                Rank what matters. Score the legends. See how your top 5 stacks up against the world.
+              <p className="text-neutral-400 font-body text-lg mt-6 max-w-lg leading-relaxed">
+                Your Top 5 wasn&apos;t chosen. It was revealed. Define what matters to you — skill, legacy, impact, heart — and watch your rankings emerge. Same topic, different values, completely different results. Because your list is a reflection of who you are.
               </p>
-              <div className="flex items-center gap-3 mt-8">
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-xs font-mono text-neutral-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                  {feedTopics.length} active debates
+              <div className="flex flex-col items-start gap-3 mt-8">
+                <Link
+                  href={heroBannerTopic ? `/topics/${heroBannerTopic.slug}` : "/"}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-brand-accent text-black font-display text-sm tracking-widest hover:bg-brand-accent/90 transition-colors duration-200"
+                >
+                  REVEAL YOUR TOP 5
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+                <span className="text-xs font-mono text-neutral-600">
+                  Dead or Alive — rank the greatest, past and present.
                 </span>
               </div>
             </div>
@@ -836,9 +847,9 @@ export default async function Home({
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
               {[
-                { num: "1", title: "Pick a Debate", desc: "Choose a topic that gets you fired up" },
-                { num: "2", title: "Rank & Score", desc: "Rate what matters most, then score every contender" },
-                { num: "3", title: "See Your Top 5", desc: "Lock in your list and see how the world voted" },
+                { num: "1", title: "Pick Your Battleground", desc: "Sports, music, food, gaming, movies — choose a topic that speaks to you." },
+                { num: "2", title: "Define What Matters To YOU", desc: "What do you value most? Skill over popularity? Legacy over stats? Heart over numbers? This is where your personality shows up." },
+                { num: "3", title: "Your Top 5 Reveals Itself", desc: "You didn't pick this list. Your values did. Share it, compare with friends, and find out — does anyone else see it the way you do?" },
               ].map((step) => (
                 <div key={step.num} className="flex flex-col items-center text-center sm:items-start sm:text-left">
                   <span
