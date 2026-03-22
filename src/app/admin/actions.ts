@@ -181,6 +181,7 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
     link_music: string | null;
     link_video: string | null;
     video_url: string | null;
+    sort_order: number;
   }> | null;
   error: string | null;
 }> {
@@ -189,8 +190,9 @@ export async function getSubjectsForTopic(topic_id: string): Promise<{
 
   const { data, error } = await supabase
     .from("subjects")
-    .select("id, name, description, era, link_photo, link_music, link_video, video_url")
+    .select("id, name, description, era, link_photo, link_music, link_video, video_url, sort_order")
     .eq("topic_id", topic_id)
+    .order("sort_order")
     .order("name");
 
   if (error) return { data: null, error: error.message };
@@ -224,6 +226,7 @@ export async function updateSubject(
     link_music: string | null;
     link_video: string | null;
     video_url: string | null;
+    sort_order?: number;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
