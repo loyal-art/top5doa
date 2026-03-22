@@ -708,6 +708,7 @@ export default async function Home({
 
             {/* Right: featured topic card */}
             {heroBannerTopic && (
+              <div>
               <div className="relative rounded-2xl overflow-hidden border border-brand-border aspect-[16/10]">
                 {/* Background media */}
                 {(() => {
@@ -799,6 +800,7 @@ export default async function Home({
                 <span className="text-[11px] font-mono text-neutral-600">
                   Dead or Alive — rank the greatest, past and present.
                 </span>
+              </div>
               </div>
             )}
           </div>
