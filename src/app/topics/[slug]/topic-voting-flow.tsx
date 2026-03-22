@@ -1842,7 +1842,7 @@ export function TopicVotingFlow({
             ) : (
               <button
                 onClick={() => setConfirmingReset(true)}
-                className="text-neutral-700 hover:text-neutral-500 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold tracking-wide transition-colors"
               >
                 Start Over
               </button>
