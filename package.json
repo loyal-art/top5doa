@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.9.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
     "bad-words": "^4.0.0",
