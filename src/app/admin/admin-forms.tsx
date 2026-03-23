@@ -2628,13 +2628,13 @@ function ArchetypesManager({ topics }: { topics: Topic[] }) {
     setPreview(null);
     setLoading(true);
     try {
-      const [attrs, subs, existing] = await Promise.all([
+      const [attrsResult, subsResult, existing] = await Promise.all([
         getAttributesForTopic(topicId),
         getSubjectsForTopic(topicId),
         fetchExistingArchetypes(topicId),
       ]);
-      setAttributes((attrs ?? []).map((a) => ({ id: a.id, name: a.name })));
-      setSubjects((subs ?? []).map((s) => ({ name: s.name })));
+      setAttributes((attrsResult.data ?? []).map((a) => ({ id: a.id, name: a.name })));
+      setSubjects((subsResult.data ?? []).map((s) => ({ name: s.name })));
       setArchetypes(existing);
     } catch {
       setMessage({ type: "error", text: "Failed to load topic data" });
