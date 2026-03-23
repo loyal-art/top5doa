@@ -3243,6 +3243,7 @@ export function TopicVotingFlow({
                             color: "#ffffff",
                             letterSpacing: "0.5px",
                             flex: 1,
+                            paddingLeft: "20px",
                             whiteSpace: nameFontSize < baseFontSize ? "normal" : "nowrap",
                             overflow: "hidden",
                             textOverflow: nameFontSize >= baseFontSize ? "ellipsis" : undefined,

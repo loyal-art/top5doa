@@ -15,7 +15,7 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
 const USER_FRIENDLY_UNAVAILABLE =
   "AI Poster generation is temporarily unavailable. Please try again later.";
 
-/** Timeout for FLUX requests (30 seconds) before falling back to OpenAI. */
+/** Timeout for FLUX requests (30 seconds). */
 const FLUX_TIMEOUT_MS = 30_000;
 
 /** Timeout for the visual description pre-pass (8 seconds). */
@@ -105,7 +105,7 @@ async function generateVisualDescription(
           messages: [
             {
               role: "user",
-              content: `You are a visual director. Given the subject "${subjectName}" from the topic "${topicTitle}", write a 2-3 sentence visual description for an AI image generator. Describe their physical appearance, iconic clothing/uniform details (team colors, jersey number, era, accessories), signature pose or action, and any iconic visual elements. Be specific about colors, build, and style. Do NOT use their name in the description — only visual details. Example: Instead of "Drew Brees" write "NFL quarterback in New Orleans Saints uniform, gold helmet with fleur-de-lis, black and gold colors, number 9, compact athletic build, throwing motion from the pocket, intense focus." Return ONLY the visual description, nothing else.`,
+              content: `You are a visual director. Given the subject "${subjectName}" from the topic "${topicTitle}", write a 2-3 sentence visual description for an AI image generator. IMPORTANT: Match the visual to the topic category. If the topic is about music/songs/albums, describe a MUSICIAN/PERFORMER (stage, microphone, spotlight, concert). If about sports/athletes, describe an ATHLETE (uniform, action pose, arena). If about food, describe the DISH (plating, ingredients, steam). If about movies/TV, describe a CINEMATIC SCENE. Do NOT mix categories — a music topic should NEVER look like a sports image. Describe physical appearance, iconic clothing details, signature pose, and visual elements. Do NOT use their name — only visual details. Return ONLY the description.`,
             },
           ],
         }),
@@ -194,7 +194,55 @@ function buildPosterPromptV2(
   return buildPosterPrompt(topicTitle, top5, styleDesc);
 }
 
-// ── Provider: fal.ai FLUX ────────────────────────────────────────────────────
+// ── Provider: OpenAI GPT Image 1.5 (primary) ────────────────────────────────
+
+async function tryOpenAI(
+  imagePrompt: string,
+  openaiKey: string,
+): Promise<{ imageUrl: string | null; imageBase64: string | null } | "moderation_blocked" | null> {
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-image-1",
+      prompt: imagePrompt,
+      size: "1024x1024",
+      quality: "medium",
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[generate-poster] OpenAI error (${res.status}):`, text.slice(0, 500));
+
+    if (isBillingError(res.status, text)) {
+      await notifyAdmins("OpenAI");
+      return null;
+    }
+
+    if (isModerationBlocked(res.status, text)) {
+      console.log("[generate-poster] OpenAI moderation blocked — will try FLUX");
+      return "moderation_blocked";
+    }
+
+    return null;
+  }
+
+  const data = await res.json();
+  const imageData = data.data?.[0];
+  if (!imageData) return null;
+
+  console.log("[generate-poster] OpenAI success");
+  return {
+    imageUrl: imageData.url ?? null,
+    imageBase64: imageData.b64_json ?? null,
+  };
+}
+
+// ── Provider: fal.ai FLUX (moderation fallback) ─────────────────────────────
 
 async function tryFlux(
   prompt: string,
@@ -208,7 +256,6 @@ async function tryFlux(
   fal.config({ credentials: falKey });
 
   try {
-    // Race the FLUX call against a timeout to prevent stalling the request
     const result = await Promise.race([
       fal.subscribe("fal-ai/flux/dev", {
         input: {
@@ -236,7 +283,6 @@ async function tryFlux(
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[generate-poster] FLUX failed:", msg);
 
-    // Check for billing-style errors from fal.ai
     if (msg.includes("402") || msg.includes("quota") || msg.includes("billing")) {
       await notifyAdmins("fal.ai");
     }
@@ -245,74 +291,8 @@ async function tryFlux(
   }
 }
 
-// ── Provider: OpenAI ─────────────────────────────────────────────────────────
-
-async function tryOpenAI(
-  imagePrompt: string,
-  styleDesc: string,
-  openaiKey: string,
-): Promise<{ imageUrl: string | null; imageBase64: string | null; fallbackUsed: boolean } | null> {
-  async function callOpenAI(prompt: string) {
-    return fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-image-1-mini",
-        prompt,
-        size: "1024x1024",
-        quality: "medium",
-      }),
-    });
-  }
-
-  // First attempt with the original prompt
-  let openaiRes = await callOpenAI(imagePrompt);
-  let fallbackUsed = false;
-
-  if (!openaiRes.ok) {
-    const text = await openaiRes.text();
-    console.error(`[generate-poster] OpenAI error (${openaiRes.status}):`, text.slice(0, 500));
-
-    if (isBillingError(openaiRes.status, text)) {
-      await notifyAdmins("OpenAI");
-      return null; // let caller return 503
-    }
-
-    // Moderation blocked — retry with sanitized abstract-only fallback
-    if (isModerationBlocked(openaiRes.status, text)) {
-      console.log("[generate-poster] OpenAI moderation blocked, retrying with safe abstract fallback...");
-
-      openaiRes = await callOpenAI(buildFallbackPrompt(styleDesc));
-      if (!openaiRes.ok) {
-        const fallbackText = await openaiRes.text();
-        console.error(`[generate-poster] OpenAI fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));
-        if (isBillingError(openaiRes.status, fallbackText)) {
-          await notifyAdmins("OpenAI");
-        }
-        return null;
-      }
-      fallbackUsed = true;
-    } else {
-      return null;
-    }
-  }
-
-  const openaiData = await openaiRes.json();
-  const imageData = openaiData.data?.[0];
-  if (!imageData) return null;
-
-  console.log("[generate-poster] OpenAI success (fallback=%s)", fallbackUsed);
-  return {
-    imageUrl: imageData.url ?? null,
-    imageBase64: imageData.b64_json ?? null,
-    fallbackUsed,
-  };
-}
-
 // ── Route handler ────────────────────────────────────────────────────────────
+// Provider order: OpenAI GPT Image 1.5 → FLUX (moderation fallback) → share card
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -333,7 +313,6 @@ export async function POST(req: NextRequest) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const falKey = process.env.FAL_KEY;
 
-  // At least one image provider must be available
   if (!openaiKey && !falKey) {
     return NextResponse.json(
       { error: "No image generation API keys configured" },
@@ -345,39 +324,52 @@ export async function POST(req: NextRequest) {
   const rank1Name = top5[0]?.name ?? "Unknown";
 
   // ── 0. Generate visual description of #1 subject via Claude ──────────────
-  // This gives the image generator rich visual details (uniform, colors, pose)
-  // instead of just a name, producing far more recognizable illustrations.
   const visualDescription = await generateVisualDescription(rank1Name, topicTitle);
 
   const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc, visualDescription);
 
-  // ── 1. Try fal.ai FLUX (primary) ────────────────────────────────────────
-  const fluxResult = await tryFlux(imagePrompt);
-  if (fluxResult) {
-    return NextResponse.json({
-      imageUrl: fluxResult.imageUrl,
-      imageBase64: null,
-      prompt: imagePrompt,
-      fallbackUsed: false,
-      visualDescription: visualDescription ?? null,
-    });
-  }
-
-  // ── 2. Try OpenAI (secondary fallback) ──────────────────────────────────
+  // ── 1. Try OpenAI GPT Image 1.5 (primary) ───────────────────────────────
   if (openaiKey) {
-    const openaiResult = await tryOpenAI(imagePrompt, styleDesc, openaiKey);
-    if (openaiResult) {
+    const openaiResult = await tryOpenAI(imagePrompt, openaiKey);
+
+    if (openaiResult && openaiResult !== "moderation_blocked") {
       return NextResponse.json({
         imageUrl: openaiResult.imageUrl,
         imageBase64: openaiResult.imageBase64,
         prompt: imagePrompt,
-        fallbackUsed: openaiResult.fallbackUsed,
+        fallbackUsed: false,
+        visualDescription: visualDescription ?? null,
+      });
+    }
+
+    // ── 2. OpenAI moderation blocked → try FLUX ────────────────────────────
+    if (openaiResult === "moderation_blocked") {
+      const fluxResult = await tryFlux(imagePrompt);
+      if (fluxResult) {
+        return NextResponse.json({
+          imageUrl: fluxResult.imageUrl,
+          imageBase64: null,
+          prompt: imagePrompt,
+          fallbackUsed: true,
+          visualDescription: visualDescription ?? null,
+        });
+      }
+    }
+  } else {
+    // No OpenAI key — try FLUX directly
+    const fluxResult = await tryFlux(imagePrompt);
+    if (fluxResult) {
+      return NextResponse.json({
+        imageUrl: fluxResult.imageUrl,
+        imageBase64: null,
+        prompt: imagePrompt,
+        fallbackUsed: false,
         visualDescription: visualDescription ?? null,
       });
     }
   }
 
-  // ── 3. Both failed — 502 triggers client-side share-card fallback ──────
+  // ── 3. All providers failed — 502 triggers client-side share-card fallback
   return NextResponse.json(
     { error: "Poster generation unavailable for this topic. Try a different style!" },
     { status: 502 },
