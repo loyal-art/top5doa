@@ -260,8 +260,6 @@ export function TopicVotingFlow({
   // AI Poster state
   const [posterStylePickerOpen, setPosterStylePickerOpen] = useState(false);
   const [posterGenerating, setPosterGenerating] = useState(false);
-  const [posterImageUrl, setPosterImageUrl] = useState<string | null>(null);
-  const [posterImageBase64, setPosterImageBase64] = useState<string | null>(null);
   const [posterCompositeDataUrl, setPosterCompositeDataUrl] = useState<string | null>(null);
   const [posterOverlayOpen, setPosterOverlayOpen] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
@@ -1314,7 +1312,6 @@ export function TopicVotingFlow({
     const isFirstGen = !posterGeneratedForTopic;
 
     if (!isFirstGen) {
-      // Check aura balance
       if (userAuraPoints < POSTER_AURA_COST) {
         setPosterError(`Not enough Aura. You need ${POSTER_AURA_COST} Aura to regenerate.`);
         return;
@@ -1332,8 +1329,10 @@ export function TopicVotingFlow({
     }));
 
     const tierName = getTierForAura(userAuraPoints);
+    const tierColor = getGlowColor(tierName);
 
     try {
+      // ── Step 1: Generate AI art via poster generation API ──
       const res = await fetch("/api/ai/generate-poster", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1348,103 +1347,74 @@ export function TopicVotingFlow({
         }),
       });
 
-      // ── API error OR fallback used → fall back to share card ──
       if (!res.ok) {
-        // API failed entirely — generate share card instead, no aura charged
+        // AI generation failed — fall back to share card
         const shareCardDataUrl = await captureShareCard();
         if (!shareCardDataUrl) throw new Error("Failed to capture share card");
         setPosterCompositeDataUrl(shareCardDataUrl);
         setPosterFallbackUsed(true);
 
-        // Auto-download
         const autoLink = document.createElement("a");
         autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
         autoLink.href = shareCardDataUrl;
         autoLink.click();
 
-        // Save to poster_images
         const b64ForSave = shareCardDataUrl.replace(/^data:image\/png;base64,/, "");
         await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
         await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: b64ForSave });
         setSavedPosterData(b64ForSave);
         setSavedPosterStyle("share-card");
-
         setPosterOverlayOpen(true);
-        // No aura deducted, no posterGeneratedForTopic set
         return;
       }
 
       const data = await res.json();
 
-      // If the AI used the moderation fallback, use share card instead
-      if (data.fallbackUsed) {
-        const shareCardDataUrl = await captureShareCard();
-        if (!shareCardDataUrl) throw new Error("Failed to capture share card");
-        setPosterCompositeDataUrl(shareCardDataUrl);
-        setPosterFallbackUsed(true);
-
-        // Auto-download
-        const autoLink = document.createElement("a");
-        autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
-        autoLink.href = shareCardDataUrl;
-        autoLink.click();
-
-        // Save to poster_images
-        const b64ForSave = shareCardDataUrl.replace(/^data:image\/png;base64,/, "");
-        await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
-        await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: b64ForSave });
-        setSavedPosterData(b64ForSave);
-        setSavedPosterStyle("share-card");
-
-        setPosterOverlayOpen(true);
-        // No aura deducted, no posterGeneratedForTopic set
-        return;
-      }
-
-      // ── Normal AI poster flow ──
-      let aiSrc: string;
+      // Get the AI image URL
+      let aiImageUrl: string;
       if (data.imageUrl) {
-        setPosterImageUrl(data.imageUrl);
-        setPosterImageBase64(null);
-        aiSrc = data.imageUrl;
+        aiImageUrl = data.imageUrl;
       } else if (data.imageBase64) {
-        setPosterImageBase64(data.imageBase64);
-        setPosterImageUrl(null);
-        aiSrc = `data:image/png;base64,${data.imageBase64}`;
+        aiImageUrl = `data:image/png;base64,${data.imageBase64}`;
       } else {
         throw new Error("No image returned from API");
       }
 
-      // Wait for the hidden composite card to render with the AI background
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      await document.fonts.ready;
-
-      // Pre-load the AI image so html2canvas can paint it
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Failed to load AI image"));
-        img.src = aiSrc;
+      // ── Step 2: Composite text overlay via Satori server route ──
+      const compositeRes = await fetch("/api/poster/composite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aiImageUrl,
+          topicTitle: topic.title,
+          top5,
+          username: username ?? "anonymous",
+          displayName: displayName ?? username ?? "anonymous",
+          tier: tierName,
+          tierColor,
+          aura: userAuraPoints,
+          archetype: archetypeResult
+            ? {
+                icon: archetypeResult.primary.icon,
+                name: archetypeResult.primary.name,
+                secondary: archetypeResult.secondaryPhrase ?? undefined,
+              }
+            : undefined,
+        }),
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!compositeRes.ok) throw new Error("Composite rendering failed");
 
-      const compositeEl = document.getElementById("poster-composite-card");
-      if (!compositeEl) throw new Error("Composite card element not found");
-
-      const { default: html2canvas } = await import("html2canvas") as { default: typeof html2canvasType };
-      const canvas = await html2canvas(compositeEl, {
-        width: 1080,
-        height: 1080,
-        scale: 1,
-        useCORS: true,
-        backgroundColor: "#0a0a0a",
+      const compositeBlob = await compositeRes.blob();
+      const compositeDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(compositeBlob);
       });
-      const compositeDataUrl = canvas.toDataURL("image/png");
+
       setPosterCompositeDataUrl(compositeDataUrl);
 
-      // Auto-download the poster immediately
+      // Auto-download
       const autoLink = document.createElement("a");
       autoLink.download = `top5-poster-${topic.slug ?? "list"}.png`;
       autoLink.href = compositeDataUrl;
@@ -1460,7 +1430,6 @@ export function TopicVotingFlow({
         });
         setUserAuraPoints((prev) => prev - POSTER_AURA_COST);
       } else {
-        // Log first free generation
         await supabase.from("aura_log").insert({
           user_id: userId,
           action: "poster_generated",
@@ -1469,13 +1438,9 @@ export function TopicVotingFlow({
         });
       }
 
-      // Save poster to poster_images (upsert: delete old, insert new)
+      // Save poster to poster_images
       const b64ForSave = compositeDataUrl.replace(/^data:image\/png;base64,/, "");
-      await supabase
-        .from("poster_images")
-        .delete()
-        .eq("user_id", userId)
-        .eq("topic_id", topic.id);
+      await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
       await supabase.from("poster_images").insert({
         user_id: userId,
         topic_id: topic.id,
@@ -1488,7 +1453,7 @@ export function TopicVotingFlow({
       setPosterGeneratedForTopic(true);
       setPosterOverlayOpen(true);
     } catch (err) {
-      // Last resort: try share card fallback even on unexpected errors
+      // Last resort: share card fallback
       try {
         const shareCardDataUrl = await captureShareCard();
         if (shareCardDataUrl) {
@@ -1503,10 +1468,6 @@ export function TopicVotingFlow({
       setPosterGenerating(false);
     }
   };
-
-  const posterAiSrc = posterImageBase64
-    ? `data:image/png;base64,${posterImageBase64}`
-    : posterImageUrl;
 
   const handleDownloadPoster = () => {
     if (!posterCompositeDataUrl) return;
@@ -3099,342 +3060,6 @@ export function TopicVotingFlow({
                   </div>
                 </div>
               </div>
-
-              {/* Poster composite — AI art background + all text/rankings/branding overlaid */}
-              {posterAiSrc && (
-              <div
-                id="poster-composite-card"
-                style={{
-                  position: "fixed",
-                  left: "-9999px",
-                  top: 0,
-                  width: "1080px",
-                  height: "1080px",
-                  overflow: "hidden",
-                  boxSizing: "border-box",
-                  fontFamily: "'DM Sans', sans-serif",
-                  contain: "layout",
-                }}
-              >
-                {/* AI-generated art as full background */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={posterAiSrc}
-                  alt=""
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: "1080px",
-                    height: "1080px",
-                    objectFit: "cover",
-                    zIndex: 0,
-                  }}
-                />
-
-                {/* Dark gradient over lower 50% for text readability */}
-                <div style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: "650px",
-                  background: "linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 70%, transparent 100%)",
-                  zIndex: 1,
-                }} />
-
-                {/* TOP ZONE: Topic title */}
-                <div style={{
-                  position: "absolute",
-                  top: "36px",
-                  left: "48px",
-                  right: "48px",
-                  zIndex: 3,
-                }}>
-                  <div style={{
-                    fontFamily: "'Bebas Neue', Impact, sans-serif",
-                    fontSize: "28px",
-                    color: "#FFD700",
-                    letterSpacing: "3px",
-                    textTransform: "uppercase",
-                    textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.7)",
-                    lineHeight: 1.2,
-                  }}>
-                    {topic.title.toUpperCase()}
-                  </div>
-                  <div style={{
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: "14px",
-                    color: "rgba(255,255,255,0.5)",
-                    letterSpacing: "4px",
-                    textTransform: "uppercase",
-                    marginTop: "6px",
-                    textShadow: "0 1px 8px rgba(0,0,0,0.9)",
-                  }}>
-                    MY TOP 5
-                  </div>
-                </div>
-
-                {/* MIDDLE ZONE: Ranking rows — the star of the poster */}
-                <div style={{
-                  position: "absolute",
-                  left: "48px",
-                  right: "48px",
-                  top: "420px",
-                  zIndex: 3,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}>
-                  {(() => {
-                    const top5Items = results.slice(0, 5);
-                    const rankColors = ["#FFD700", "#C0C0C0", "#22C55E", "#06B6D4", "#3B82F6"];
-                    return top5Items.map((r, idx) => {
-                      const rankColor = rankColors[idx] ?? "#3B82F6";
-                      const isFirst = idx === 0;
-                      const nameLen = r.subject.name.length;
-                      // Dynamic font size: scale down for long names
-                      const baseFontSize = isFirst ? 38 : 34;
-                      const nameFontSize = nameLen > 45
-                        ? 20
-                        : nameLen > 30
-                          ? 24
-                          : baseFontSize;
-                      return (
-                        <div
-                          key={r.subject.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "16px",
-                            background: "rgba(0,0,0,0.6)",
-                            borderRadius: "12px",
-                            padding: isFirst ? "14px 20px" : "10px 20px",
-                            border: isFirst
-                              ? "1px solid rgba(255,215,0,0.3)"
-                              : "1px solid rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          {/* Rank number */}
-                          <div style={{
-                            width: isFirst ? "56px" : "48px",
-                            height: isFirst ? "56px" : "48px",
-                            borderRadius: "10px",
-                            background: rankColor,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}>
-                            <span style={{
-                              fontFamily: "'Bebas Neue', Impact, sans-serif",
-                              fontSize: isFirst ? "36px" : "30px",
-                              color: idx <= 1 ? "#000000" : "#ffffff",
-                              lineHeight: 1,
-                              fontWeight: "bold",
-                            }}>
-                              {idx + 1}
-                            </span>
-                          </div>
-                          {/* Subject name — never cut off, scales down for long names */}
-                          <span style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: `${nameFontSize}px`,
-                            fontWeight: 800,
-                            color: "#ffffff",
-                            letterSpacing: "0.5px",
-                            flex: 1,
-                            paddingLeft: "20px",
-                            whiteSpace: nameFontSize < baseFontSize ? "normal" : "nowrap",
-                            overflow: "hidden",
-                            textOverflow: nameFontSize >= baseFontSize ? "ellipsis" : undefined,
-                            lineHeight: 1.2,
-                            textShadow: "0 2px 10px rgba(0,0,0,0.8)",
-                          }}>
-                            {r.subject.name}
-                          </span>
-                        </div>
-                      );
-                    });
-                  })()}
-
-                  {/* Archetype badge — directly below ranking rows, above logo */}
-                  {archetypeResult && (
-                    <div style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      marginTop: "6px",
-                    }}>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        background: "rgba(0,0,0,0.6)",
-                        border: "1px solid rgba(255,215,0,0.25)",
-                        borderRadius: "10px",
-                        padding: "8px 18px",
-                      }}>
-                        <span style={{ fontSize: "22px" }}>{archetypeResult.primary.icon}</span>
-                        <div>
-                          <div style={{
-                            fontFamily: "'Bebas Neue', Impact, sans-serif",
-                            fontSize: "18px",
-                            color: "#FFD700",
-                            letterSpacing: "2px",
-                            lineHeight: 1.2,
-                          }}>
-                            {archetypeResult.primary.name.toUpperCase()}
-                          </div>
-                          {archetypeResult.secondaryPhrase && (
-                            <div style={{
-                              fontFamily: "'DM Sans', sans-serif",
-                              fontSize: "11px",
-                              color: "#a78bfa",
-                              marginTop: "1px",
-                            }}>
-                              {archetypeResult.secondaryPhrase}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* BOTTOM CENTER: Logo */}
-                <div style={{
-                  position: "absolute",
-                  bottom: "90px",
-                  left: 0,
-                  right: 0,
-                  display: "flex",
-                  justifyContent: "center",
-                  zIndex: 5,
-                }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/images/logo-full.png"
-                    alt="TOP5DOA"
-                    style={{ height: "200px", width: "auto", objectFit: "contain" }}
-                  />
-                </div>
-
-                {/* BOTTOM: User info (left) + branding (right) */}
-                <div style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: "0 48px 36px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-end",
-                  zIndex: 4,
-                }}>
-                  {/* User info: avatar + name + handle + tier + aura */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    {(() => {
-                      const tierName = getTierForAura(userAuraPoints);
-                      const glowColor = getGlowColor(tierName);
-                      const safeGlow = glowColor === "rainbow" ? "#ffffff" : glowColor;
-                      const rv = parseInt(safeGlow.slice(1, 3), 16);
-                      const gv = parseInt(safeGlow.slice(3, 5), 16);
-                      const bv = parseInt(safeGlow.slice(5, 7), 16);
-                      return (
-                        <>
-                          <div style={{
-                            width: "56px",
-                            height: "56px",
-                            borderRadius: "50%",
-                            background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
-                            border: `2px solid rgba(${rv},${gv},${bv},0.6)`,
-                            boxShadow: `0 0 16px rgba(${rv},${gv},${bv},0.4)`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                            overflow: "hidden",
-                          }}>
-                            <span style={{
-                              fontFamily: "'Bebas Neue', Impact, sans-serif",
-                              fontSize: "24px",
-                              color: "#FFD700",
-                              lineHeight: 1,
-                            }}>
-                              {(displayName || username || "?").charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            {displayName && (
-                              <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "20px",
-                                fontWeight: 700,
-                                color: "#ffffff",
-                                lineHeight: 1.2,
-                                textShadow: "0 1px 6px rgba(0,0,0,0.9)",
-                              }}>
-                                {displayName}
-                              </span>
-                            )}
-                            {username && (
-                              <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "14px",
-                                color: "#999999",
-                                fontWeight: 400,
-                                textShadow: "0 1px 4px rgba(0,0,0,0.9)",
-                              }}>
-                                @{username}
-                              </span>
-                            )}
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
-                              <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "12px",
-                                fontWeight: 800,
-                                color: "#ffffff",
-                                background: `rgba(${rv},${gv},${bv},0.35)`,
-                                border: `1px solid rgba(${rv},${gv},${bv},0.7)`,
-                                borderRadius: "5px",
-                                padding: "3px 10px",
-                                textTransform: "uppercase",
-                                letterSpacing: "1.5px",
-                                boxShadow: `0 0 12px rgba(${rv},${gv},${bv},0.45)`,
-                              }}>
-                                {tierName}
-                              </span>
-                              <span style={{
-                                fontFamily: "'Bebas Neue', Impact, sans-serif",
-                                fontSize: "16px",
-                                color: safeGlow,
-                                letterSpacing: "2px",
-                                textShadow: `0 0 10px rgba(${rv},${gv},${bv},0.5)`,
-                              }}>
-                                {userAuraPoints.toLocaleString()} AURA
-                              </span>
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* TOP5DOA.APP branding */}
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{
-                      fontFamily: "'Bebas Neue', Impact, sans-serif",
-                      fontSize: "28px",
-                      color: "#e8ff00",
-                      fontWeight: "bold",
-                      letterSpacing: "3px",
-                      textShadow: "0 0 20px rgba(232,255,0,0.4)",
-                    }}>
-                      TOP5DOA.APP
-                    </span>
-                  </div>
-                </div>
-              </div>
-              )}
 
               {/* Action buttons row */}
               <div className="flex flex-wrap justify-start gap-3 pt-2">
