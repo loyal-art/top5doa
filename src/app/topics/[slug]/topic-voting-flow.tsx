@@ -3191,6 +3191,14 @@ export function TopicVotingFlow({
                     return top5Items.map((r, idx) => {
                       const rankColor = rankColors[idx] ?? "#3B82F6";
                       const isFirst = idx === 0;
+                      const nameLen = r.subject.name.length;
+                      // Dynamic font size: scale down for long names
+                      const baseFontSize = isFirst ? 38 : 34;
+                      const nameFontSize = nameLen > 45
+                        ? 20
+                        : nameLen > 30
+                          ? 24
+                          : baseFontSize;
                       return (
                         <div
                           key={r.subject.id}
@@ -3227,17 +3235,18 @@ export function TopicVotingFlow({
                               {idx + 1}
                             </span>
                           </div>
-                          {/* Subject name */}
+                          {/* Subject name — never cut off, scales down for long names */}
                           <span style={{
                             fontFamily: "'DM Sans', sans-serif",
-                            fontSize: isFirst ? "38px" : "34px",
+                            fontSize: `${nameFontSize}px`,
                             fontWeight: 800,
                             color: "#ffffff",
                             letterSpacing: "0.5px",
                             flex: 1,
-                            whiteSpace: "nowrap",
+                            whiteSpace: nameFontSize < baseFontSize ? "normal" : "nowrap",
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            textOverflow: nameFontSize >= baseFontSize ? "ellipsis" : undefined,
+                            lineHeight: 1.2,
                             textShadow: "0 2px 10px rgba(0,0,0,0.8)",
                           }}>
                             {r.subject.name}
@@ -3246,53 +3255,49 @@ export function TopicVotingFlow({
                       );
                     });
                   })()}
-                </div>
 
-                {/* Archetype badge — centered above logo */}
-                {archetypeResult && (
-                  <div style={{
-                    position: "absolute",
-                    bottom: "290px",
-                    left: 0,
-                    right: 0,
-                    display: "flex",
-                    justifyContent: "center",
-                    zIndex: 4,
-                  }}>
+                  {/* Archetype badge — directly below ranking rows, above logo */}
+                  {archetypeResult && (
                     <div style={{
                       display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      background: "rgba(0,0,0,0.6)",
-                      border: "1px solid rgba(255,215,0,0.25)",
-                      borderRadius: "10px",
-                      padding: "8px 18px",
+                      justifyContent: "center",
+                      marginTop: "6px",
                     }}>
-                      <span style={{ fontSize: "22px" }}>{archetypeResult.primary.icon}</span>
-                      <div>
-                        <div style={{
-                          fontFamily: "'Bebas Neue', Impact, sans-serif",
-                          fontSize: "18px",
-                          color: "#FFD700",
-                          letterSpacing: "2px",
-                          lineHeight: 1.2,
-                        }}>
-                          {archetypeResult.primary.name.toUpperCase()}
-                        </div>
-                        {archetypeResult.secondaryPhrase && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        background: "rgba(0,0,0,0.6)",
+                        border: "1px solid rgba(255,215,0,0.25)",
+                        borderRadius: "10px",
+                        padding: "8px 18px",
+                      }}>
+                        <span style={{ fontSize: "22px" }}>{archetypeResult.primary.icon}</span>
+                        <div>
                           <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: "11px",
-                            color: "#a78bfa",
-                            marginTop: "1px",
+                            fontFamily: "'Bebas Neue', Impact, sans-serif",
+                            fontSize: "18px",
+                            color: "#FFD700",
+                            letterSpacing: "2px",
+                            lineHeight: 1.2,
                           }}>
-                            {archetypeResult.secondaryPhrase}
+                            {archetypeResult.primary.name.toUpperCase()}
                           </div>
-                        )}
+                          {archetypeResult.secondaryPhrase && (
+                            <div style={{
+                              fontFamily: "'DM Sans', sans-serif",
+                              fontSize: "11px",
+                              color: "#a78bfa",
+                              marginTop: "1px",
+                            }}>
+                              {archetypeResult.secondaryPhrase}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* BOTTOM CENTER: Logo */}
                 <div style={{
