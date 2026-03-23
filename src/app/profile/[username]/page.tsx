@@ -43,6 +43,16 @@ export type SavedPoster = {
   created_at: string;
 };
 
+export type UserIdentity = {
+  topic_id: string;
+  topic_title: string;
+  topic_slug: string;
+  archetype_name: string;
+  archetype_icon: string;
+  secondary_name: string | null;
+  secondary_icon: string | null;
+};
+
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
   const supabase = await createClient();
@@ -206,6 +216,48 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     }
   }
 
+  // ── User archetypes (identities) ────────────────────────────────────────
+  let userIdentities: UserIdentity[] = [];
+  if (canSeeFullProfile) {
+    const { data: archetypeRows } = await supabase
+      .from("user_archetypes")
+      .select("topic_id, primary_archetype_id, secondary_archetype_id")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+
+    if (archetypeRows && archetypeRows.length > 0) {
+      const aTopicIds = archetypeRows.map((r) => r.topic_id);
+      const allArchetypeIds = [
+        ...archetypeRows.map((r) => r.primary_archetype_id),
+        ...archetypeRows.filter((r) => r.secondary_archetype_id).map((r) => r.secondary_archetype_id!),
+      ];
+
+      const [{ data: aTopicRows }, { data: archetypeData }] = await Promise.all([
+        supabase.from("topics").select("id, title, slug").in("id", aTopicIds),
+        supabase.from("topic_archetypes").select("id, name, icon").in("id", allArchetypeIds),
+      ]);
+
+      const aTopicMap = Object.fromEntries((aTopicRows ?? []).map((t) => [t.id, t]));
+      const archetypeMap = Object.fromEntries((archetypeData ?? []).map((a) => [a.id, a]));
+
+      userIdentities = archetypeRows
+        .filter((r) => aTopicMap[r.topic_id] && archetypeMap[r.primary_archetype_id])
+        .map((r) => {
+          const primary = archetypeMap[r.primary_archetype_id];
+          const secondary = r.secondary_archetype_id ? archetypeMap[r.secondary_archetype_id] : null;
+          return {
+            topic_id: r.topic_id,
+            topic_title: aTopicMap[r.topic_id].title,
+            topic_slug: aTopicMap[r.topic_id].slug,
+            archetype_name: primary.name,
+            archetype_icon: primary.icon,
+            secondary_name: secondary?.name ?? null,
+            secondary_icon: secondary?.icon ?? null,
+          };
+        });
+    }
+  }
+
   return (
     <ProfileClient
       profile={profile}
@@ -218,6 +270,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       createdTopics={createdTopics}
       savedCategories={savedCategories}
       savedPosters={savedPosters}
+      userIdentities={userIdentities}
     />
   );
 }

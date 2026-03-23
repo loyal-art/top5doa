@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import type { VotedTopic, CreatedTopic, SavedPoster } from "./page";
+import type { VotedTopic, CreatedTopic, SavedPoster, UserIdentity } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura, TIERS } from "@/lib/aura";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
@@ -37,6 +37,7 @@ interface ProfileClientProps {
   createdTopics: CreatedTopic[];
   savedCategories: string[];
   savedPosters: SavedPoster[];
+  userIdentities: UserIdentity[];
 }
 
 export function ProfileClient({
@@ -50,6 +51,7 @@ export function ProfileClient({
   createdTopics,
   savedCategories,
   savedPosters,
+  userIdentities,
 }: ProfileClientProps) {
   const supabase = createClient();
   const router = useRouter();
@@ -665,6 +667,47 @@ export function ProfileClient({
             )}
           </div>
         )}
+        {/* ── Your Identities ──────────────────────────────────────── */}
+        {canSeeFullProfile && userIdentities.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-display text-xl tracking-wide">YOUR IDENTITIES</h2>
+            <div className="space-y-3">
+              {userIdentities.map((identity) => (
+                <Link
+                  key={identity.topic_id}
+                  href={`/topics/${identity.topic_slug}`}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-brand-surface border
+                             border-brand-border hover:border-amber-500/40 transition-colors group"
+                >
+                  <span className="text-3xl flex-shrink-0">{identity.archetype_icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-xs text-neutral-500 uppercase tracking-wider">
+                      {identity.topic_title}
+                    </p>
+                    <p className="font-display text-base tracking-wide mt-1" style={{ color: "#FFD700" }}>
+                      {identity.archetype_name.toUpperCase()}
+                    </p>
+                    {identity.secondary_name && (
+                      <p className="text-xs font-mono mt-0.5" style={{ color: "#a78bfa" }}>
+                        With a touch of {identity.secondary_name}
+                      </p>
+                    )}
+                  </div>
+                  <svg
+                    className="w-4 h-4 flex-shrink-0 text-neutral-600 group-hover:text-amber-400 transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Saved posters ──────────────────────────────────────────── */}
         {canSeeFullProfile && savedPosters.length > 0 && (
           <div className="space-y-3">

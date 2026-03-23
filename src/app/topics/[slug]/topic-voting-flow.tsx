@@ -11,6 +11,7 @@ import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
 import { awardAura, getTierForAura, getNextTier, getGlowColor } from "@/lib/aura";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
+import { fetchTopicArchetypes, resolveArchetype, saveUserArchetype, type ArchetypeResult, type TopicArchetype } from "@/lib/archetypes";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -280,6 +281,12 @@ export function TopicVotingFlow({
   const [hotTakeExistingId, setHotTakeExistingId] = useState<string | null>(null);
   const [hotTakeSaving, setHotTakeSaving] = useState(false);
   const [hotTakeError, setHotTakeError] = useState<string | null>(null);
+
+  // Archetype state
+  const [topicArchetypes, setTopicArchetypes] = useState<TopicArchetype[]>([]);
+  const [archetypeResult, setArchetypeResult] = useState<ArchetypeResult | null>(null);
+  const [showArchetypeReveal, setShowArchetypeReveal] = useState(false);
+  const [revealPhase, setRevealPhase] = useState(0); // 0=hidden, 1=intro, 2=name, 3=desc, 4=secondary, 5=done
 
   async function openHotTake(targetType: "subject" | "attribute", targetId: string, targetName: string) {
     setHotTakeTarget({ type: targetType, id: targetId, name: targetName });
@@ -799,6 +806,19 @@ export function TopicVotingFlow({
         fetchRecentVoters();
       }
 
+      // Fetch archetypes for this topic
+      const fetchedArchetypes = await fetchTopicArchetypes(supabase, topic.id);
+      setTopicArchetypes(fetchedArchetypes);
+
+      // If already locked in, also load existing archetype result
+      if (lockedList && lockedList.length > 0 && fetchedArchetypes.length > 0 && existingRanks && existingRanks.length > 0) {
+        const attrNameMap: Record<string, string> = {};
+        for (const a of attributes) attrNameMap[a.id] = a.name;
+        const ranked = existingRanks.map((r) => r.attribute_id);
+        const result = resolveArchetype(ranked, fetchedArchetypes, attrNameMap);
+        if (result) setArchetypeResult(result);
+      }
+
       // Fetch user's friend groups + member IDs
       const { data: ownedGroups } = await supabase
         .from("groups")
@@ -1067,6 +1087,28 @@ export function TopicVotingFlow({
       setSaved(true);
       // Award aura for voting (lock-in) — idempotent via aura_log
       await awardAura(supabase, userId, "vote", topic.id);
+
+      // Calculate archetype if archetypes exist for this topic
+      if (topicArchetypes.length > 0) {
+        const attrNameMap: Record<string, string> = {};
+        for (const a of attributes) attrNameMap[a.id] = a.name;
+        const result = resolveArchetype(rankedAttributeIds, topicArchetypes, attrNameMap);
+        if (result) {
+          setArchetypeResult(result);
+          await saveUserArchetype(supabase, userId, topic.id, result);
+          // Trigger the reveal sequence
+          setShowArchetypeReveal(true);
+          setRevealPhase(1);
+          setTimeout(() => setRevealPhase(2), 1500);
+          setTimeout(() => setRevealPhase(3), 3000);
+          setTimeout(() => setRevealPhase(4), 4500);
+          setTimeout(() => {
+            setRevealPhase(5);
+            setTimeout(() => setShowArchetypeReveal(false), 1200);
+          }, 6000);
+        }
+      }
+
       // Refetch so the community tally reflects this user's new vote
       await fetchGlobalRankings();
       await fetchRecentVoters();
@@ -2406,6 +2448,28 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
+              {/* Archetype identity card */}
+              {archetypeResult && (
+                <div className="p-4 rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-purple-500/5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{archetypeResult.primary.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-lg tracking-wide" style={{ color: "#FFD700" }}>
+                        {archetypeResult.primary.name.toUpperCase()}
+                      </p>
+                      <p className="text-xs text-neutral-400 font-body mt-0.5">
+                        {archetypeResult.primary.base_description}
+                      </p>
+                      {archetypeResult.secondaryPhrase && (
+                        <p className="text-xs font-mono mt-1" style={{ color: "#a78bfa" }}>
+                          {archetypeResult.secondaryPhrase}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Two-column grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left: personal list */}
@@ -2879,6 +2943,48 @@ export function TopicVotingFlow({
                   })()}
                 </div>
 
+                {/* Archetype identity on share card */}
+                {archetypeResult && (
+                  <div style={{
+                    padding: "12px 56px 0",
+                    position: "relative",
+                    zIndex: 1,
+                  }}>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "12px 16px",
+                      background: "rgba(255,215,0,0.06)",
+                      border: "1px solid rgba(255,215,0,0.15)",
+                      borderRadius: "10px",
+                    }}>
+                      <span style={{ fontSize: "28px" }}>{archetypeResult.primary.icon}</span>
+                      <div>
+                        <div style={{
+                          fontFamily: "'Bebas Neue', Impact, sans-serif",
+                          fontSize: "22px",
+                          color: "#FFD700",
+                          letterSpacing: "2px",
+                          lineHeight: 1.2,
+                        }}>
+                          {archetypeResult.primary.name.toUpperCase()}
+                        </div>
+                        {archetypeResult.secondaryPhrase && (
+                          <div style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: "13px",
+                            color: "#a78bfa",
+                            marginTop: "2px",
+                          }}>
+                            {archetypeResult.secondaryPhrase}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Footer — absolutely anchored to the bottom */}
                 <div style={{
                   position: "absolute",
@@ -3053,6 +3159,47 @@ export function TopicVotingFlow({
                     style={{ height: "200px", width: "auto", objectFit: "contain" }}
                   />
                 </div>
+
+                {/* Archetype on poster */}
+                {archetypeResult && (
+                  <div style={{
+                    position: "absolute",
+                    top: "36px",
+                    right: "36px",
+                    zIndex: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    background: "rgba(0,0,0,0.65)",
+                    backdropFilter: "blur(8px)",
+                    border: "1px solid rgba(255,215,0,0.25)",
+                    borderRadius: "10px",
+                    padding: "10px 16px",
+                  }}>
+                    <span style={{ fontSize: "24px" }}>{archetypeResult.primary.icon}</span>
+                    <div>
+                      <div style={{
+                        fontFamily: "'Bebas Neue', Impact, sans-serif",
+                        fontSize: "18px",
+                        color: "#FFD700",
+                        letterSpacing: "2px",
+                        lineHeight: 1.2,
+                      }}>
+                        {archetypeResult.primary.name.toUpperCase()}
+                      </div>
+                      {archetypeResult.secondaryPhrase && (
+                        <div style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: "11px",
+                          color: "#a78bfa",
+                          marginTop: "1px",
+                        }}>
+                          {archetypeResult.secondaryPhrase}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* BOTTOM: User info (left) + branding (right) */}
                 <div style={{
@@ -3406,6 +3553,77 @@ export function TopicVotingFlow({
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Archetype Reveal Overlay ── */}
+      {showArchetypeReveal && archetypeResult && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md">
+          <div className="text-center px-6 max-w-lg mx-auto space-y-6">
+            {/* Phase 1: Intro text */}
+            <p
+              className={`font-mono text-sm uppercase tracking-[0.3em] transition-all duration-700 ${
+                revealPhase >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+              style={{ color: "#a0a0a0" }}
+            >
+              When it comes to {topic.title}...
+            </p>
+
+            {/* Phase 2: Big reveal — icon + name */}
+            <div
+              className={`transition-all duration-700 ${
+                revealPhase >= 2 ? "opacity-100 scale-100" : "opacity-0 scale-75"
+              }`}
+            >
+              <p className="text-5xl mb-3">{archetypeResult.primary.icon}</p>
+              <h2
+                className="font-display text-4xl sm:text-5xl tracking-wide archetype-glow"
+                style={{ color: "#FFD700" }}
+              >
+                YOU ARE {archetypeResult.primary.name.toUpperCase()}
+              </h2>
+            </div>
+
+            {/* Phase 3: Description + dynamic explanation */}
+            <div
+              className={`space-y-3 transition-all duration-700 ${
+                revealPhase >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+            >
+              <p className="text-neutral-300 font-body text-base leading-relaxed">
+                {archetypeResult.primary.base_description}
+              </p>
+              <p className="text-neutral-400 font-body text-sm italic leading-relaxed">
+                {archetypeResult.dynamicExplanation}
+              </p>
+            </div>
+
+            {/* Phase 4: Secondary archetype */}
+            {archetypeResult.secondaryPhrase && (
+              <p
+                className={`font-mono text-sm transition-all duration-700 ${
+                  revealPhase >= 4 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                }`}
+                style={{ color: "#a78bfa" }}
+              >
+                {archetypeResult.secondaryPhrase}
+              </p>
+            )}
+
+            {/* Phase 5: fade out indicator */}
+            {revealPhase >= 4 && (
+              <button
+                type="button"
+                onClick={() => { setRevealPhase(5); setTimeout(() => setShowArchetypeReveal(false), 300); }}
+                className={`font-mono text-xs text-neutral-600 hover:text-neutral-400 transition-all duration-500 mt-4 ${
+                  revealPhase >= 4 ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                tap to continue
+              </button>
+            )}
+          </div>
         </div>
       )}
 

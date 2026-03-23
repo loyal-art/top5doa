@@ -102,7 +102,8 @@ type SectionId =
   | "manage-topics"
   | "manage-subjects"
   | "manage-attributes"
-  | "manage-suggestions";
+  | "manage-suggestions"
+  | "manage-archetypes";
 
 const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
   { id: "ai-builder", label: "AI Topic Builder", icon: "✦" },
@@ -110,6 +111,7 @@ const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
   { id: "manage-topics", label: "Manage Topics", icon: "◈" },
   { id: "manage-subjects", label: "Manage Subjects", icon: "◉" },
   { id: "manage-attributes", label: "Manage Attributes", icon: "◆" },
+  { id: "manage-archetypes", label: "Archetypes", icon: "◎" },
   { id: "manage-suggestions", label: "Manage Suggestions", icon: "◇" },
 ];
 
@@ -2597,6 +2599,258 @@ function AiTopicBuilder() {
   );
 }
 
+// ── Archetypes Manager ──────────────────────────────────────────────────────
+
+type ArchetypeRow = {
+  id: string;
+  name: string;
+  base_description: string;
+  icon: string;
+  attribute_weights: Record<string, number>;
+};
+
+function ArchetypesManager({ topics }: { topics: Topic[] }) {
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [attributes, setAttributes] = useState<{ id: string; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<{ name: string }[]>([]);
+  const [archetypes, setArchetypes] = useState<ArchetypeRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // AI-generated preview before saving
+  const [preview, setPreview] = useState<{ name: string; base_description: string; icon: string; attribute_weights: Record<string, number> }[] | null>(null);
+
+  // Load attributes, subjects, and existing archetypes when topic changes
+  async function handleTopicSelect(topicId: string) {
+    setSelectedTopicId(topicId);
+    setMessage(null);
+    setPreview(null);
+    setLoading(true);
+    try {
+      const [attrs, subs, existing] = await Promise.all([
+        getAttributesForTopic(topicId),
+        getSubjectsForTopic(topicId),
+        fetchExistingArchetypes(topicId),
+      ]);
+      setAttributes((attrs ?? []).map((a) => ({ id: a.id, name: a.name })));
+      setSubjects((subs ?? []).map((s) => ({ name: s.name })));
+      setArchetypes(existing);
+    } catch {
+      setMessage({ type: "error", text: "Failed to load topic data" });
+    }
+    setLoading(false);
+  }
+
+  async function fetchExistingArchetypes(topicId: string): Promise<ArchetypeRow[]> {
+    // Use a dynamic import to avoid importing the client at module level
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("topic_archetypes")
+      .select("id, name, base_description, icon, attribute_weights")
+      .eq("topic_id", topicId);
+    return (data ?? []).map((r) => ({
+      ...r,
+      attribute_weights: (r.attribute_weights as Record<string, number>) ?? {},
+    }));
+  }
+
+  async function handleGenerate() {
+    if (!selectedTopicId || attributes.length === 0) return;
+    setGenerating(true);
+    setMessage(null);
+    setPreview(null);
+    try {
+      const res = await fetch("/api/ai/generate-archetypes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicTitle: topics.find((t) => t.id === selectedTopicId)?.title ?? "",
+          attributes,
+          subjects,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "API error");
+      }
+      const data = await res.json();
+      setPreview(data.archetypes);
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Generation failed" });
+    }
+    setGenerating(false);
+  }
+
+  async function handleSave() {
+    if (!selectedTopicId || !preview) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      // Delete existing archetypes for this topic
+      await supabase.from("topic_archetypes").delete().eq("topic_id", selectedTopicId);
+
+      // Insert new ones
+      const rows = preview.map((a) => ({
+        topic_id: selectedTopicId,
+        name: a.name,
+        base_description: a.base_description,
+        icon: a.icon,
+        attribute_weights: a.attribute_weights,
+      }));
+      const { error } = await supabase.from("topic_archetypes").insert(rows);
+      if (error) throw error;
+
+      setMessage({ type: "success", text: `Saved ${rows.length} archetypes!` });
+      setPreview(null);
+      // Refresh existing list
+      const existing = await fetchExistingArchetypes(selectedTopicId);
+      setArchetypes(existing);
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Save failed" });
+    }
+    setSaving(false);
+  }
+
+  async function handleDeleteAll() {
+    if (!selectedTopicId) return;
+    setSaving(true);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.from("topic_archetypes").delete().eq("topic_id", selectedTopicId);
+      setArchetypes([]);
+      setMessage({ type: "success", text: "All archetypes deleted." });
+    } catch {
+      setMessage({ type: "error", text: "Delete failed" });
+    }
+    setSaving(false);
+  }
+
+  const selectedTopic = topics.find((t) => t.id === selectedTopicId);
+
+  return (
+    <div className="p-5 space-y-5">
+      <h3 className="font-display text-xl tracking-wide">ARCHETYPES</h3>
+      <p className="text-sm font-body text-neutral-400">
+        Generate voter identity archetypes for a topic. Each archetype represents a distinct
+        philosophy of greatness.
+      </p>
+
+      {/* Topic selector */}
+      <div>
+        <label className={labelClass}>Select Topic</label>
+        <select
+          className={inputClass}
+          value={selectedTopicId ?? ""}
+          onChange={(e) => e.target.value && handleTopicSelect(e.target.value)}
+        >
+          <option value="">Choose a topic...</option>
+          {topics.map((t) => (
+            <option key={t.id} value={t.id}>{t.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {loading && <p className="text-sm font-mono text-neutral-500">Loading...</p>}
+
+      {selectedTopicId && !loading && (
+        <>
+          {/* Info */}
+          <div className="text-xs font-mono text-neutral-600 space-y-1">
+            <p>{attributes.length} attributes | {subjects.length} subjects</p>
+            {archetypes.length > 0 && (
+              <p className="text-brand-accent">{archetypes.length} archetypes exist</p>
+            )}
+          </div>
+
+          {/* Existing archetypes */}
+          {archetypes.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-mono text-neutral-500 uppercase tracking-wider">Current Archetypes</h4>
+              {archetypes.map((a) => (
+                <div key={a.id} className="p-3 rounded-xl bg-brand-surface border border-brand-border">
+                  <p className="font-display text-sm tracking-wide">{a.icon} {a.name.toUpperCase()}</p>
+                  <p className="text-xs text-neutral-400 font-body mt-1">{a.base_description}</p>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                disabled={saving}
+                className="text-xs font-mono text-brand-red hover:text-red-400 transition-colors"
+              >
+                Delete All Archetypes
+              </button>
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating || attributes.length === 0}
+            className="w-full px-4 py-3 rounded-xl font-mono text-sm font-bold transition-all
+                       bg-brand-accent/10 text-brand-accent border border-brand-accent/30
+                       hover:bg-brand-accent/20 hover:border-brand-accent/50
+                       disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {generating ? "Generating..." : `Generate 5 Archetypes for "${selectedTopic?.title ?? ""}"`}
+          </button>
+
+          {/* Preview */}
+          {preview && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-mono text-neutral-500 uppercase tracking-wider">Preview — AI Generated</h4>
+              {preview.map((a, i) => (
+                <div key={i} className="p-3 rounded-xl bg-brand-surface border border-brand-accent/20">
+                  <p className="font-display text-sm tracking-wide text-brand-accent">{a.icon} {a.name.toUpperCase()}</p>
+                  <p className="text-xs text-neutral-300 font-body mt-1">{a.base_description}</p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {Object.entries(a.attribute_weights).map(([attrId, weight]) => {
+                      const attrName = attributes.find((at) => at.id === attrId)?.name ?? attrId.slice(0, 8);
+                      return (
+                        <span key={attrId} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                          {attrName}: {weight}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full px-4 py-3 rounded-xl font-mono text-sm font-bold transition-all
+                           bg-green-500/10 text-green-400 border border-green-500/30
+                           hover:bg-green-500/20 hover:border-green-500/50
+                           disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : "Save Archetypes"}
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="w-full px-4 py-2 rounded-xl font-mono text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                Regenerate
+              </button>
+            </div>
+          )}
+
+          <StatusMessage message={message} />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main AdminForms — Miller columns layout ──────────────────────────────────
 
 export function AdminForms({ topics }: { topics: Topic[] }) {
@@ -2657,6 +2911,8 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
             }}
           />
         );
+      case "manage-archetypes":
+        return <ArchetypesManager topics={topics} />;
       case "manage-suggestions":
         return (
           <SuggestionsList
