@@ -18,6 +18,9 @@ const USER_FRIENDLY_UNAVAILABLE =
 /** Timeout for FLUX requests (30 seconds) before falling back to OpenAI. */
 const FLUX_TIMEOUT_MS = 30_000;
 
+/** Timeout for the visual description pre-pass (8 seconds). */
+const VISUAL_DESC_TIMEOUT_MS = 8_000;
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function isBillingError(status: number, body: string): boolean {
@@ -73,6 +76,66 @@ function isModerationBlocked(status: number, body: string): boolean {
   );
 }
 
+// ── Visual Description Pre-Pass ──────────────────────────────────────────────
+// Uses Claude to generate a rich visual description of the #1 subject so the
+// image generator produces a recognizable illustration without using the name.
+
+async function generateVisualDescription(
+  subjectName: string,
+  topicTitle: string,
+): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.log("[generate-poster] ANTHROPIC_API_KEY not set, skipping visual description");
+    return null;
+  }
+
+  try {
+    const result = await Promise.race([
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 256,
+          messages: [
+            {
+              role: "user",
+              content: `You are a visual director. Given the subject "${subjectName}" from the topic "${topicTitle}", write a 2-3 sentence visual description for an AI image generator. Describe their physical appearance, iconic clothing/uniform details (team colors, jersey number, era, accessories), signature pose or action, and any iconic visual elements. Be specific about colors, build, and style. Do NOT use their name in the description — only visual details. Example: Instead of "Drew Brees" write "NFL quarterback in New Orleans Saints uniform, gold helmet with fleur-de-lis, black and gold colors, number 9, compact athletic build, throwing motion from the pocket, intense focus." Return ONLY the visual description, nothing else.`,
+            },
+          ],
+        }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text();
+          console.error(`[generate-poster] Visual description API error (${res.status}):`, text.slice(0, 200));
+          return null;
+        }
+        const data = await res.json();
+        const text = data.content?.[0]?.text;
+        if (!text) return null;
+        console.log("[generate-poster] Visual description generated:", text.slice(0, 100));
+        return text.trim();
+      }),
+      new Promise<null>((resolve) =>
+        setTimeout(() => {
+          console.log("[generate-poster] Visual description timed out");
+          resolve(null);
+        }, VISUAL_DESC_TIMEOUT_MS)
+      ),
+    ]);
+
+    return result;
+  } catch (err) {
+    console.error("[generate-poster] Visual description failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 // ── Prompt builders ──────────────────────────────────────────────────────────
 // AI generates ONLY visual art. All text, rankings, logos, and branding are
 // overlaid by the client via html2canvas on the poster-composite-card element.
@@ -81,17 +144,20 @@ function buildPosterPrompt(
   topicTitle: string,
   top5: { rank: number; name: string }[],
   styleDesc: string,
+  visualDescription?: string | null,
 ): string {
   const rank1 = top5[0]?.name ?? "Unknown";
+
+  // Use the rich visual description if available, otherwise fall back to the name
+  const heroDescription = visualDescription
+    ? `The #1 ranked subject is: ${visualDescription}`
+    : `The subject is "${rank1}" in the context of "${topicTitle}". If the subject is a person, show a stylized cartoon caricature in action — exaggerated features, team colors/jersey if applicable, energy effects. NOT a realistic likeness. If the subject is a product (shoes, food, etc), show it dramatically lit with stylized effects. If the subject is a song, movie, or abstract concept, show symbolic/thematic imagery that captures its energy.`;
 
   return `Create a square poster background illustration. This is art for a ranking poster app.
 
 TOP 60% — HERO ILLUSTRATION:
-The subject is "${rank1}" in the context of "${topicTitle}".
+${heroDescription}
 Create a dramatic, dynamic, stylized illustration of this subject as the hero centerpiece.
-If the subject is a person, show a stylized cartoon caricature in action — exaggerated features, team colors/jersey if applicable, energy effects. NOT a realistic likeness.
-If the subject is a product (shoes, food, etc), show it dramatically lit with stylized effects.
-If the subject is a song, movie, or abstract concept, show symbolic/thematic imagery that captures its energy.
 The hero illustration should be large, bold, and visually dominant in the upper portion.
 
 BOTTOM 40% — DARK GRADIENT:
@@ -276,7 +342,14 @@ export async function POST(req: NextRequest) {
   }
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.comic;
-  const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
+  const rank1Name = top5[0]?.name ?? "Unknown";
+
+  // ── 0. Generate visual description of #1 subject via Claude ──────────────
+  // This gives the image generator rich visual details (uniform, colors, pose)
+  // instead of just a name, producing far more recognizable illustrations.
+  const visualDescription = await generateVisualDescription(rank1Name, topicTitle);
+
+  const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc, visualDescription);
 
   // ── 1. Try fal.ai FLUX (primary) ────────────────────────────────────────
   const fluxResult = await tryFlux(imagePrompt);
@@ -286,6 +359,7 @@ export async function POST(req: NextRequest) {
       imageBase64: null,
       prompt: imagePrompt,
       fallbackUsed: false,
+      visualDescription: visualDescription ?? null,
     });
   }
 
@@ -298,6 +372,7 @@ export async function POST(req: NextRequest) {
         imageBase64: openaiResult.imageBase64,
         prompt: imagePrompt,
         fallbackUsed: openaiResult.fallbackUsed,
+        visualDescription: visualDescription ?? null,
       });
     }
   }
