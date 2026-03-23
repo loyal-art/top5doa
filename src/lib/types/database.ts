@@ -778,6 +778,68 @@ export type Database = {
         };
         Relationships: [];
       };
+      topic_archetypes: {
+        Row: {
+          id: string;
+          topic_id: string;
+          name: string;
+          base_description: string;
+          icon: string;
+          attribute_weights: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          topic_id: string;
+          name: string;
+          base_description: string;
+          icon?: string;
+          attribute_weights?: Json;
+          created_at?: string;
+        };
+        Update: {
+          topic_id?: string;
+          name?: string;
+          base_description?: string;
+          icon?: string;
+          attribute_weights?: Json;
+        };
+        Relationships: [];
+      };
+      user_archetypes: {
+        Row: {
+          id: string;
+          user_id: string;
+          topic_id: string;
+          primary_archetype_id: string;
+          secondary_archetype_id: string | null;
+          primary_score: number;
+          secondary_score: number;
+          primary_margin: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          topic_id: string;
+          primary_archetype_id: string;
+          secondary_archetype_id?: string | null;
+          primary_score?: number;
+          secondary_score?: number;
+          primary_margin?: number;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          topic_id?: string;
+          primary_archetype_id?: string;
+          secondary_archetype_id?: string | null;
+          primary_score?: number;
+          secondary_score?: number;
+          primary_margin?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
