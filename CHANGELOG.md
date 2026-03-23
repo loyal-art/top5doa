@@ -1,5 +1,42 @@
 # Changelog
 
+## Session 9 — Voter Archetype Identity System
+
+### Archetype Engine
+- Client-side scoring engine (`src/lib/archetypes.ts`) — matches user attribute rankings against archetype weight profiles using weighted dot product
+- Rank-to-weight conversion: rank 1 = N points, rank 2 = N-1, etc.
+- Secondary archetype detection when primary margin < 15%
+- Dynamic explanation generator — runtime-generated personalized text referencing user's #1 and #2 attributes
+- Secondary archetype phrasing: "With a touch of...", "Leaning...", "You've got some... in you"
+
+### Archetype Reveal (Post Lock-In)
+- Full-screen cinematic reveal overlay after voting lock-in
+- 5-phase animation sequence: intro text → icon + name with gold glow → base description + dynamic explanation → secondary archetype → fade out
+- Gold pulsing `archetype-glow` text animation
+- "Tap to continue" skip option
+- Archetype identity card displayed on locked-in results view
+
+### AI Archetype Generation (Admin)
+- `/api/ai/generate-archetypes` API route using Claude to generate 5 distinct archetypes per topic
+- System prompt tuned for identity-style naming ("The ___" format), personality descriptions, and attribute weight assignment (1-5 scale)
+- Admin panel "Archetypes" section — select topic, generate preview, save/delete/regenerate
+- Preview shows archetype names, descriptions, icons, and per-attribute weight badges
+
+### Poster & Share Card Integration
+- Archetype identity badge on share card (below rankings, above footer)
+- Archetype overlay on AI poster composite (top-right corner, glass-blur background)
+- Both show icon + name + secondary phrase when applicable
+
+### Profile — YOUR IDENTITIES
+- New section on profile page between "Voted On" and "My Posters"
+- Shows all archetype results: topic name, archetype icon + name, secondary archetype
+- Each entry links back to the topic
+
+### Schema
+- `topic_archetypes` table — id, topic_id, name, base_description, icon, attribute_weights (jsonb), RLS policies (public read, admin write)
+- `user_archetypes` table — id, user_id, topic_id, primary/secondary archetype IDs, scores, margin, unique per user+topic, RLS policies (public read, user write own)
+- TypeScript types added to `database.ts`
+
 ## Session 8 — Select Subjects, OAuth Fix, Branding & Logo
 
 ### Voting Flow

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fal } from "@fal-ai/client";
+
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
   cinematic: "dark dramatic lighting, gold particles, lens flares",
@@ -11,6 +14,11 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
 
 const USER_FRIENDLY_UNAVAILABLE =
   "AI Poster generation is temporarily unavailable. Please try again later.";
+
+/** Timeout for FLUX requests (30 seconds) before falling back to OpenAI. */
+const FLUX_TIMEOUT_MS = 30_000;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function isBillingError(status: number, body: string): boolean {
   if (status === 402) return true;
@@ -34,7 +42,9 @@ async function notifyAdmins(service: string) {
     const platformUrl =
       service === "OpenAI"
         ? "platform.openai.com"
-        : "console.anthropic.com";
+        : service === "fal.ai"
+          ? "fal.ai/dashboard"
+          : "console.anthropic.com";
 
     const rows = admins.map((admin) => ({
       user_id: admin.id,
@@ -48,6 +58,22 @@ async function notifyAdmins(service: string) {
     console.error(`[generate-poster] Failed to notify admins about ${service} billing:`, err);
   }
 }
+
+function isModerationBlocked(status: number, body: string): boolean {
+  const lower = body.toLowerCase();
+  return (
+    lower.includes("moderation") ||
+    lower.includes("content_policy") ||
+    lower.includes("safety_system") ||
+    lower.includes("safety system") ||
+    lower.includes("rejected") ||
+    lower.includes("not allowed") ||
+    lower.includes("policy violation") ||
+    lower.includes("content policy")
+  );
+}
+
+// ── Prompt builders (unchanged) ──────────────────────────────────────────────
 
 function buildPosterPrompt(
   topicTitle: string,
@@ -160,6 +186,127 @@ CRITICAL RULES:
 - The poster should feel like a premium ESPN or sports media graphic`;
 }
 
+// ── Provider: fal.ai FLUX ────────────────────────────────────────────────────
+
+async function tryFlux(
+  prompt: string,
+): Promise<{ imageUrl: string } | null> {
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) {
+    console.log("[generate-poster] FAL_KEY not set, skipping FLUX");
+    return null;
+  }
+
+  fal.config({ credentials: falKey });
+
+  try {
+    // Race the FLUX call against a timeout to prevent stalling the request
+    const result = await Promise.race([
+      fal.subscribe("fal-ai/flux/dev", {
+        input: {
+          prompt,
+          image_size: "square" as const,
+          num_images: 1,
+        },
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("FLUX timeout")), FLUX_TIMEOUT_MS)
+      ),
+    ]);
+
+    const imageUrl =
+      (result as { data: { images?: { url: string }[] } }).data?.images?.[0]?.url;
+
+    if (!imageUrl) {
+      console.error("[generate-poster] FLUX returned no image URL");
+      return null;
+    }
+
+    console.log("[generate-poster] FLUX success");
+    return { imageUrl };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[generate-poster] FLUX failed:", msg);
+
+    // Check for billing-style errors from fal.ai
+    if (msg.includes("402") || msg.includes("quota") || msg.includes("billing")) {
+      await notifyAdmins("fal.ai");
+    }
+
+    return null;
+  }
+}
+
+// ── Provider: OpenAI ─────────────────────────────────────────────────────────
+
+async function tryOpenAI(
+  imagePrompt: string,
+  styleDesc: string,
+  openaiKey: string,
+): Promise<{ imageUrl: string | null; imageBase64: string | null; fallbackUsed: boolean } | null> {
+  async function callOpenAI(prompt: string) {
+    return fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1-mini",
+        prompt,
+        size: "1024x1024",
+        quality: "medium",
+      }),
+    });
+  }
+
+  // First attempt with the original prompt
+  let openaiRes = await callOpenAI(imagePrompt);
+  let fallbackUsed = false;
+
+  if (!openaiRes.ok) {
+    const text = await openaiRes.text();
+    console.error(`[generate-poster] OpenAI error (${openaiRes.status}):`, text.slice(0, 500));
+
+    if (isBillingError(openaiRes.status, text)) {
+      await notifyAdmins("OpenAI");
+      return null; // let caller return 503
+    }
+
+    // Moderation blocked — retry with sanitized fallback prompt
+    if (isModerationBlocked(openaiRes.status, text)) {
+      console.log("[generate-poster] OpenAI moderation blocked, retrying with safe abstract fallback...");
+      const fallbackPrompt = `Create a 1:1 square ranking poster with a dark cinematic background, gold particles, and dramatic lighting. Show 5 ranking rows with numbers 1-5 in colored squares (gold, silver, green, teal, blue) and placeholder text: RANK 1, RANK 2, RANK 3, RANK 4, RANK 5. Each row has a dark translucent bar. Leave the bottom 25% dark and empty. Style: ${styleDesc}. Do NOT include any people, faces, characters, or likenesses. The poster should feel like a premium ESPN or sports media graphic with dramatic energy effects and rich blacks.`;
+
+      openaiRes = await callOpenAI(fallbackPrompt);
+      if (!openaiRes.ok) {
+        const fallbackText = await openaiRes.text();
+        console.error(`[generate-poster] OpenAI fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));
+        if (isBillingError(openaiRes.status, fallbackText)) {
+          await notifyAdmins("OpenAI");
+        }
+        return null;
+      }
+      fallbackUsed = true;
+    } else {
+      return null;
+    }
+  }
+
+  const openaiData = await openaiRes.json();
+  const imageData = openaiData.data?.[0];
+  if (!imageData) return null;
+
+  console.log("[generate-poster] OpenAI success (fallback=%s)", fallbackUsed);
+  return {
+    imageUrl: imageData.url ?? null,
+    imageBase64: imageData.b64_json ?? null,
+    fallbackUsed,
+  };
+}
+
+// ── Route handler ────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { topicTitle, top5, displayName, username, tier, aura, style } = body as {
@@ -177,106 +324,46 @@ export async function POST(req: NextRequest) {
   }
 
   const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 500 });
+  const falKey = process.env.FAL_KEY;
+
+  // At least one image provider must be available
+  if (!openaiKey && !falKey) {
+    return NextResponse.json(
+      { error: "No image generation API keys configured" },
+      { status: 500 },
+    );
   }
 
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.comic;
-
-  // Build the poster prompt — AI renders title + rankings + art; we overlay logo/user/branding
   const imagePrompt = buildPosterPrompt(topicTitle, top5, styleDesc);
 
-  // Helper to call the OpenAI image generation API
-  async function callOpenAI(prompt: string) {
-    return fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-image-1-mini",
-        prompt,
-        size: "1024x1024",
-        quality: "medium",
-      }),
+  // ── 1. Try fal.ai FLUX (primary) ────────────────────────────────────────
+  const fluxResult = await tryFlux(imagePrompt);
+  if (fluxResult) {
+    return NextResponse.json({
+      imageUrl: fluxResult.imageUrl,
+      imageBase64: null,
+      prompt: imagePrompt,
+      fallbackUsed: false,
     });
   }
 
-  function isModerationBlocked(status: number, body: string): boolean {
-    // OpenAI uses various error formats for content policy rejections
-    const lower = body.toLowerCase();
-    return (
-      lower.includes("moderation") ||
-      lower.includes("content_policy") ||
-      lower.includes("safety_system") ||
-      lower.includes("safety system") ||
-      lower.includes("rejected") ||
-      lower.includes("not allowed") ||
-      lower.includes("policy violation") ||
-      lower.includes("content policy")
-    );
-  }
-
-  // First attempt with the original prompt
-  let openaiRes = await callOpenAI(imagePrompt);
-  let fallbackUsed = false;
-
-  if (!openaiRes.ok) {
-    const text = await openaiRes.text();
-    console.error(`[generate-poster] OpenAI error (${openaiRes.status}):`, text.slice(0, 500));
-
-    if (isBillingError(openaiRes.status, text)) {
-      await notifyAdmins("OpenAI");
-      return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
-    }
-
-    // Moderation blocked — retry with a completely sanitized fallback prompt
-    // The AI generates only an abstract background; real names/title are overlaid by the client
-    if (isModerationBlocked(openaiRes.status, text)) {
-      console.log("[generate-poster] Moderation blocked, retrying with safe abstract fallback...");
-      const fallbackPrompt = `Create a 1:1 square ranking poster with a dark cinematic background, gold particles, and dramatic lighting. Show 5 ranking rows with numbers 1-5 in colored squares (gold, silver, green, teal, blue) and placeholder text: RANK 1, RANK 2, RANK 3, RANK 4, RANK 5. Each row has a dark translucent bar. Leave the bottom 25% dark and empty. Style: ${styleDesc}. Do NOT include any people, faces, characters, or likenesses. The poster should feel like a premium ESPN or sports media graphic with dramatic energy effects and rich blacks.`;
-
-      openaiRes = await callOpenAI(fallbackPrompt);
-      if (!openaiRes.ok) {
-        const fallbackText = await openaiRes.text();
-        console.error(`[generate-poster] Fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));
-
-        if (isBillingError(openaiRes.status, fallbackText)) {
-          await notifyAdmins("OpenAI");
-          return NextResponse.json({ error: USER_FRIENDLY_UNAVAILABLE }, { status: 503 });
-        }
-
-        // Both attempts failed — user-friendly error
-        return NextResponse.json(
-          { error: "Poster generation unavailable for this topic. Try a different style!" },
-          { status: 502 }
-        );
-      }
-      fallbackUsed = true;
-    } else {
-      // Non-moderation, non-billing error — user-friendly message
-      return NextResponse.json(
-        { error: "Poster generation unavailable for this topic. Try a different style!" },
-        { status: 502 }
-      );
+  // ── 2. Try OpenAI (secondary fallback) ──────────────────────────────────
+  if (openaiKey) {
+    const openaiResult = await tryOpenAI(imagePrompt, styleDesc, openaiKey);
+    if (openaiResult) {
+      return NextResponse.json({
+        imageUrl: openaiResult.imageUrl,
+        imageBase64: openaiResult.imageBase64,
+        prompt: imagePrompt,
+        fallbackUsed: openaiResult.fallbackUsed,
+      });
     }
   }
 
-  const openaiData = await openaiRes.json();
-  const imageData = openaiData.data?.[0];
-
-  if (!imageData) {
-    return NextResponse.json(
-      { error: "Poster generation unavailable for this topic. Try a different style!" },
-      { status: 502 }
-    );
-  }
-
-  return NextResponse.json({
-    imageUrl: imageData.url ?? null,
-    imageBase64: imageData.b64_json ?? null,
-    prompt: imagePrompt,
-    fallbackUsed,
-  });
+  // ── 3. Both failed — 502 triggers client-side share-card fallback ──────
+  return NextResponse.json(
+    { error: "Poster generation unavailable for this topic. Try a different style!" },
+    { status: 502 },
+  );
 }
