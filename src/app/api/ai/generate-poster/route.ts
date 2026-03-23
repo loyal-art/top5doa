@@ -73,61 +73,50 @@ function isModerationBlocked(status: number, body: string): boolean {
   );
 }
 
-// ── Prompt builders (unchanged) ──────────────────────────────────────────────
+// ── Prompt builders ──────────────────────────────────────────────────────────
+// AI generates ONLY visual art. All text, rankings, logos, and branding are
+// overlaid by the client via html2canvas on the poster-composite-card element.
 
 function buildPosterPrompt(
   topicTitle: string,
   top5: { rank: number; name: string }[],
   styleDesc: string,
 ): string {
-  const items = top5.slice(0, 5);
-  const rank1 = items[0]?.name ?? "Unknown";
-  const rank2 = items[1]?.name ?? "Unknown";
-  const rank3 = items[2]?.name ?? "Unknown";
-  const rank4 = items[3]?.name ?? "Unknown";
-  const rank5 = items[4]?.name ?? "Unknown";
+  const rank1 = top5[0]?.name ?? "Unknown";
 
-  return `Create a 1:1 square poster illustration. This is a ranking poster for an app called Top 5 DOA.
+  return `Create a square poster background illustration. This is art for a ranking poster app.
 
-LAYOUT (follow this EXACTLY):
-- Top 75%: The ranking content, illustration, and title go here
-- Bottom 25%: Leave completely black/dark — this area will have a logo, user info, and app link overlaid later. Do NOT put any content here.
+TOP 60% — HERO ILLUSTRATION:
+The subject is "${rank1}" in the context of "${topicTitle}".
+Create a dramatic, dynamic, stylized illustration of this subject as the hero centerpiece.
+If the subject is a person, show a stylized cartoon caricature in action — exaggerated features, team colors/jersey if applicable, energy effects. NOT a realistic likeness.
+If the subject is a product (shoes, food, etc), show it dramatically lit with stylized effects.
+If the subject is a song, movie, or abstract concept, show symbolic/thematic imagery that captures its energy.
+The hero illustration should be large, bold, and visually dominant in the upper portion.
 
-ILLUSTRATION — MOST IMPORTANT:
-The #1 ranked subject "${rank1}" should have a large, dramatic, stylized cartoon caricature illustration or symbolic representation as the HERO of the poster. This is the centerpiece.
-If the subject is a person, show a stylized non-identifiable cartoon caricature — exaggerated features, jersey number and team colors if applicable, dynamic action pose, energy effects — NOT a realistic likeness.
-If the subject is a product (shoes, food, etc), show a large stylized illustrated version of the product with dramatic lighting and effects.
-If the subject is abstract, show symbolic energy art.
-The illustration should be large and visually dominant, positioned in the upper portion behind or above the ranking rows.
+BOTTOM 40% — DARK GRADIENT:
+Must be a simple dark gradient fading to near-black. Solid, low-detail, no illustration content.
+This area will have text overlaid later — it MUST be dark and simple for readability.
 
-RANKING SECTION — SECOND MOST IMPORTANT:
-Show exactly 5 ranking rows in the middle/lower portion of the top 75%. Each row MUST be fully visible — do NOT let any row get cut off. Each row has:
-- A bold number (1-5) inside a colored square: 1=GOLD, 2=SILVER, 3=EMERALD GREEN, 4=TEAL, 5=STEEL BLUE
-- The subject name in large white bold text to the right of the number
-- Row 1: "${rank1}"
-- Row 2: "${rank2}"
-- Row 3: "${rank3}"
-- Row 4: "${rank4}"
-- Row 5: "${rank5}"
-- Each row has a dark translucent background bar
-- Rows are compact and evenly spaced
-
-TITLE — LEAST IMPORTANT:
-Show "${topicTitle}" in small metallic gold text above the rankings. Keep it subtle and compact — one line if possible, small font. The title should NOT compete with the illustration or rankings.
-
-STYLE: ${styleDesc}
-
-BACKGROUND: Dark cinematic atmosphere matching the style. Rich blacks, dramatic lighting. Gold/amber accent tones.
+STYLE: ${styleDesc} — premium cinematic lighting, gold/amber accents, high contrast, dramatic energy.
 
 CRITICAL RULES:
-- ALL 5 ranking rows MUST be fully visible and not cropped
-- The illustration of #1 is the HERO — make it large and dramatic
-- The title is small and subtle — do NOT make it large
-- Leave bottom 25% completely dark and empty — NO content there
-- Do NOT generate any logo, user profile info, or app link text in the image
-- Do NOT generate realistic human faces or likenesses
-- Use stylized cartoon caricatures for people-based subjects
-- The poster should feel like a premium ESPN or sports media graphic`;
+- Do NOT include ANY text, words, letters, numbers, ranking rows, logos, labels, titles, or UI elements ANYWHERE in the image
+- Do NOT include any written content of any kind
+- Do NOT generate realistic human faces or likenesses — use stylized cartoon caricatures only
+- Leave strong negative space in the lower portion — dark, simple, gradient to black
+- The poster should feel like premium ESPN or sports media art`;
+}
+
+// BACKUP: Abstract-only fallback prompt for moderation-blocked topics
+function buildFallbackPrompt(styleDesc: string): string {
+  return `Create a square poster background illustration with a dark cinematic atmosphere.
+The image should feature dramatic abstract energy effects, gold particles, and premium lighting.
+Top 60%: Dynamic abstract art with bold shapes, dramatic lighting, and cinematic atmosphere.
+Bottom 40%: Dark gradient fading to near-black, simple and clean.
+Style: ${styleDesc} — premium cinematic lighting, gold/amber accents, high contrast.
+Do NOT include ANY text, words, people, faces, characters, or likenesses anywhere.
+Do NOT include any written content, numbers, or UI elements.`;
 }
 
 // BACKUP: GPT Image 1.5 version — revert to this if mini quality is insufficient
@@ -136,54 +125,7 @@ function buildPosterPromptV2(
   top5: { rank: number; name: string }[],
   styleDesc: string,
 ): string {
-  const items = top5.slice(0, 5);
-  const rank1 = items[0]?.name ?? "Unknown";
-  const rank2 = items[1]?.name ?? "Unknown";
-  const rank3 = items[2]?.name ?? "Unknown";
-  const rank4 = items[3]?.name ?? "Unknown";
-  const rank5 = items[4]?.name ?? "Unknown";
-
-  return `Create a 1:1 square poster illustration. This is a ranking poster for an app called Top 5 DOA.
-
-LAYOUT (follow this EXACTLY):
-- Top 75%: The ranking content, illustration, and title go here
-- Bottom 25%: Leave completely black/dark — this area will have a logo, user info, and app link overlaid later. Do NOT put any content here.
-
-ILLUSTRATION — MOST IMPORTANT:
-The #1 ranked subject "${rank1}" should have a large, dramatic, stylized cartoon caricature illustration or symbolic representation as the HERO of the poster. This is the centerpiece.
-If the subject is a person, show a stylized non-identifiable cartoon caricature — exaggerated features, jersey number and team colors if applicable, dynamic action pose, energy effects — NOT a realistic likeness.
-If the subject is a product (shoes, food, etc), show a large stylized illustrated version of the product with dramatic lighting and effects.
-If the subject is abstract, show symbolic energy art.
-The illustration should be large and visually dominant, positioned in the upper portion behind or above the ranking rows.
-
-RANKING SECTION — SECOND MOST IMPORTANT:
-Show exactly 5 ranking rows in the middle/lower portion of the top 75%. Each row MUST be fully visible — do NOT let any row get cut off. Each row has:
-- A bold number (1-5) inside a colored square: 1=GOLD, 2=SILVER, 3=EMERALD GREEN, 4=TEAL, 5=STEEL BLUE
-- The subject name in large white bold text to the right of the number
-- Row 1: "${rank1}"
-- Row 2: "${rank2}"
-- Row 3: "${rank3}"
-- Row 4: "${rank4}"
-- Row 5: "${rank5}"
-- Each row has a dark translucent background bar
-- Rows are compact and evenly spaced
-
-TITLE — LEAST IMPORTANT:
-Show "${topicTitle}" in small metallic gold text above the rankings. Keep it subtle and compact — one line if possible, small font. The title should NOT compete with the illustration or rankings.
-
-STYLE: ${styleDesc}
-
-BACKGROUND: Dark cinematic atmosphere matching the style. Rich blacks, dramatic lighting. Gold/amber accent tones.
-
-CRITICAL RULES:
-- ALL 5 ranking rows MUST be fully visible and not cropped
-- The illustration of #1 is the HERO — make it large and dramatic
-- The title is small and subtle — do NOT make it large
-- Leave bottom 25% completely dark and empty — NO content there
-- Do NOT generate any logo, user profile info, or app link text in the image
-- Do NOT generate realistic human faces or likenesses
-- Use stylized cartoon caricatures for people-based subjects
-- The poster should feel like a premium ESPN or sports media graphic`;
+  return buildPosterPrompt(topicTitle, top5, styleDesc);
 }
 
 // ── Provider: fal.ai FLUX ────────────────────────────────────────────────────
@@ -273,12 +215,11 @@ async function tryOpenAI(
       return null; // let caller return 503
     }
 
-    // Moderation blocked — retry with sanitized fallback prompt
+    // Moderation blocked — retry with sanitized abstract-only fallback
     if (isModerationBlocked(openaiRes.status, text)) {
       console.log("[generate-poster] OpenAI moderation blocked, retrying with safe abstract fallback...");
-      const fallbackPrompt = `Create a 1:1 square ranking poster with a dark cinematic background, gold particles, and dramatic lighting. Show 5 ranking rows with numbers 1-5 in colored squares (gold, silver, green, teal, blue) and placeholder text: RANK 1, RANK 2, RANK 3, RANK 4, RANK 5. Each row has a dark translucent bar. Leave the bottom 25% dark and empty. Style: ${styleDesc}. Do NOT include any people, faces, characters, or likenesses. The poster should feel like a premium ESPN or sports media graphic with dramatic energy effects and rich blacks.`;
 
-      openaiRes = await callOpenAI(fallbackPrompt);
+      openaiRes = await callOpenAI(buildFallbackPrompt(styleDesc));
       if (!openaiRes.ok) {
         const fallbackText = await openaiRes.text();
         console.error(`[generate-poster] OpenAI fallback also failed (${openaiRes.status}):`, fallbackText.slice(0, 500));

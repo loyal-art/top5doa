@@ -3100,7 +3100,7 @@ export function TopicVotingFlow({
                 </div>
               </div>
 
-              {/* Hybrid poster composite — AI image bg + overlaid logo, user info, branding */}
+              {/* Poster composite — AI art background + all text/rankings/branding overlaid */}
               {posterAiSrc && (
               <div
                 id="poster-composite-card"
@@ -3116,7 +3116,7 @@ export function TopicVotingFlow({
                   contain: "layout",
                 }}
               >
-                {/* AI-generated poster as full background */}
+                {/* AI-generated art as full background */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={posterAiSrc}
@@ -3131,16 +3131,168 @@ export function TopicVotingFlow({
                   }}
                 />
 
-                {/* BOTTOM: Dark gradient for text readability */}
+                {/* Dark gradient over lower 50% for text readability */}
                 <div style={{
                   position: "absolute",
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: "270px",
-                  background: "linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 60%, transparent 100%)",
-                  zIndex: 2,
+                  height: "650px",
+                  background: "linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+                  zIndex: 1,
                 }} />
+
+                {/* TOP ZONE: Topic title */}
+                <div style={{
+                  position: "absolute",
+                  top: "36px",
+                  left: "48px",
+                  right: "48px",
+                  zIndex: 3,
+                }}>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', Impact, sans-serif",
+                    fontSize: "28px",
+                    color: "#FFD700",
+                    letterSpacing: "3px",
+                    textTransform: "uppercase",
+                    textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.7)",
+                    lineHeight: 1.2,
+                  }}>
+                    {topic.title.toUpperCase()}
+                  </div>
+                  <div style={{
+                    fontFamily: "'Space Mono', monospace",
+                    fontSize: "14px",
+                    color: "rgba(255,255,255,0.5)",
+                    letterSpacing: "4px",
+                    textTransform: "uppercase",
+                    marginTop: "6px",
+                    textShadow: "0 1px 8px rgba(0,0,0,0.9)",
+                  }}>
+                    MY TOP 5
+                  </div>
+                </div>
+
+                {/* MIDDLE ZONE: Ranking rows — the star of the poster */}
+                <div style={{
+                  position: "absolute",
+                  left: "48px",
+                  right: "48px",
+                  top: "420px",
+                  zIndex: 3,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}>
+                  {(() => {
+                    const top5Items = results.slice(0, 5);
+                    const rankColors = ["#FFD700", "#C0C0C0", "#22C55E", "#06B6D4", "#3B82F6"];
+                    return top5Items.map((r, idx) => {
+                      const rankColor = rankColors[idx] ?? "#3B82F6";
+                      const isFirst = idx === 0;
+                      return (
+                        <div
+                          key={r.subject.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            background: "rgba(0,0,0,0.6)",
+                            borderRadius: "12px",
+                            padding: isFirst ? "14px 20px" : "10px 20px",
+                            border: isFirst
+                              ? "1px solid rgba(255,215,0,0.3)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                          }}
+                        >
+                          {/* Rank number */}
+                          <div style={{
+                            width: isFirst ? "56px" : "48px",
+                            height: isFirst ? "56px" : "48px",
+                            borderRadius: "10px",
+                            background: rankColor,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}>
+                            <span style={{
+                              fontFamily: "'Bebas Neue', Impact, sans-serif",
+                              fontSize: isFirst ? "36px" : "30px",
+                              color: idx <= 1 ? "#000000" : "#ffffff",
+                              lineHeight: 1,
+                              fontWeight: "bold",
+                            }}>
+                              {idx + 1}
+                            </span>
+                          </div>
+                          {/* Subject name */}
+                          <span style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: isFirst ? "38px" : "34px",
+                            fontWeight: 800,
+                            color: "#ffffff",
+                            letterSpacing: "0.5px",
+                            flex: 1,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            textShadow: "0 2px 10px rgba(0,0,0,0.8)",
+                          }}>
+                            {r.subject.name}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Archetype badge — centered above logo */}
+                {archetypeResult && (
+                  <div style={{
+                    position: "absolute",
+                    bottom: "290px",
+                    left: 0,
+                    right: 0,
+                    display: "flex",
+                    justifyContent: "center",
+                    zIndex: 4,
+                  }}>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      background: "rgba(0,0,0,0.6)",
+                      border: "1px solid rgba(255,215,0,0.25)",
+                      borderRadius: "10px",
+                      padding: "8px 18px",
+                    }}>
+                      <span style={{ fontSize: "22px" }}>{archetypeResult.primary.icon}</span>
+                      <div>
+                        <div style={{
+                          fontFamily: "'Bebas Neue', Impact, sans-serif",
+                          fontSize: "18px",
+                          color: "#FFD700",
+                          letterSpacing: "2px",
+                          lineHeight: 1.2,
+                        }}>
+                          {archetypeResult.primary.name.toUpperCase()}
+                        </div>
+                        {archetypeResult.secondaryPhrase && (
+                          <div style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: "11px",
+                            color: "#a78bfa",
+                            marginTop: "1px",
+                          }}>
+                            {archetypeResult.secondaryPhrase}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* BOTTOM CENTER: Logo */}
                 <div style={{
@@ -3160,47 +3312,6 @@ export function TopicVotingFlow({
                   />
                 </div>
 
-                {/* Archetype on poster */}
-                {archetypeResult && (
-                  <div style={{
-                    position: "absolute",
-                    top: "36px",
-                    right: "36px",
-                    zIndex: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    background: "rgba(0,0,0,0.65)",
-                    backdropFilter: "blur(8px)",
-                    border: "1px solid rgba(255,215,0,0.25)",
-                    borderRadius: "10px",
-                    padding: "10px 16px",
-                  }}>
-                    <span style={{ fontSize: "24px" }}>{archetypeResult.primary.icon}</span>
-                    <div>
-                      <div style={{
-                        fontFamily: "'Bebas Neue', Impact, sans-serif",
-                        fontSize: "18px",
-                        color: "#FFD700",
-                        letterSpacing: "2px",
-                        lineHeight: 1.2,
-                      }}>
-                        {archetypeResult.primary.name.toUpperCase()}
-                      </div>
-                      {archetypeResult.secondaryPhrase && (
-                        <div style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: "11px",
-                          color: "#a78bfa",
-                          marginTop: "1px",
-                        }}>
-                          {archetypeResult.secondaryPhrase}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* BOTTOM: User info (left) + branding (right) */}
                 <div style={{
                   position: "absolute",
@@ -3215,7 +3326,6 @@ export function TopicVotingFlow({
                 }}>
                   {/* User info: avatar + name + handle + tier + aura */}
                   <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    {/* Avatar circle with tier glow */}
                     {(() => {
                       const tierName = getTierForAura(userAuraPoints);
                       const glowColor = getGlowColor(tierName);
@@ -3226,8 +3336,8 @@ export function TopicVotingFlow({
                       return (
                         <>
                           <div style={{
-                            width: "64px",
-                            height: "64px",
+                            width: "56px",
+                            height: "56px",
                             borderRadius: "50%",
                             background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
                             border: `2px solid rgba(${rv},${gv},${bv},0.6)`,
@@ -3240,18 +3350,18 @@ export function TopicVotingFlow({
                           }}>
                             <span style={{
                               fontFamily: "'Bebas Neue', Impact, sans-serif",
-                              fontSize: "28px",
+                              fontSize: "24px",
                               color: "#FFD700",
                               lineHeight: 1,
                             }}>
                               {(displayName || username || "?").charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                             {displayName && (
                               <span style={{
                                 fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "24px",
+                                fontSize: "20px",
                                 fontWeight: 700,
                                 color: "#ffffff",
                                 lineHeight: 1.2,
@@ -3263,7 +3373,7 @@ export function TopicVotingFlow({
                             {username && (
                               <span style={{
                                 fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "17px",
+                                fontSize: "14px",
                                 color: "#999999",
                                 fontWeight: 400,
                                 textShadow: "0 1px 4px rgba(0,0,0,0.9)",
@@ -3271,28 +3381,28 @@ export function TopicVotingFlow({
                                 @{username}
                               </span>
                             )}
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
                               <span style={{
                                 fontFamily: "'DM Sans', sans-serif",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 fontWeight: 800,
                                 color: "#ffffff",
                                 background: `rgba(${rv},${gv},${bv},0.35)`,
                                 border: `1px solid rgba(${rv},${gv},${bv},0.7)`,
-                                borderRadius: "6px",
-                                padding: "4px 12px",
+                                borderRadius: "5px",
+                                padding: "3px 10px",
                                 textTransform: "uppercase",
                                 letterSpacing: "1.5px",
-                                boxShadow: `0 0 14px rgba(${rv},${gv},${bv},0.45)`,
+                                boxShadow: `0 0 12px rgba(${rv},${gv},${bv},0.45)`,
                               }}>
                                 {tierName}
                               </span>
                               <span style={{
                                 fontFamily: "'Bebas Neue', Impact, sans-serif",
-                                fontSize: "20px",
+                                fontSize: "16px",
                                 color: safeGlow,
                                 letterSpacing: "2px",
-                                textShadow: `0 0 12px rgba(${rv},${gv},${bv},0.5)`,
+                                textShadow: `0 0 10px rgba(${rv},${gv},${bv},0.5)`,
                               }}>
                                 {userAuraPoints.toLocaleString()} AURA
                               </span>
@@ -3307,7 +3417,7 @@ export function TopicVotingFlow({
                   <div style={{ textAlign: "right" }}>
                     <span style={{
                       fontFamily: "'Bebas Neue', Impact, sans-serif",
-                      fontSize: "30px",
+                      fontSize: "28px",
                       color: "#e8ff00",
                       fontWeight: "bold",
                       letterSpacing: "3px",
