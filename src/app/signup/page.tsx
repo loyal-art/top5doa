@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 function CheckIcon({ met }: { met: boolean }) {
   return (
@@ -52,6 +53,10 @@ function SignupForm() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (containsProfanity(displayName)) {
+      setError(PROFANITY_MESSAGE);
+      return;
+    }
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({

@@ -10,6 +10,7 @@ import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
 import { awardAura, getTierForAura, getNextTier, getGlowColor } from "@/lib/aura";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -278,11 +279,13 @@ export function TopicVotingFlow({
   const [hotTakeText, setHotTakeText] = useState("");
   const [hotTakeExistingId, setHotTakeExistingId] = useState<string | null>(null);
   const [hotTakeSaving, setHotTakeSaving] = useState(false);
+  const [hotTakeError, setHotTakeError] = useState<string | null>(null);
 
   async function openHotTake(targetType: "subject" | "attribute", targetId: string, targetName: string) {
     setHotTakeTarget({ type: targetType, id: targetId, name: targetName });
     setHotTakeText("");
     setHotTakeExistingId(null);
+    setHotTakeError(null);
     setHotTakeOpen(true);
     if (!userId) return;
     // Check for existing take
@@ -302,6 +305,11 @@ export function TopicVotingFlow({
 
   async function submitHotTake() {
     if (!userId || !hotTakeTarget || !hotTakeText.trim() || hotTakeText.length > 280) return;
+    if (containsProfanity(hotTakeText)) {
+      setHotTakeError(PROFANITY_MESSAGE);
+      return;
+    }
+    setHotTakeError(null);
     setHotTakeSaving(true);
 
     if (hotTakeExistingId) {
@@ -1565,6 +1573,9 @@ export function TopicVotingFlow({
               rows={3}
               className="w-full rounded-lg bg-brand-bg border border-brand-border px-3 py-2 text-sm font-body text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-brand-accent"
             />
+            {hotTakeError && (
+              <p className="text-xs text-red-400 font-mono">{hotTakeError}</p>
+            )}
             <div className="flex items-center justify-between">
               <span className={`text-xs font-mono ${hotTakeText.length > 260 ? "text-red-400" : "text-neutral-600"}`}>
                 {hotTakeText.length}/280

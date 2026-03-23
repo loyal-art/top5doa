@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { awardAura } from "@/lib/aura";
+import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 async function getAdminUser() {
   const supabase = await createClient();
@@ -34,6 +35,10 @@ export async function createTopic(
   const category = formData.getAll("category") as string[];
   const description = (formData.get("description") as string) || null;
   const status = (formData.get("status") as string) || "active";
+
+  if (containsProfanity(title) || (description && containsProfanity(description))) {
+    return { error: PROFANITY_MESSAGE };
+  }
 
   const { data: newTopic, error } = await supabase
     .from("topics")
@@ -83,6 +88,10 @@ export async function addSubject(
   const link_music = (formData.get("link_music") as string) || null;
   const link_video = (formData.get("link_video") as string) || null;
 
+  if (containsProfanity(name)) {
+    return { error: PROFANITY_MESSAGE };
+  }
+
   const { error } = await supabase.from("subjects").insert({
     topic_id,
     name,
@@ -114,6 +123,9 @@ export async function addSubjectsBulk(
 
   if (names.length === 0) return { error: "No names provided" };
 
+  const profaneName = names.find((n) => containsProfanity(n));
+  if (profaneName) return { error: PROFANITY_MESSAGE };
+
   const rows = names.map((name) => ({ topic_id, name }));
 
   const { error } = await supabase.from("subjects").insert(rows);
@@ -139,6 +151,9 @@ export async function addAttributesBulk(
 
   if (names.length === 0) return { error: "No names provided" };
 
+  const profaneAttr = names.find((n) => containsProfanity(n));
+  if (profaneAttr) return { error: PROFANITY_MESSAGE };
+
   const rows = names.map((name) => ({ topic_id, name, status: "active" as const }));
 
   const { error } = await supabase.from("attributes").insert(rows);
@@ -157,6 +172,10 @@ export async function addAttribute(
   const topic_id = formData.get("topic_id") as string;
   const name = formData.get("name") as string;
   const description = (formData.get("description") as string) || null;
+
+  if (containsProfanity(name) || (description && containsProfanity(description))) {
+    return { error: PROFANITY_MESSAGE };
+  }
 
   const { error } = await supabase.from("attributes").insert({
     topic_id,
@@ -298,6 +317,10 @@ export async function updateTopic(
   const { supabase, error: authError } = await getAdminUser();
   if (authError || !supabase) return { error: authError ?? "Auth failed" };
 
+  if (containsProfanity(updates.title) || (updates.description && containsProfanity(updates.description))) {
+    return { error: PROFANITY_MESSAGE };
+  }
+
   // If setting this topic as featured, unset all other featured topics first
   if (updates.is_featured) {
     await supabase
@@ -328,6 +351,18 @@ export async function createTopicWithContent(data: {
   const { supabase, userId, error: authError } = await getAdminUser();
   if (authError || !supabase || !userId)
     return { error: authError ?? "Auth failed", topicId: null };
+
+  // Profanity check on all text fields
+  const textFields = [
+    data.title,
+    data.description,
+    ...data.subjects.map((s) => s.name),
+    ...data.subjects.map((s) => s.description).filter(Boolean),
+    ...data.attributes.map((a) => a.name),
+    ...data.attributes.map((a) => a.description).filter(Boolean),
+  ].filter(Boolean) as string[];
+  const profaneField = textFields.find((t) => containsProfanity(t));
+  if (profaneField) return { error: PROFANITY_MESSAGE, topicId: null };
 
   // created_by: use the provided user (e.g. suggestion submitter), fall back to admin
   const createdBy = data.created_by ?? userId;
