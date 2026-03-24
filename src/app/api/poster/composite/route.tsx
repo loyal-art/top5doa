@@ -41,6 +41,7 @@ interface CompositeRequest {
 
 export async function POST(req: NextRequest) {
   console.log('Satori composite called');
+  try {
   const body = (await req.json()) as CompositeRequest;
   const {
     aiImageUrl,
@@ -62,6 +63,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Load fonts in parallel with AI image fetch
+  console.log('Fetching fonts...');
+  console.log('Fetching AI image...');
   const [fonts, aiImageRes] = await Promise.all([
     loadFonts(),
     fetch(aiImageUrl).then((r) => r.arrayBuffer()),
@@ -76,7 +79,8 @@ export async function POST(req: NextRequest) {
 
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
-  return new ImageResponse(
+  console.log('Rendering with Satori...');
+  const imageResponse = new ImageResponse(
     (
       <div
         style={{
@@ -455,6 +459,16 @@ export async function POST(req: NextRequest) {
       ],
     }
   );
+  console.log('Returning PNG...');
+  return imageResponse;
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Composite error:', err.message, err.stack);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
 /** Derive the base URL from the incoming request for absolute asset paths. */
