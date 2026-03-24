@@ -1,5 +1,8 @@
-import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import satori from "satori";
+import { Resvg } from "@resvg/resvg-js";
+
+export const runtime = "nodejs";
 
 // ── Font cache ───────────────────────────────────────────────────────────────
 // Fonts are fetched once then held in module-scope memory for the process lifetime.
@@ -83,9 +86,9 @@ export async function POST(req: NextRequest) {
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
   console.log('Rendering with Satori...');
-  let imageResponse: Response;
+  let svgString: string;
   try {
-  imageResponse = new ImageResponse(
+  svgString = await satori(
     (
       <div
         style={{
@@ -456,8 +459,8 @@ export async function POST(req: NextRequest) {
       </div>
     ),
     {
-      width: 512,
-      height: 512,
+      width: 1080,
+      height: 1080,
       fonts: [
         { name: "Bebas Neue", data: fonts.bebasNeue, style: "normal", weight: 400 },
         { name: "DM Sans", data: fonts.dmSans, style: "normal", weight: 400 },
@@ -466,14 +469,32 @@ export async function POST(req: NextRequest) {
   );
   } catch (renderError: unknown) {
     const err = renderError instanceof Error ? renderError : new Error(String(renderError));
-    console.error('ImageResponse render error:', err.message, err.stack);
+    console.error('Satori render error:', err.message, err.stack);
     return new Response(JSON.stringify({ error: 'Satori render failed: ' + err.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
-  console.log('Returning PNG...');
-  return imageResponse;
+
+  console.log('Converting SVG to PNG with resvg...');
+  let pngBuffer: Buffer;
+  try {
+    const resvg = new Resvg(svgString, { fitTo: { mode: "width", value: 1080 } });
+    const pngData = resvg.render();
+    pngBuffer = Buffer.from(pngData.asPng());
+  } catch (resvgError: unknown) {
+    const err = resvgError instanceof Error ? resvgError : new Error(String(resvgError));
+    console.error('Resvg error:', err.message, err.stack);
+    return new Response(JSON.stringify({ error: 'PNG conversion failed: ' + err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  console.log('Returning PNG, size:', pngBuffer.byteLength);
+  return new Response(pngBuffer, {
+    headers: { "Content-Type": "image/png" },
+  });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error('Composite error:', err.message, err.stack);
