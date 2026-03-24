@@ -13,19 +13,25 @@ let bebasNeueFont: ArrayBuffer | null = null;
 let dmSansFont: ArrayBuffer | null = null;
 
 async function loadFonts() {
+  // Using NotoSans (bundled with next/og) as a guaranteed-valid TTF fallback
+  // for both slots until BebasNeue + DMSans can be sourced correctly.
+  const fontPath = path.join(process.cwd(), "public/fonts/NotoSans-Regular.ttf");
+
   if (!bebasNeueFont) {
-    const buf = await fs.readFile(
-      path.join(process.cwd(), "public/fonts/BebasNeue-Regular.ttf")
-    );
+    const buf = await fs.readFile(fontPath);
     bebasNeueFont = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-    console.log("BebasNeue font loaded, bytes:", bebasNeueFont.byteLength);
+    console.log(
+      "BebasNeue slot loaded, bytes:", bebasNeueFont.byteLength,
+      "header:", Buffer.from(bebasNeueFont).slice(0, 4).toString("hex")
+    );
   }
   if (!dmSansFont) {
-    const buf = await fs.readFile(
-      path.join(process.cwd(), "public/fonts/DMSans-Bold.ttf")
-    );
+    const buf = await fs.readFile(fontPath);
     dmSansFont = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-    console.log("DM Sans font loaded, bytes:", dmSansFont.byteLength);
+    console.log(
+      "DM Sans slot loaded, bytes:", dmSansFont.byteLength,
+      "header:", Buffer.from(dmSansFont).slice(0, 4).toString("hex")
+    );
   }
   return { bebasNeue: bebasNeueFont, dmSans: dmSansFont };
 }
