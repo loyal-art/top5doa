@@ -493,7 +493,7 @@ export async function POST(req: NextRequest) {
   }
 
   console.log('Returning PNG, size:', pngBuffer.byteLength);
-  return new Response(pngBuffer, {
+  return new Response(new Uint8Array(pngBuffer), {
     headers: { "Content-Type": "image/png" },
   });
   } catch (error: unknown) {
