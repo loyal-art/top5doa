@@ -1381,6 +1381,7 @@ export function TopicVotingFlow({
       }
 
       // ── Step 2: Composite text overlay via Satori server route ──
+      console.log('Calling Satori composite...');
       const compositeRes = await fetch("/api/poster/composite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

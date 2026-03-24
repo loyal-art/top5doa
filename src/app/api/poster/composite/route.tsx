@@ -40,6 +40,7 @@ interface CompositeRequest {
 // ── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  console.log('Satori composite called');
   const body = (await req.json()) as CompositeRequest;
   const {
     aiImageUrl,
