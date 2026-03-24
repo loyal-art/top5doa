@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import satori from "satori";
 import sharp from "sharp";
+import fs from "fs/promises";
+import path from "path";
 
 export const runtime = "nodejs";
 
@@ -12,16 +14,18 @@ let dmSansFont: ArrayBuffer | null = null;
 
 async function loadFonts() {
   if (!bebasNeueFont) {
-    const bebasRes = await fetch(
-      "https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoQ.ttf"
+    const buf = await fs.readFile(
+      path.join(process.cwd(), "public/fonts/BebasNeue-Regular.ttf")
     );
-    bebasNeueFont = await bebasRes.arrayBuffer();
+    bebasNeueFont = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    console.log("BebasNeue font loaded, bytes:", bebasNeueFont.byteLength);
   }
   if (!dmSansFont) {
-    const dmRes = await fetch(
-      "https://fonts.gstatic.com/s/dmsans/v15/rP2Yp2ywxg089UriI5-g4vlH9VoD8Cmg.ttf"
+    const buf = await fs.readFile(
+      path.join(process.cwd(), "public/fonts/DMSans-Bold.ttf")
     );
-    dmSansFont = await dmRes.arrayBuffer();
+    dmSansFont = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    console.log("DM Sans font loaded, bytes:", dmSansFont.byteLength);
   }
   return { bebasNeue: bebasNeueFont, dmSans: dmSansFont };
 }
