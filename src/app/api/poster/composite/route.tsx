@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     fetch(aiImageUrl).then((r) => r.arrayBuffer()),
   ]);
 
+  console.log('AI image size:', aiImageRes.byteLength);
+  console.log('Font sizes — BebasNeue:', fonts.bebasNeue.byteLength, 'DM Sans:', fonts.dmSans.byteLength);
+
   const aiImageBase64 = `data:image/png;base64,${Buffer.from(aiImageRes).toString("base64")}`;
 
   // Tier glow color parsing for badge
@@ -80,7 +83,9 @@ export async function POST(req: NextRequest) {
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
   console.log('Rendering with Satori...');
-  const imageResponse = new ImageResponse(
+  let imageResponse: Response;
+  try {
+  imageResponse = new ImageResponse(
     (
       <div
         style={{
@@ -451,14 +456,22 @@ export async function POST(req: NextRequest) {
       </div>
     ),
     {
-      width: 1080,
-      height: 1080,
+      width: 512,
+      height: 512,
       fonts: [
         { name: "Bebas Neue", data: fonts.bebasNeue, style: "normal", weight: 400 },
         { name: "DM Sans", data: fonts.dmSans, style: "normal", weight: 400 },
       ],
     }
   );
+  } catch (renderError: unknown) {
+    const err = renderError instanceof Error ? renderError : new Error(String(renderError));
+    console.error('ImageResponse render error:', err.message, err.stack);
+    return new Response(JSON.stringify({ error: 'Satori render failed: ' + err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   console.log('Returning PNG...');
   return imageResponse;
   } catch (error: unknown) {
