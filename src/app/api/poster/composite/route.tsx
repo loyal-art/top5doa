@@ -13,13 +13,13 @@ let dmSansFont: ArrayBuffer | null = null;
 async function loadFonts() {
   if (!bebasNeueFont) {
     const bebasRes = await fetch(
-      "https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2"
+      "https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoQ.ttf"
     );
     bebasNeueFont = await bebasRes.arrayBuffer();
   }
   if (!dmSansFont) {
     const dmRes = await fetch(
-      "https://fonts.gstatic.com/s/dmsans/v15/rP2Hp2ywxg089UriCZOIHTWEBlwu8Q.woff2"
+      "https://fonts.gstatic.com/s/dmsans/v15/rP2Yp2ywxg089UriI5-g4vlH9VoD8Cmg.ttf"
     );
     dmSansFont = await dmRes.arrayBuffer();
   }
@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
 
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
-  const W = 540;
-  const H = 540;
+  const W = 1080;
+  const H = 1080;
 
   console.log(`Rendering with Satori at ${W}x${H}...`);
   let svgString: string;
