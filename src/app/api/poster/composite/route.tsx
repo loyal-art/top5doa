@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import satori from "satori";
-import { Resvg } from "@resvg/resvg-js";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 
@@ -85,15 +85,18 @@ export async function POST(req: NextRequest) {
 
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
-  console.log('Rendering with Satori...');
+  const W = 540;
+  const H = 540;
+
+  console.log(`Rendering with Satori at ${W}x${H}...`);
   let svgString: string;
   try {
   svgString = await satori(
     (
       <div
         style={{
-          width: "1080px",
-          height: "1080px",
+          width: `${W}px`,
+          height: `${H}px`,
           display: "flex",
           flexDirection: "column",
           position: "relative",
@@ -105,14 +108,14 @@ export async function POST(req: NextRequest) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={aiImageBase64}
-          width={1080}
-          height={1080}
+          width={W}
+          height={H}
           style={{
             position: "absolute",
             top: 0,
             left: 0,
-            width: "1080px",
-            height: "1080px",
+            width: `${W}px`,
+            height: `${H}px`,
             objectFit: "cover",
           }}
         />
@@ -124,7 +127,7 @@ export async function POST(req: NextRequest) {
             bottom: 0,
             left: 0,
             right: 0,
-            height: "650px",
+            height: "325px",
             display: "flex",
             background:
               "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 70%, transparent 100%)",
@@ -135,9 +138,9 @@ export async function POST(req: NextRequest) {
         <div
           style={{
             position: "absolute",
-            top: "36px",
-            left: "48px",
-            right: "48px",
+            top: "18px",
+            left: "24px",
+            right: "24px",
             display: "flex",
             flexDirection: "column",
           }}
@@ -145,9 +148,9 @@ export async function POST(req: NextRequest) {
           <div
             style={{
               fontFamily: "Bebas Neue",
-              fontSize: "28px",
+              fontSize: "14px",
               color: "#FFD700",
-              letterSpacing: "3px",
+              letterSpacing: "1.5px",
               textTransform: "uppercase" as const,
               lineHeight: 1.2,
               textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.7)",
@@ -159,11 +162,11 @@ export async function POST(req: NextRequest) {
           <div
             style={{
               fontFamily: "Bebas Neue",
-              fontSize: "14px",
+              fontSize: "7px",
               color: "rgba(255,255,255,0.5)",
-              letterSpacing: "4px",
+              letterSpacing: "2px",
               textTransform: "uppercase" as const,
-              marginTop: "6px",
+              marginTop: "3px",
               display: "flex",
               textShadow: "0 1px 8px rgba(0,0,0,0.9)",
             }}
@@ -176,29 +179,29 @@ export async function POST(req: NextRequest) {
         <div
           style={{
             position: "absolute",
-            left: "48px",
-            right: "48px",
-            top: "420px",
+            left: "24px",
+            right: "24px",
+            top: "210px",
             display: "flex",
             flexDirection: "column",
-            gap: "10px",
+            gap: "5px",
           }}
         >
           {top5.slice(0, 5).map((item, idx) => {
             const rankColor = RANK_COLORS[idx] ?? "#3B82F6";
             const isFirst = idx === 0;
             const nameLen = item.name.length;
-            const fontSize = nameLen > 45 ? 20 : nameLen > 30 ? 24 : 36;
+            const fontSize = nameLen > 45 ? 10 : nameLen > 30 ? 12 : 18;
             return (
               <div
                 key={idx}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "16px",
+                  gap: "8px",
                   background: "rgba(0,0,0,0.6)",
-                  borderRadius: "12px",
-                  padding: isFirst ? "14px 20px" : "10px 20px",
+                  borderRadius: "6px",
+                  padding: isFirst ? "7px 10px" : "5px 10px",
                   border: isFirst
                     ? "1px solid rgba(255,215,0,0.3)"
                     : "1px solid rgba(255,255,255,0.08)",
@@ -207,9 +210,9 @@ export async function POST(req: NextRequest) {
                 {/* Rank square */}
                 <div
                   style={{
-                    width: isFirst ? "56px" : "48px",
-                    height: isFirst ? "56px" : "48px",
-                    borderRadius: "10px",
+                    width: isFirst ? "28px" : "24px",
+                    height: isFirst ? "28px" : "24px",
+                    borderRadius: "5px",
                     background: rankColor,
                     display: "flex",
                     alignItems: "center",
@@ -220,7 +223,7 @@ export async function POST(req: NextRequest) {
                   <div
                     style={{
                       fontFamily: "Bebas Neue",
-                      fontSize: isFirst ? "36px" : "30px",
+                      fontSize: isFirst ? "18px" : "15px",
                       color: idx <= 1 ? "#000000" : "#ffffff",
                       lineHeight: 1,
                       display: "flex",
@@ -237,7 +240,7 @@ export async function POST(req: NextRequest) {
                     color: "#ffffff",
                     letterSpacing: "0.5px",
                     flex: 1,
-                    paddingLeft: "20px",
+                    paddingLeft: "10px",
                     lineHeight: 1.2,
                     display: "flex",
                     textShadow: "0 2px 10px rgba(0,0,0,0.8)",
@@ -256,30 +259,30 @@ export async function POST(req: NextRequest) {
               style={{
                 display: "flex",
                 justifyContent: "center",
-                marginTop: "6px",
+                marginTop: "3px",
               }}
             >
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "10px",
+                  gap: "5px",
                   background: "rgba(0,0,0,0.6)",
                   border: "1px solid rgba(255,215,0,0.25)",
-                  borderRadius: "10px",
-                  padding: "8px 18px",
+                  borderRadius: "5px",
+                  padding: "4px 9px",
                 }}
               >
-                <div style={{ fontSize: "22px", display: "flex" }}>
+                <div style={{ fontSize: "11px", display: "flex" }}>
                   {archetype.icon}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <div
                     style={{
                       fontFamily: "Bebas Neue",
-                      fontSize: "18px",
+                      fontSize: "9px",
                       color: "#FFD700",
-                      letterSpacing: "2px",
+                      letterSpacing: "1px",
                       lineHeight: 1.2,
                       display: "flex",
                     }}
@@ -289,7 +292,7 @@ export async function POST(req: NextRequest) {
                   {archetype.secondary && (
                     <div
                       style={{
-                        fontSize: "11px",
+                        fontSize: "6px",
                         color: "#a78bfa",
                         marginTop: "1px",
                         display: "flex",
@@ -308,7 +311,7 @@ export async function POST(req: NextRequest) {
         <div
           style={{
             position: "absolute",
-            bottom: "90px",
+            bottom: "45px",
             left: 0,
             right: 0,
             display: "flex",
@@ -318,8 +321,8 @@ export async function POST(req: NextRequest) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`${getBaseUrl(req)}/images/logo-full.png`}
-            height={200}
-            style={{ height: "200px", objectFit: "contain" }}
+            height={100}
+            style={{ height: "100px", objectFit: "contain" }}
           />
         </div>
 
@@ -330,23 +333,23 @@ export async function POST(req: NextRequest) {
             bottom: 0,
             left: 0,
             right: 0,
-            padding: "0 48px 36px",
+            padding: "0 24px 18px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
           }}
         >
           {/* User info */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {/* Avatar circle */}
             <div
               style={{
-                width: "56px",
-                height: "56px",
+                width: "28px",
+                height: "28px",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
                 border: `2px solid ${safeColor}`,
-                boxShadow: `0 0 16px ${safeColor}66`,
+                boxShadow: `0 0 8px ${safeColor}66`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -356,7 +359,7 @@ export async function POST(req: NextRequest) {
               <div
                 style={{
                   fontFamily: "Bebas Neue",
-                  fontSize: "24px",
+                  fontSize: "12px",
                   color: "#FFD700",
                   lineHeight: 1,
                   display: "flex",
@@ -371,13 +374,13 @@ export async function POST(req: NextRequest) {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "2px",
+                gap: "1px",
               }}
             >
               {displayName && (
                 <div
                   style={{
-                    fontSize: "20px",
+                    fontSize: "10px",
                     fontWeight: 700,
                     color: "#ffffff",
                     lineHeight: 1.2,
@@ -391,7 +394,7 @@ export async function POST(req: NextRequest) {
               {username && (
                 <div
                   style={{
-                    fontSize: "14px",
+                    fontSize: "7px",
                     color: "#999999",
                     fontWeight: 400,
                     display: "flex",
@@ -405,21 +408,21 @@ export async function POST(req: NextRequest) {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "10px",
-                  marginTop: "2px",
+                  gap: "5px",
+                  marginTop: "1px",
                 }}
               >
                 <div
                   style={{
-                    fontSize: "12px",
+                    fontSize: "6px",
                     fontWeight: 800,
                     color: "#ffffff",
                     background: `${safeColor}59`,
                     border: `1px solid ${safeColor}b3`,
-                    borderRadius: "5px",
-                    padding: "3px 10px",
+                    borderRadius: "3px",
+                    padding: "2px 5px",
                     textTransform: "uppercase" as const,
-                    letterSpacing: "1.5px",
+                    letterSpacing: "1px",
                     display: "flex",
                   }}
                 >
@@ -428,9 +431,9 @@ export async function POST(req: NextRequest) {
                 <div
                   style={{
                     fontFamily: "Bebas Neue",
-                    fontSize: "16px",
+                    fontSize: "8px",
                     color: safeColor,
-                    letterSpacing: "2px",
+                    letterSpacing: "1px",
                     display: "flex",
                     textShadow: `0 0 10px ${safeColor}80`,
                   }}
@@ -445,10 +448,10 @@ export async function POST(req: NextRequest) {
           <div
             style={{
               fontFamily: "Bebas Neue",
-              fontSize: "28px",
+              fontSize: "14px",
               color: "#e8ff00",
               fontWeight: 700,
-              letterSpacing: "3px",
+              letterSpacing: "1.5px",
               display: "flex",
               textShadow: "0 0 20px rgba(232,255,0,0.4)",
             }}
@@ -459,8 +462,8 @@ export async function POST(req: NextRequest) {
       </div>
     ),
     {
-      width: 1080,
-      height: 1080,
+      width: W,
+      height: H,
       fonts: [
         { name: "Bebas Neue", data: fonts.bebasNeue, style: "normal", weight: 400 },
         { name: "DM Sans", data: fonts.dmSans, style: "normal", weight: 400 },
@@ -476,15 +479,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  console.log('Converting SVG to PNG with resvg...');
+  console.log('Converting SVG to PNG with sharp...');
   let pngBuffer: Buffer;
   try {
-    const resvg = new Resvg(svgString, { fitTo: { mode: "width", value: 1080 } });
-    const pngData = resvg.render();
-    pngBuffer = Buffer.from(pngData.asPng());
-  } catch (resvgError: unknown) {
-    const err = resvgError instanceof Error ? resvgError : new Error(String(resvgError));
-    console.error('Resvg error:', err.message, err.stack);
+    pngBuffer = await sharp(Buffer.from(svgString)).png().toBuffer();
+  } catch (sharpError: unknown) {
+    const err = sharpError instanceof Error ? sharpError : new Error(String(sharpError));
+    console.error('Sharp error:', err.message, err.stack);
     return new Response(JSON.stringify({ error: 'PNG conversion failed: ' + err.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
