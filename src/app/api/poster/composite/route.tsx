@@ -88,13 +88,18 @@ export async function POST(req: NextRequest) {
 
   const aiImageBase64 = `data:image/png;base64,${Buffer.from(aiImageRes).toString("base64")}`;
 
-  // Tier glow color parsing for badge
   const safeColor = tierColor === "rainbow" ? "#ffffff" : tierColor || "#6b7280";
-
   const RANK_COLORS = ["#FFD700", "#C0C0C0", "#10B981", "#14B8A6", "#3B82F6"];
-
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
+  // Canvas: 1080×1080
+  // Zone breakdown (pixels):
+  //   TOP        0 –  86px  (0–8%)
+  //   HERO      86 – 540px  (8–50%)  — unobstructed
+  //   RANKINGS 540 – 799px  (50–74%)
+  //   ARCHETYPE799 – 885px  (74–82%)
+  //   LOGO     885 –1015px  (82–94%)  ← most prominent
+  //   BOTTOM  1015 –1080px  (94–100%)
   const W = 1080;
   const H = 1080;
 
@@ -108,13 +113,13 @@ export async function POST(req: NextRequest) {
           width: `${W}px`,
           height: `${H}px`,
           display: "flex",
-          flexDirection: "column",
           position: "relative",
           fontFamily: "DM Sans",
           overflow: "hidden",
+          background: "#000",
         }}
       >
-        {/* AI art background */}
+        {/* ── AI art background ── */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={aiImageBase64}
@@ -130,53 +135,70 @@ export async function POST(req: NextRequest) {
           }}
         />
 
-        {/* Dark gradient overlay — bottom 60% for text readability */}
+        {/* ── Gradient overlay — bottom 55% (transparent at 45% → opaque at 100%) ── */}
         <div
           style={{
             position: "absolute",
+            top: "486px",   // 45% of 1080
             bottom: 0,
             left: 0,
             right: 0,
-            height: "325px",
             display: "flex",
             background:
-              "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+              "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.55) 25%, rgba(0,0,0,0.8) 55%, rgba(0,0,0,0.9) 100%)",
           }}
         />
 
-        {/* ── TOP ZONE: Topic title ── */}
+        {/* ══════════════════════════════════════════════════
+            TOP ZONE  0–86px  — Topic title
+        ══════════════════════════════════════════════════ */}
         <div
           style={{
             position: "absolute",
-            top: "18px",
-            left: "24px",
-            right: "24px",
+            top: 0,
+            left: "40px",
+            right: "40px",
+            height: "86px",
             display: "flex",
             flexDirection: "column",
+            justifyContent: "center",
+            gap: "6px",
           }}
         >
+          {/* Dark scrim behind title for readability over bright AI art */}
           <div
             style={{
-              fontFamily: "Bebas Neue",
-              fontSize: "14px",
-              color: "#FFD700",
-              letterSpacing: "1.5px",
-              textTransform: "uppercase" as const,
-              lineHeight: 1.2,
-              textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.7)",
+              position: "absolute",
+              top: 0,
+              left: "-40px",
+              right: "-40px",
+              bottom: 0,
               display: "flex",
+              background:
+                "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)",
+            }}
+          />
+          <div
+            style={{
+              fontSize: "26px",
+              fontWeight: 800,
+              color: "#FFD700",
+              textTransform: "uppercase" as const,
+              letterSpacing: "2px",
+              lineHeight: 1,
+              display: "flex",
+              textShadow: "0 2px 16px rgba(0,0,0,0.95), 0 0 40px rgba(0,0,0,0.8)",
             }}
           >
             {topicTitle.toUpperCase()}
           </div>
           <div
             style={{
-              fontFamily: "Bebas Neue",
-              fontSize: "7px",
+              fontSize: "14px",
               color: "rgba(255,255,255,0.5)",
-              letterSpacing: "2px",
+              letterSpacing: "5px",
               textTransform: "uppercase" as const,
-              marginTop: "3px",
+              lineHeight: 1,
               display: "flex",
               textShadow: "0 1px 8px rgba(0,0,0,0.9)",
             }}
@@ -185,44 +207,50 @@ export async function POST(req: NextRequest) {
           </div>
         </div>
 
-        {/* ── MIDDLE ZONE: Ranking rows ── */}
+        {/* ══════════════════════════════════════════════════
+            HERO ZONE  86–540px  — unobstructed AI art
+        ══════════════════════════════════════════════════ */}
+
+        {/* ══════════════════════════════════════════════════
+            RANKINGS  540–799px  — Top 5 rows
+        ══════════════════════════════════════════════════ */}
         <div
           style={{
             position: "absolute",
-            left: "24px",
-            right: "24px",
-            top: "210px",
+            top: "540px",
+            left: "40px",
+            right: "40px",
             display: "flex",
             flexDirection: "column",
-            gap: "5px",
+            gap: "8px",
           }}
         >
           {top5.slice(0, 5).map((item, idx) => {
             const rankColor = RANK_COLORS[idx] ?? "#3B82F6";
-            const isFirst = idx === 0;
             const nameLen = item.name.length;
-            const fontSize = nameLen > 45 ? 10 : nameLen > 30 ? 12 : 18;
+            const fontSize = nameLen > 45 ? 22 : nameLen > 30 ? 28 : 36;
             return (
               <div
                 key={idx}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  background: "rgba(0,0,0,0.6)",
-                  borderRadius: "6px",
-                  padding: isFirst ? "7px 10px" : "5px 10px",
-                  border: isFirst
-                    ? "1px solid rgba(255,215,0,0.3)"
-                    : "1px solid rgba(255,255,255,0.08)",
+                  height: "52px",
+                  background: "rgba(0,0,0,0.7)",
+                  borderRadius: "8px",
+                  overflow: "hidden",
+                  border:
+                    idx === 0
+                      ? "1px solid rgba(255,215,0,0.35)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                  gap: "0px",
                 }}
               >
-                {/* Rank square */}
+                {/* Rank square — flush left, full height */}
                 <div
                   style={{
-                    width: isFirst ? "28px" : "24px",
-                    height: isFirst ? "28px" : "24px",
-                    borderRadius: "5px",
+                    width: "52px",
+                    height: "52px",
                     background: rankColor,
                     display: "flex",
                     alignItems: "center",
@@ -232,8 +260,8 @@ export async function POST(req: NextRequest) {
                 >
                   <div
                     style={{
-                      fontFamily: "Bebas Neue",
-                      fontSize: isFirst ? "18px" : "15px",
+                      fontSize: "30px",
+                      fontWeight: 900,
                       color: idx <= 1 ? "#000000" : "#ffffff",
                       lineHeight: 1,
                       display: "flex",
@@ -248,11 +276,12 @@ export async function POST(req: NextRequest) {
                     fontSize: `${fontSize}px`,
                     fontWeight: 800,
                     color: "#ffffff",
-                    letterSpacing: "0.5px",
-                    flex: 1,
-                    paddingLeft: "10px",
-                    lineHeight: 1.2,
+                    letterSpacing: "0.3px",
+                    lineHeight: 1.1,
                     display: "flex",
+                    flex: 1,
+                    paddingLeft: "16px",
+                    paddingRight: "12px",
                     textShadow: "0 2px 10px rgba(0,0,0,0.8)",
                     overflow: "hidden",
                   }}
@@ -262,114 +291,152 @@ export async function POST(req: NextRequest) {
               </div>
             );
           })}
+        </div>
 
-          {/* Archetype badge — below ranking rows */}
-          {archetype && (
+        {/* ══════════════════════════════════════════════════
+            ARCHETYPE  799–885px  — Identity plate
+        ══════════════════════════════════════════════════ */}
+        {archetype && (
+          <div
+            style={{
+              position: "absolute",
+              top: "799px",
+              left: 0,
+              right: 0,
+              height: "86px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <div
               style={{
                 display: "flex",
-                justifyContent: "center",
-                marginTop: "3px",
+                alignItems: "center",
+                gap: "12px",
+                background: "rgba(0,0,0,0.72)",
+                border: "1px solid rgba(255,215,0,0.35)",
+                borderRadius: "50px",
+                padding: "14px 32px",
               }}
             >
               <div
                 style={{
+                  fontSize: "30px",
+                  lineHeight: 1,
                   display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  background: "rgba(0,0,0,0.6)",
-                  border: "1px solid rgba(255,215,0,0.25)",
-                  borderRadius: "5px",
-                  padding: "4px 9px",
                 }}
               >
-                <div style={{ fontSize: "11px", display: "flex" }}>
-                  {archetype.icon}
+                {archetype.icon}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: 700,
+                    color: "#FFD700",
+                    letterSpacing: "1.5px",
+                    textTransform: "uppercase" as const,
+                    lineHeight: 1,
+                    display: "flex",
+                  }}
+                >
+                  {archetype.name.toUpperCase()}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column" }}>
+                {archetype.secondary && (
                   <div
                     style={{
-                      fontFamily: "Bebas Neue",
-                      fontSize: "9px",
-                      color: "#FFD700",
-                      letterSpacing: "1px",
-                      lineHeight: 1.2,
+                      fontSize: "16px",
+                      color: "#a78bfa",
+                      lineHeight: 1,
                       display: "flex",
                     }}
                   >
-                    {archetype.name.toUpperCase()}
+                    {`with a touch of ${archetype.secondary}`}
                   </div>
-                  {archetype.secondary && (
-                    <div
-                      style={{
-                        fontSize: "6px",
-                        color: "#a78bfa",
-                        marginTop: "1px",
-                        display: "flex",
-                      }}
-                    >
-                      {archetype.secondary}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── BOTTOM CENTER: Logo ── */}
+        {/* ══════════════════════════════════════════════════
+            LOGO  885–1015px  — Brand stamp (highest priority)
+        ══════════════════════════════════════════════════ */}
         <div
           style={{
             position: "absolute",
-            bottom: "45px",
+            top: "885px",
             left: 0,
             right: 0,
+            height: "130px",
             display: "flex",
+            alignItems: "center",
             justifyContent: "center",
+            paddingTop: "16px",
+            paddingBottom: "16px",
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`${getBaseUrl(req)}/images/logo-full.png`}
-            height={100}
-            style={{ height: "100px", objectFit: "contain" }}
+            style={{
+              height: "200px",
+              maxWidth: "80%",
+              objectFit: "contain",
+            }}
           />
         </div>
 
-        {/* ── BOTTOM ZONE: User info (left) + branding (right) ── */}
+        {/* ══════════════════════════════════════════════════
+            BOTTOM  1015–1080px  — User info bar
+        ══════════════════════════════════════════════════ */}
         <div
           style={{
             position: "absolute",
             bottom: 0,
             left: 0,
             right: 0,
-            padding: "0 24px 18px",
+            height: "65px",
+            padding: "0 30px",
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-end",
+            alignItems: "center",
           }}
         >
-          {/* User info */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* Avatar circle */}
+          {/* User info — left */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            {/* Avatar */}
             <div
               style={{
-                width: "28px",
-                height: "28px",
+                width: "36px",
+                height: "36px",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #2a2a2a, #1a1a1a)",
                 border: `2px solid ${safeColor}`,
-                boxShadow: `0 0 8px ${safeColor}66`,
+                boxShadow: `0 0 10px ${safeColor}66`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                overflow: "hidden",
+                flexShrink: 0,
               }}
             >
               <div
                 style={{
-                  fontFamily: "Bebas Neue",
-                  fontSize: "12px",
+                  fontSize: "18px",
+                  fontWeight: 700,
                   color: "#FFD700",
                   lineHeight: 1,
                   display: "flex",
@@ -379,21 +446,21 @@ export async function POST(req: NextRequest) {
               </div>
             </div>
 
-            {/* Name + username + tier + aura */}
+            {/* Name + @username + tier + aura */}
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "1px",
+                gap: "3px",
               }}
             >
               {displayName && (
                 <div
                   style={{
-                    fontSize: "10px",
+                    fontSize: "16px",
                     fontWeight: 700,
                     color: "#ffffff",
-                    lineHeight: 1.2,
+                    lineHeight: 1,
                     display: "flex",
                     textShadow: "0 1px 6px rgba(0,0,0,0.9)",
                   }}
@@ -401,38 +468,37 @@ export async function POST(req: NextRequest) {
                   {displayName}
                 </div>
               )}
-              {username && (
-                <div
-                  style={{
-                    fontSize: "7px",
-                    color: "#999999",
-                    fontWeight: 400,
-                    display: "flex",
-                    textShadow: "0 1px 4px rgba(0,0,0,0.9)",
-                  }}
-                >
-                  @{username}
-                </div>
-              )}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "5px",
-                  marginTop: "1px",
+                  gap: "6px",
                 }}
               >
+                {username && (
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#999999",
+                      lineHeight: 1,
+                      display: "flex",
+                    }}
+                  >
+                    @{username}
+                  </div>
+                )}
                 <div
                   style={{
-                    fontSize: "6px",
+                    fontSize: "11px",
                     fontWeight: 800,
                     color: "#ffffff",
-                    background: `${safeColor}59`,
-                    border: `1px solid ${safeColor}b3`,
-                    borderRadius: "3px",
-                    padding: "2px 5px",
+                    background: `${safeColor}4d`,
+                    border: `1px solid ${safeColor}99`,
+                    borderRadius: "4px",
+                    padding: "2px 7px",
                     textTransform: "uppercase" as const,
                     letterSpacing: "1px",
+                    lineHeight: 1,
                     display: "flex",
                   }}
                 >
@@ -440,12 +506,13 @@ export async function POST(req: NextRequest) {
                 </div>
                 <div
                   style={{
-                    fontFamily: "Bebas Neue",
-                    fontSize: "8px",
+                    fontSize: "13px",
+                    fontWeight: 700,
                     color: safeColor,
                     letterSpacing: "1px",
+                    lineHeight: 1,
                     display: "flex",
-                    textShadow: `0 0 10px ${safeColor}80`,
+                    textShadow: `0 0 12px ${safeColor}80`,
                   }}
                 >
                   {aura.toLocaleString()} AURA
@@ -454,16 +521,16 @@ export async function POST(req: NextRequest) {
             </div>
           </div>
 
-          {/* TOP5DOA.APP branding */}
+          {/* TOP5DOA.APP — right */}
           <div
             style={{
-              fontFamily: "Bebas Neue",
-              fontSize: "14px",
-              color: "#e8ff00",
+              fontSize: "24px",
               fontWeight: 700,
-              letterSpacing: "1.5px",
+              color: "#e8ff00",
+              letterSpacing: "2px",
+              lineHeight: 1,
               display: "flex",
-              textShadow: "0 0 20px rgba(232,255,0,0.4)",
+              textShadow: "0 0 24px rgba(232,255,0,0.5), 0 2px 8px rgba(0,0,0,0.9)",
             }}
           >
             TOP5DOA.APP
