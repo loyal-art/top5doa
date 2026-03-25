@@ -48,6 +48,7 @@ interface CompositeRequest {
   tierColor: string;
   aura: number;
   archetype?: { icon: string; name: string; secondary?: string };
+  valuesTagline?: string;
 }
 
 // ── Route handler ────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     tierColor,
     aura,
     archetype,
+    valuesTagline,
   } = body;
 
   if (!aiImageUrl || !topicTitle || !top5?.length) {
@@ -352,7 +354,19 @@ export async function POST(req: NextRequest) {
                 >
                   {archetype.name.toUpperCase()}
                 </div>
-                {archetype.secondary && (
+                {valuesTagline ? (
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontStyle: "italic",
+                      color: "#d4af37",
+                      lineHeight: 1.3,
+                      display: "flex",
+                    }}
+                  >
+                    {valuesTagline}
+                  </div>
+                ) : archetype.secondary ? (
                   <div
                     style={{
                       fontSize: "16px",
@@ -363,7 +377,7 @@ export async function POST(req: NextRequest) {
                   >
                     {`with a touch of ${archetype.secondary}`}
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
