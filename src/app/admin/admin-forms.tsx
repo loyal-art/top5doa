@@ -1953,9 +1953,9 @@ function AttributesList({
                         : "text-neutral-300 hover:bg-neutral-800 hover:text-white border border-transparent"
                     }`}
                   >
-                    <div className="truncate">{attribute.name}</div>
+                    <div className="break-words">{attribute.name}</div>
                     {attribute.description && (
-                      <span className="text-xs font-mono text-neutral-600 truncate block">{attribute.description}</span>
+                      <span className="text-xs font-mono text-neutral-600 break-words block whitespace-normal">{attribute.description}</span>
                     )}
                   </button>
                 </li>
@@ -2860,7 +2860,7 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
 
   // Column widths (desktop)
   const [col1W, setCol1W] = useState(220);
-  const [col2W, setCol2W] = useState(340);
+  const [col2W, setCol2W] = useState(400);
 
   const hasCol3 =
     activeSection === "manage-topics" ||
@@ -3082,7 +3082,7 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
       {showCol2 && hasCol3 && (
         <ColumnDivider
           onDrag={(delta) =>
-            setCol2W((w) => Math.max(200, Math.min(600, w + delta)))
+            setCol2W((w) => Math.max(400, Math.min(700, w + delta)))
           }
         />
       )}
