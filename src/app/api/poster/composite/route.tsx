@@ -156,11 +156,12 @@ export async function POST(req: NextRequest) {
           style={{
             position: "absolute",
             top: 0,
-            left: "40px",
-            right: "40px",
+            left: 0,
+            right: 0,
             height: "86px",
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
             gap: "6px",
           }}
@@ -170,8 +171,8 @@ export async function POST(req: NextRequest) {
             style={{
               position: "absolute",
               top: 0,
-              left: "-40px",
-              right: "-40px",
+              left: 0,
+              right: 0,
               bottom: 0,
               display: "flex",
               background:
@@ -181,12 +182,13 @@ export async function POST(req: NextRequest) {
           <div
             style={{
               fontSize: "26px",
-              fontWeight: 800,
+              fontWeight: 900,
               color: "#FFD700",
               textTransform: "uppercase" as const,
               letterSpacing: "2px",
               lineHeight: 1,
               display: "flex",
+              textAlign: "center",
               textShadow: "0 2px 16px rgba(0,0,0,0.95), 0 0 40px rgba(0,0,0,0.8)",
             }}
           >
@@ -200,6 +202,7 @@ export async function POST(req: NextRequest) {
               textTransform: "uppercase" as const,
               lineHeight: 1,
               display: "flex",
+              textAlign: "center",
               textShadow: "0 1px 8px rgba(0,0,0,0.9)",
             }}
           >
@@ -294,13 +297,13 @@ export async function POST(req: NextRequest) {
         </div>
 
         {/* ══════════════════════════════════════════════════
-            ARCHETYPE  799–885px  — Identity plate
+            ARCHETYPE  840–930px  — Identity plate (pushed down for ranking clearance)
         ══════════════════════════════════════════════════ */}
         {archetype && (
           <div
             style={{
               position: "absolute",
-              top: "799px",
+              top: "840px",
               left: 0,
               right: 0,
               height: "86px",
@@ -367,12 +370,12 @@ export async function POST(req: NextRequest) {
         )}
 
         {/* ══════════════════════════════════════════════════
-            LOGO  885–1015px  — Brand stamp (highest priority)
+            LOGO  940–1015px  — Brand stamp (highest priority)
         ══════════════════════════════════════════════════ */}
         <div
           style={{
             position: "absolute",
-            top: "885px",
+            top: "940px",
             left: 0,
             right: 0,
             height: "130px",
@@ -521,7 +524,7 @@ export async function POST(req: NextRequest) {
             </div>
           </div>
 
-          {/* TOP5DOA.APP — right */}
+          {/* WWW.TOP5DOA.APP — right */}
           <div
             style={{
               fontSize: "24px",
@@ -533,7 +536,7 @@ export async function POST(req: NextRequest) {
               textShadow: "0 0 24px rgba(232,255,0,0.5), 0 2px 8px rgba(0,0,0,0.9)",
             }}
           >
-            TOP5DOA.APP
+            WWW.TOP5DOA.APP
           </div>
         </div>
       </div>
