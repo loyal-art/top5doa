@@ -46,7 +46,7 @@ export default async function AdminPage() {
             Manage topics, subjects, and attributes.
           </p>
         </div>
-        <AdminForms topics={topics ?? []} />
+        <AdminForms topics={topics ?? []} isAdmin={true} />
       </div>
     </main>
   );

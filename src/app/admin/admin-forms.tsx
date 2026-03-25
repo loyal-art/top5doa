@@ -2225,7 +2225,80 @@ function SuggestionDetail({
 type AiSubject = { name: string; description: string; era: string | null };
 type AiAttribute = { name: string; description: string };
 
-function AiTopicBuilder() {
+function GeneratedContentPreview({ preview }: { preview: GeneratedPreview }) {
+  return (
+    <div className="p-6 h-full overflow-y-auto">
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">Generated Preview</span>
+      </div>
+
+      {/* Topic info */}
+      <div className="mb-6 p-4 rounded-xl border border-brand-border bg-brand-surface/40 space-y-2">
+        <h3 className="font-display text-lg tracking-wide text-white">{preview.title}</h3>
+        {preview.description && (
+          <p className="text-sm font-body text-neutral-400 leading-relaxed">{preview.description}</p>
+        )}
+        {preview.categories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {preview.categories.map((c) => (
+              <span key={c} className="px-2 py-0.5 rounded-md bg-brand-accent/10 border border-brand-accent/30 text-xs font-mono text-brand-accent">
+                {c}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Subjects */}
+      <div className="mb-6">
+        <div className="text-xs font-mono text-neutral-500 uppercase tracking-wider mb-3">
+          Subjects ({preview.subjects.length})
+        </div>
+        <div className="space-y-2">
+          {preview.subjects.map((s, i) => (
+            <div key={i} className="p-3 rounded-xl border border-brand-border bg-brand-surface/20">
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-mono text-brand-accent font-bold">{i + 1}.</span>
+                <span className="text-sm font-body text-white font-medium">{s.name}</span>
+                {s.era && <span className="text-xs font-mono text-neutral-600 ml-auto">{s.era}</span>}
+              </div>
+              {s.description && (
+                <p className="text-xs font-body text-neutral-500 mt-1 leading-relaxed">{s.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Attributes */}
+      {preview.attributes.length > 0 && (
+        <div>
+          <div className="text-xs font-mono text-neutral-500 uppercase tracking-wider mb-3">
+            Attributes ({preview.attributes.length})
+          </div>
+          <div className="space-y-2">
+            {preview.attributes.map((a, i) => (
+              <div key={i} className="p-3 rounded-xl border border-brand-border bg-brand-surface/20">
+                <div className="text-sm font-body text-white font-medium">◆ {a.name}</div>
+                {a.description && (
+                  <p className="text-xs font-body text-neutral-500 mt-1 leading-relaxed">{a.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiTopicBuilder({
+  isAdmin = false,
+  onGenerated,
+}: {
+  isAdmin?: boolean;
+  onGenerated?: (preview: GeneratedPreview) => void;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -2245,6 +2318,7 @@ function AiTopicBuilder() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [flaggedWords, setFlaggedWords] = useState<{ word: string; field: string }[]>([]);
 
   function handleTitleChange(val: string) {
     setTitle(val);
@@ -2277,20 +2351,25 @@ function AiTopicBuilder() {
       }
 
       const data = await res.json();
-      setSubjects(
-        (data.subjects ?? []).map((s: AiSubject) => ({
-          name: s.name ?? "",
-          description: s.description ?? "",
-          era: s.era ?? null,
-        }))
-      );
-      setAttributes(
-        (data.attributes ?? []).map((a: AiAttribute) => ({
-          name: a.name ?? "",
-          description: a.description ?? "",
-        }))
-      );
+      const newSubjects = (data.subjects ?? []).map((s: AiSubject) => ({
+        name: s.name ?? "",
+        description: s.description ?? "",
+        era: s.era ?? null,
+      }));
+      const newAttributes = (data.attributes ?? []).map((a: AiAttribute) => ({
+        name: a.name ?? "",
+        description: a.description ?? "",
+      }));
+      setSubjects(newSubjects);
+      setAttributes(newAttributes);
       setHasGenerated(true);
+      onGenerated?.({
+        title: title.trim(),
+        description: description.trim(),
+        categories,
+        subjects: newSubjects,
+        attributes: newAttributes,
+      });
     } catch {
       setGenError("Network error — check your connection and try again.");
     }
@@ -2321,22 +2400,10 @@ function AiTopicBuilder() {
     setAttributes((prev) => [...prev, { name: "", description: "" }]);
   }
 
-  async function handleCreate() {
-    if (!title.trim() || !slug.trim()) {
-      setCreateMessage({ type: "error", text: "Title and slug are required." });
-      return;
-    }
+  function buildPayload() {
     const validSubjects = subjects.filter((s) => s.name.trim());
     const validAttrs = attributes.filter((a) => a.name.trim());
-    if (validSubjects.length === 0) {
-      setCreateMessage({ type: "error", text: "At least one subject is required." });
-      return;
-    }
-
-    setCreating(true);
-    setCreateMessage(null);
-
-    const result = await createTopicWithContent({
+    return {
       title: title.trim(),
       slug: slug.trim(),
       category: categories,
@@ -2351,9 +2418,21 @@ function AiTopicBuilder() {
         name: a.name.trim(),
         description: a.description.trim() || null,
       })),
-    });
+      validSubjects,
+      validAttrs,
+    };
+  }
+
+  async function submitCreate(bypassProfanity = false) {
+    const { validSubjects, validAttrs, ...payload } = buildPayload();
+    setCreating(true);
+    setCreateMessage(null);
+    setFlaggedWords([]);
+
+    const result = await createTopicWithContent({ ...payload, bypassProfanity });
 
     if (result.error) {
+      if (result.flaggedWords?.length) setFlaggedWords(result.flaggedWords);
       setCreateMessage({ type: "error", text: result.error });
     } else {
       setCreateMessage({
@@ -2367,9 +2446,27 @@ function AiTopicBuilder() {
       setSubjects([]);
       setAttributes([]);
       setHasGenerated(false);
+      setFlaggedWords([]);
       router.refresh();
     }
     setCreating(false);
+  }
+
+  async function handleCreate() {
+    if (!title.trim() || !slug.trim()) {
+      setCreateMessage({ type: "error", text: "Title and slug are required." });
+      return;
+    }
+    const validSubjects = subjects.filter((s) => s.name.trim());
+    if (validSubjects.length === 0) {
+      setCreateMessage({ type: "error", text: "At least one subject is required." });
+      return;
+    }
+    await submitCreate(false);
+  }
+
+  async function handleOverride() {
+    await submitCreate(true);
   }
 
   return (
@@ -2584,14 +2681,40 @@ function AiTopicBuilder() {
 
           {/* Create button */}
           <div className="pt-2">
-            <StatusMessage message={createMessage} />
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="mt-3 px-8 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {creating ? "Creating Topic..." : "Create Topic with All Content"}
-            </button>
+            {/* Admin: show flagged words detail */}
+            {isAdmin && flaggedWords.length > 0 && (
+              <div className="mb-3 p-3 rounded-xl border border-red-700/50 bg-red-900/20">
+                <p className="text-xs font-mono text-red-400 font-bold mb-1">Flagged words detected:</p>
+                <ul className="space-y-0.5">
+                  {flaggedWords.map((fw, i) => (
+                    <li key={i} className="text-xs font-mono text-red-300">
+                      <span className="text-red-400 font-bold">&ldquo;{fw.word}&rdquo;</span>
+                      <span className="text-neutral-500"> in </span>
+                      <span className="text-neutral-400">{fw.field}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {flaggedWords.length === 0 && <StatusMessage message={createMessage} />}
+            <div className="flex flex-wrap gap-3 mt-3">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="px-8 py-3 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {creating ? "Creating Topic..." : "Create Topic with All Content"}
+              </button>
+              {isAdmin && flaggedWords.length > 0 && (
+                <button
+                  onClick={handleOverride}
+                  disabled={creating}
+                  className="px-8 py-3 rounded-xl bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 font-mono font-bold text-sm hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {creating ? "Creating..." : "⚠ Create Anyway (Admin Override)"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2853,10 +2976,19 @@ function ArchetypesManager({ topics }: { topics: Topic[] }) {
 
 // ── Main AdminForms — Miller columns layout ──────────────────────────────────
 
-export function AdminForms({ topics }: { topics: Topic[] }) {
+type GeneratedPreview = {
+  title: string;
+  description: string;
+  categories: string[];
+  subjects: AiSubject[];
+  attributes: AiAttribute[];
+};
+
+export function AdminForms({ topics, isAdmin = false }: { topics: Topic[]; isAdmin?: boolean }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [selectedItem, setSelectedItem] = useState<TopicRow | SubjectRow | AttributeRow | SuggestionRow | null>(null);
   const [lastDeletedTopicId, setLastDeletedTopicId] = useState<string | null>(null);
+  const [generatedPreview, setGeneratedPreview] = useState<GeneratedPreview | null>(null);
 
   // Column widths (desktop)
   const [col1W, setCol1W] = useState(220);
@@ -2868,9 +3000,12 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
     activeSection === "manage-attributes" ||
     activeSection === "manage-suggestions";
 
+  const showAiPreview = activeSection === "ai-builder" && generatedPreview !== null;
+
   function handleSectionClick(id: SectionId) {
     setActiveSection(id);
     setSelectedItem(null);
+    if (id !== "ai-builder") setGeneratedPreview(null);
   }
 
   // ── Column 2 content ──────────────────────────────────────────────────────
@@ -2878,7 +3013,12 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
   function renderCol2() {
     switch (activeSection) {
       case "ai-builder":
-        return <AiTopicBuilder />;
+        return (
+          <AiTopicBuilder
+            isAdmin={isAdmin}
+            onGenerated={(preview) => setGeneratedPreview(preview)}
+          />
+        );
       case "create-topic":
         return <CreateTopicForm />;
       case "manage-topics":
@@ -2928,6 +3068,10 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
   // ── Column 3 content ──────────────────────────────────────────────────────
 
   function renderCol3() {
+    if (activeSection === "ai-builder" && generatedPreview) {
+      return <GeneratedContentPreview preview={generatedPreview} />;
+    }
+
     if (!selectedItem) return null;
 
     if (activeSection === "manage-topics") {
@@ -3025,7 +3169,7 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
   // ── Desktop: Miller columns ───────────────────────────────────────────────
 
   const showCol2 = activeSection !== null;
-  const showCol3 = hasCol3 && selectedItem !== null;
+  const showCol3 = (hasCol3 && selectedItem !== null) || showAiPreview;
 
   const desktopContent = (
     <div className="hidden md:flex h-[calc(100vh-140px)] border border-brand-border rounded-2xl overflow-hidden bg-brand-surface/20">
@@ -3078,8 +3222,8 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
         </div>
       )}
 
-      {/* Divider 2 — shown for all list sections so col2 stays resizable even without a selection */}
-      {showCol2 && hasCol3 && (
+      {/* Divider 2 — shown for list sections and ai-builder preview */}
+      {showCol2 && (hasCol3 || showAiPreview) && (
         <ColumnDivider
           onDrag={(delta) =>
             setCol2W((w) => Math.max(400, Math.min(700, w + delta)))
@@ -3087,15 +3231,15 @@ export function AdminForms({ topics }: { topics: Topic[] }) {
         />
       )}
 
-      {/* Column 3: Edit form / detail */}
+      {/* Column 3: Edit form / detail / generated preview */}
       {showCol3 && (
         <div className="flex-1 min-w-0 overflow-y-auto">
           {renderCol3()}
         </div>
       )}
 
-      {/* Empty state when no col3 but col2 is a form section */}
-      {showCol2 && !showCol3 && !hasCol3 && (
+      {/* Empty state when no col3 but col2 is a form section (and no ai preview) */}
+      {showCol2 && !showCol3 && !hasCol3 && !showAiPreview && (
         <div className="flex-1 min-w-0" />
       )}
 
