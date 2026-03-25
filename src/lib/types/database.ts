@@ -759,6 +759,7 @@ export type Database = {
           style: string;
           image_data: string;
           created_at: string;
+          values_tagline: string | null;
         };
         Insert: {
           id?: string;
@@ -767,6 +768,7 @@ export type Database = {
           style: string;
           image_data: string;
           created_at?: string;
+          values_tagline?: string | null;
         };
         Update: {
           id?: string;
@@ -775,6 +777,7 @@ export type Database = {
           style?: string;
           image_data?: string;
           created_at?: string;
+          values_tagline?: string | null;
         };
         Relationships: [];
       };

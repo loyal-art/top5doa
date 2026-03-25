@@ -267,6 +267,7 @@ export function TopicVotingFlow({
   const [posterFallbackUsed, setPosterFallbackUsed] = useState(false);
   const [savedPosterData, setSavedPosterData] = useState<string | null>(null);
   const [savedPosterStyle, setSavedPosterStyle] = useState<string | null>(null);
+  const [cachedValuesTagline, setCachedValuesTagline] = useState<string | null>(null);
 
   // Hot Take state
   const [hotTakeOpen, setHotTakeOpen] = useState(false);
@@ -1380,6 +1381,35 @@ export function TopicVotingFlow({
         throw new Error("No image returned from API");
       }
 
+      // ── Step 1b: Generate values tagline via Anthropic (non-blocking) ──
+      let valuesTagline = cachedValuesTagline;
+      if (!valuesTagline && rankedAttributes.length >= 2) {
+        try {
+          const topAttr = rankedAttributes[0]?.name ?? "";
+          const bottomAttr = rankedAttributes[rankedAttributes.length - 1]?.name ?? "";
+          const taglineController = new AbortController();
+          const taglineTimeout = setTimeout(() => taglineController.abort(), 3000);
+          const taglineRes = await fetch("/api/ai/generate-values-tagline", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              topicTitle: topic.title,
+              topAttribute: topAttr,
+              bottomAttribute: bottomAttr,
+            }),
+            signal: taglineController.signal,
+          });
+          clearTimeout(taglineTimeout);
+          if (taglineRes.ok) {
+            const taglineData = await taglineRes.json();
+            valuesTagline = taglineData.tagline ?? null;
+            if (valuesTagline) setCachedValuesTagline(valuesTagline);
+          }
+        } catch {
+          // Timeout or failure — skip tagline silently
+        }
+      }
+
       // ── Step 2: Composite text overlay via Satori server route ──
       console.log('Calling Satori composite...');
       const compositeRes = await fetch("/api/poster/composite", {
@@ -1401,6 +1431,7 @@ export function TopicVotingFlow({
                 secondary: archetypeResult.secondaryPhrase ?? undefined,
               }
             : undefined,
+          valuesTagline: valuesTagline ?? undefined,
         }),
       });
 
@@ -1447,6 +1478,7 @@ export function TopicVotingFlow({
         topic_id: topic.id,
         style,
         image_data: b64ForSave,
+        values_tagline: valuesTagline ?? null,
       });
       setSavedPosterData(b64ForSave);
       setSavedPosterStyle(style);
@@ -1513,7 +1545,7 @@ export function TopicVotingFlow({
     // Load saved poster if one exists
     supabase
       .from("poster_images")
-      .select("image_data, style")
+      .select("image_data, style, values_tagline")
       .eq("user_id", userId)
       .eq("topic_id", topic.id)
       .order("created_at", { ascending: false })
@@ -1522,6 +1554,7 @@ export function TopicVotingFlow({
         if (data && data.length > 0) {
           setSavedPosterData(data[0].image_data);
           setSavedPosterStyle(data[0].style);
+          if (data[0].values_tagline) setCachedValuesTagline(data[0].values_tagline);
         }
       });
   }, [userId, topic.id, supabase]);
