@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { awardAura } from "@/lib/aura";
-import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
+import { containsProfanity, PROFANITY_MESSAGE, getFlaggedDetails, type FlaggedWord } from "@/lib/profanity";
 
 async function getAdminUser() {
   const supabase = await createClient();
@@ -347,22 +347,35 @@ export async function createTopicWithContent(data: {
   subjects: { name: string; description: string | null; era: string | null }[];
   attributes: { name: string; description: string | null }[];
   created_by?: string | null;
-}): Promise<{ error: string | null; topicId: string | null }> {
+  bypassProfanity?: boolean;
+}): Promise<{ error: string | null; topicId: string | null; flaggedWords?: FlaggedWord[] }> {
   const { supabase, userId, error: authError } = await getAdminUser();
   if (authError || !supabase || !userId)
     return { error: authError ?? "Auth failed", topicId: null };
 
   // Profanity check on all text fields
-  const textFields = [
-    data.title,
-    data.description,
-    ...data.subjects.map((s) => s.name),
-    ...data.subjects.map((s) => s.description).filter(Boolean),
-    ...data.attributes.map((a) => a.name),
-    ...data.attributes.map((a) => a.description).filter(Boolean),
-  ].filter(Boolean) as string[];
-  const profaneField = textFields.find((t) => containsProfanity(t));
-  if (profaneField) return { error: PROFANITY_MESSAGE, topicId: null };
+  if (!data.bypassProfanity) {
+    const fieldMap: Record<string, string> = {
+      "topic title": data.title,
+      ...(data.description ? { "topic description": data.description } : {}),
+      ...Object.fromEntries(
+        data.subjects.flatMap((s, i) => [
+          [`subject ${i + 1} name`, s.name],
+          ...(s.description ? [[`subject ${i + 1} description`, s.description] as [string, string]] : []),
+        ])
+      ),
+      ...Object.fromEntries(
+        data.attributes.flatMap((a, i) => [
+          [`${a.name || `attribute ${i + 1}`} name`, a.name],
+          ...(a.description ? [[`${a.name || `attribute ${i + 1}`} description`, a.description] as [string, string]] : []),
+        ])
+      ),
+    };
+    const flaggedWords = getFlaggedDetails(fieldMap);
+    if (flaggedWords.length > 0) {
+      return { error: PROFANITY_MESSAGE, topicId: null, flaggedWords };
+    }
+  }
 
   // created_by: use the provided user (e.g. suggestion submitter), fall back to admin
   const createdBy = data.created_by ?? userId;
