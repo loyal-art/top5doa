@@ -10,6 +10,7 @@ import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
 import { awardAura, getTierForAura, getNextTier, getGlowColor } from "@/lib/aura";
+import { GLOBAL_PREMIUM_ENABLED } from "@/lib/config";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 import { fetchTopicArchetypes, resolveArchetype, saveUserArchetype, type ArchetypeResult, type TopicArchetype } from "@/lib/archetypes";
 
@@ -745,9 +746,10 @@ export function TopicVotingFlow({
       setDisplayName(profile?.display_name ?? null);
       setUsername(profile?.username ?? null);
       setIsPremium(
-        profile?.is_premium === true &&
-          profile?.premium_expires_at != null &&
-          new Date(profile.premium_expires_at) > new Date()
+        GLOBAL_PREMIUM_ENABLED ||
+          (profile?.is_premium === true &&
+            profile?.premium_expires_at != null &&
+            new Date(profile.premium_expires_at) > new Date())
       );
       setUserAuraPoints(profile?.aura_points ?? 0);
 

@@ -8,6 +8,7 @@ import { extractYouTubeId, youtubeBackgroundSrc } from "@/lib/youtube";
 import { brandHighlight } from "@/lib/utils";
 import { TopicFeed } from "@/components/topic-feed";
 import { getTierForAura, getGlowColor } from "@/lib/aura";
+import { GLOBAL_PREMIUM_ENABLED } from "@/lib/config";
 import { HotTakesTicker, type TickerTake } from "@/components/hot-takes-ticker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -414,7 +415,7 @@ export default async function Home({
       .eq("id", user.id)
       .single();
     currentUsername = profile?.username ?? null;
-    isPremium = profile?.is_premium ?? false;
+    isPremium = GLOBAL_PREMIUM_ENABLED || (profile?.is_premium ?? false);
   }
 
   // ── Suggested topics ──────────────────────────────────────────────────────

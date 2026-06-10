@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic, CreatedTopic, SavedPoster, UserIdentity } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura, TIERS } from "@/lib/aura";
+import { GLOBAL_PREMIUM_ENABLED } from "@/lib/config";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -55,6 +56,10 @@ export function ProfileClient({
 }: ProfileClientProps) {
   const supabase = createClient();
   const router = useRouter();
+
+  // Effective premium status — real subscription checks resume once
+  // GLOBAL_PREMIUM_ENABLED is flipped off.
+  const isPremium = GLOBAL_PREMIUM_ENABLED || profile.is_premium;
 
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [isPublic, setIsPublic] = useState(profile.is_public);
@@ -147,7 +152,7 @@ export function ProfileClient({
   // ── Privacy toggle ───────────────────────────────────────────────────────
   async function handlePrivacyToggle() {
     // Non-premium users cannot change privacy setting
-    if (!profile.is_premium) {
+    if (!isPremium) {
       setPremiumGateMsg(true);
       setTimeout(() => setPremiumGateMsg(false), 4000);
       return;
@@ -345,7 +350,7 @@ export function ProfileClient({
                 >
                   {tierName.toUpperCase()}
                 </span>
-                {profile.is_premium && (
+                {isPremium && (
                   <span
                     className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono
                                font-bold border text-brand-accent bg-brand-accent/10 border-brand-accent/30"
@@ -495,7 +500,7 @@ export function ProfileClient({
                       )}
                     </svg>
                     {isPublic ? "Public" : "Private"}
-                    {!profile.is_premium && (
+                    {!isPremium && (
                       <span className="text-[10px] opacity-60">🔒</span>
                     )}
                   </button>
@@ -506,7 +511,7 @@ export function ProfileClient({
                     </p>
                   )}
                   {/* Expired premium note: private but no longer premium */}
-                  {!profile.is_premium && !isPublic && !premiumGateMsg && (
+                  {!isPremium && !isPublic && !premiumGateMsg && (
                     <p className="text-[10px] font-mono text-neutral-600 max-w-[220px] text-right leading-snug">
                       Your profile is private. Renew Premium to change this setting.
                     </p>
@@ -777,7 +782,7 @@ export function ProfileClient({
           </div>
         )}
         {/* ── Alert preferences (own premium profile only) ──────────── */}
-        {isOwn && profile.is_premium && (
+        {isOwn && isPremium && (
           <div className="space-y-4">
             <div>
               <h2 className="font-display text-xl tracking-wide">ALERT PREFERENCES</h2>
