@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { rateLimit } from "@/lib/rate-limit";
+import { fetchImageBytes, parseImageSource } from "@/lib/safe-image-url";
 import satori from "satori";
 import sharp from "sharp";
 import fs from "fs/promises";
@@ -94,18 +95,26 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Load fonts in parallel with AI image fetch
-  console.log('Fetching fonts...');
-  console.log('Fetching AI image...');
-  const [fonts, aiImageRes] = await Promise.all([
+  // SSRF guard: never hand a caller-supplied string to fetch(). Only a data:
+  // image URL or an allowlisted image host is accepted.
+  const imageSource = parseImageSource(aiImageUrl);
+  if (!imageSource) {
+    return new Response(
+      JSON.stringify({ error: "aiImageUrl is not an accepted image source" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Load fonts in parallel with the AI image.
+  const [fonts, aiImageBase64] = await Promise.all([
     loadFonts(),
-    fetch(aiImageUrl).then((r) => r.arrayBuffer()),
+    imageSource.kind === "data"
+      ? Promise.resolve(imageSource.value)
+      : fetchImageBytes(imageSource.url).then(
+          (buf) =>
+            `data:image/png;base64,${Buffer.from(buf).toString("base64")}`,
+        ),
   ]);
-
-  console.log('AI image size:', aiImageRes.byteLength);
-  console.log('Font sizes — BebasNeue:', fonts.bebasNeue.byteLength, 'DM Sans:', fonts.dmSans.byteLength);
-
-  const aiImageBase64 = `data:image/png;base64,${Buffer.from(aiImageRes).toString("base64")}`;
 
   const safeColor = tierColor === "rainbow" ? "#ffffff" : tierColor || "#6b7280";
   const RANK_COLORS = ["#FFD700", "#C0C0C0", "#10B981", "#14B8A6", "#3B82F6"];
