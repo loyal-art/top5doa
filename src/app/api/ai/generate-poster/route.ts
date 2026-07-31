@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fal } from "@fal-ai/client";
+import { requireUser } from "@/lib/api-auth";
+import { rateLimit } from "@/lib/rate-limit";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -294,7 +296,26 @@ async function tryFlux(
 // ── Route handler ────────────────────────────────────────────────────────────
 // Provider order: OpenAI GPT Image 1.5 → FLUX (moderation fallback) → share card
 
+/**
+ * This route bills an OpenAI image generation (or a FLUX call) plus a Claude
+ * call on every request. It was previously anonymous and uncapped. Keep both
+ * the auth guard and the cap.
+ */
+const POSTER_LIMIT = 10;
+const POSTER_WINDOW_MS = 60 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const limit = rateLimit(`poster:${auth.userId}`, POSTER_LIMIT, POSTER_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "You've generated a lot of posters recently. Try again in a bit." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   const body = await req.json();
   const { topicTitle, top5, displayName, username, tier, aura, style } = body as {
     topicTitle: string;

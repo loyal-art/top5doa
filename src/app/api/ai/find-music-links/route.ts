@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 
 type DeezerTrack = {
   id: number;
@@ -49,6 +50,9 @@ async function searchDeezer(
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
   const { topicTitle, subjects } = await req.json();
 
   if (!topicTitle || typeof topicTitle !== "string") {

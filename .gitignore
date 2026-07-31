@@ -25,8 +25,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*.local
+# env files — ignore every env file except the checked-in template.
+# (Previously only `.env*.local` was ignored, so a plain `.env` full of
+# secrets could be committed by accident.)
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel

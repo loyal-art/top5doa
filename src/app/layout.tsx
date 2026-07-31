@@ -1,13 +1,34 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/header";
 import { InstallPrompt } from "@/components/install-prompt";
+import { siteMetadataBase, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Top5DOA",
-  description: "Debate the greatest of all time across any category",
+  // metadataBase is what lets every child page use a relative OG image path
+  // and still emit an absolute URL. Without it, Next.js drops the image and
+  // every shared link renders as a bare URL.
+  metadataBase: siteMetadataBase,
+  // Deliberately NOT using a `template` here: the existing pages already
+  // append "| Top5DOA" to their own titles, and a template would double it.
+  title: SITE_NAME,
+  description: SITE_TAGLINE,
+  applicationName: SITE_NAME,
   icons: {
     icon: "/images/logo-header.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
+    url: SITE_URL,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
   },
 };
 

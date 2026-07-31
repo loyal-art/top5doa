@@ -42,9 +42,22 @@ export async function generateMetadata({ params }: PageProps) {
   if (!profile || !topic) return { title: "List Not Found | Top5DOA" };
 
   const name = profile.display_name ?? profile.username;
+  const title = `${name}'s Top 5: ${topic.title} | Top5DOA`;
+  const description = `${name} ranked what matters most, and this is the Top 5 it produced. Build your own and see how far apart you land.`;
+  const url = `/list/${username}/${topicSlug}`;
+
   return {
-    title: `${name}'s Top 5: ${topic.title} | Top5DOA`,
-    description: `See ${name}'s personal Top 5 ranking for ${topic.title} on Top5DOA.`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url,
+      siteName: "Top5DOA",
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

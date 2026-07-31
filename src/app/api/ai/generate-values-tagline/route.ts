@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/api-auth";
+import { rateLimit } from "@/lib/rate-limit";
+
+/** Cheap Claude call, but still billed. Generous cap. */
+const TAGLINE_LIMIT = 30;
+const TAGLINE_WINDOW_MS = 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const limit = rateLimit(`tagline:${auth.userId}`, TAGLINE_LIMIT, TAGLINE_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "API key not configured" }, { status: 500 });

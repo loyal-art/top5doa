@@ -1,4 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/api-auth";
+import { rateLimit } from "@/lib/rate-limit";
 import satori from "satori";
 import sharp from "sharp";
 import fs from "fs/promises";
@@ -53,7 +55,22 @@ interface CompositeRequest {
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
+/** satori + sharp are CPU-heavy, and this route fetches a remote image. */
+const COMPOSITE_LIMIT = 20;
+const COMPOSITE_WINDOW_MS = 60 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const limit = rateLimit(`composite:${auth.userId}`, COMPOSITE_LIMIT, COMPOSITE_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   console.log('Satori composite called');
   try {
   const body = (await req.json()) as CompositeRequest;

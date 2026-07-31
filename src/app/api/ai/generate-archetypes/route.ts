@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
   const { topicTitle, attributes, subjects } = await req.json();
 
   if (!topicTitle || !attributes || !Array.isArray(attributes) || attributes.length === 0) {

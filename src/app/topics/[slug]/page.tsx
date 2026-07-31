@@ -25,9 +25,23 @@ export async function generateMetadata({ params }: TopicPageProps) {
 
   if (!topic) return { title: "Topic Not Found | Top5DOA" };
 
+  const title = `${topic.title} | Top5DOA`;
+  const description =
+    topic.description ??
+    `Rank what matters to you and get your personal Top 5 for ${topic.title}.`;
+
   return {
-    title: `${topic.title} | Top5DOA`,
-    description: topic.description,
+    title,
+    description,
+    alternates: { canonical: `/topics/${slug}` },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: `/topics/${slug}`,
+      siteName: "Top5DOA",
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
