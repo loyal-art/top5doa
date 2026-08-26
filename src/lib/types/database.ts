@@ -877,6 +877,20 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;  // new streak_multiplier
       };
+      check_api_rate_limit: {
+        Args: {
+          p_identifier: string;
+          p_route: string;
+          p_limit: number;
+          p_window_seconds: number;
+        };
+        Returns: {
+          allowed: boolean;
+          count: number;
+          limit: number;
+          retry_after_seconds: number;
+        };
+      };
     };
     Enums: {
       user_tier: "free" | "premium";
