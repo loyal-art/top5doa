@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import type { VotedTopic, CreatedTopic, SavedPoster, UserIdentity } from "./page";
 import { getTierForAura, getGlowColor, getNextTier, getTierBadgeClasses, awardAura, TIERS } from "@/lib/aura";
+import { resolvePosterSrc, downloadPoster } from "@/lib/poster-storage";
 import { GLOBAL_PREMIUM_ENABLED } from "@/lib/config";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
@@ -727,7 +728,7 @@ export function ProfileClient({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`data:image/png;base64,${poster.image_data}`}
+                    src={resolvePosterSrc(poster.image_data)}
                     alt={`Poster for ${poster.topic_title}`}
                     className="w-full h-full object-cover"
                   />
@@ -834,7 +835,7 @@ export function ProfileClient({
             <div className="relative w-full rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 border border-neutral-800">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`data:image/png;base64,${viewingPoster.image_data}`}
+                src={resolvePosterSrc(viewingPoster.image_data)}
                 alt={`Poster for ${viewingPoster.topic_title}`}
                 className="w-full h-auto"
               />
@@ -842,10 +843,10 @@ export function ProfileClient({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  const link = document.createElement("a");
-                  link.download = `top5-poster-${viewingPoster.topic_slug}.png`;
-                  link.href = `data:image/png;base64,${viewingPoster.image_data}`;
-                  link.click();
+                  void downloadPoster(
+                    resolvePosterSrc(viewingPoster.image_data),
+                    `top5-poster-${viewingPoster.topic_slug}.png`,
+                  );
                 }}
                 className="px-5 py-2.5 rounded-xl bg-brand-surface border border-brand-border
                            text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors

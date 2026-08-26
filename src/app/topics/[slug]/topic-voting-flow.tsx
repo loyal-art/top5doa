@@ -12,6 +12,7 @@ import { resolveEmbed } from "@/lib/media-embed";
 import { awardAura, getTierForAura, getNextTier, getGlowColor } from "@/lib/aura";
 import { GLOBAL_PREMIUM_ENABLED } from "@/lib/config";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
+import { uploadPoster, resolvePosterSrc, downloadPoster } from "@/lib/poster-storage";
 import { fetchTopicArchetypes, resolveArchetype, saveUserArchetype, type ArchetypeResult, type TopicArchetype } from "@/lib/archetypes";
 
 type Topic = Database["public"]["Tables"]["topics"]["Row"];
@@ -1363,9 +1364,12 @@ export function TopicVotingFlow({
         autoLink.click();
 
         const b64ForSave = shareCardDataUrl.replace(/^data:image\/png;base64,/, "");
+        // Prefer storage; fall back to inline base64 so a storage outage still saves the poster.
+        const storedUrl = await uploadPoster(supabase, userId, topic.id, b64ForSave);
+        const imageDataForSave = storedUrl ?? b64ForSave;
         await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
-        await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: b64ForSave });
-        setSavedPosterData(b64ForSave);
+        await supabase.from("poster_images").insert({ user_id: userId, topic_id: topic.id, style: "share-card", image_data: imageDataForSave });
+        setSavedPosterData(imageDataForSave);
         setSavedPosterStyle("share-card");
         setPosterOverlayOpen(true);
         return;
@@ -1474,15 +1478,18 @@ export function TopicVotingFlow({
 
       // Save poster to poster_images
       const b64ForSave = compositeDataUrl.replace(/^data:image\/png;base64,/, "");
+      // Prefer storage; fall back to inline base64 so a storage outage still saves the poster.
+      const storedUrl = await uploadPoster(supabase, userId, topic.id, b64ForSave);
+      const imageDataForSave = storedUrl ?? b64ForSave;
       await supabase.from("poster_images").delete().eq("user_id", userId).eq("topic_id", topic.id);
       await supabase.from("poster_images").insert({
         user_id: userId,
         topic_id: topic.id,
         style,
-        image_data: b64ForSave,
+        image_data: imageDataForSave,
         values_tagline: valuesTagline ?? null,
       });
-      setSavedPosterData(b64ForSave);
+      setSavedPosterData(imageDataForSave);
       setSavedPosterStyle(style);
 
       setPosterGeneratedForTopic(true);
@@ -1506,10 +1513,10 @@ export function TopicVotingFlow({
 
   const handleDownloadPoster = () => {
     if (!posterCompositeDataUrl) return;
-    const link = document.createElement("a");
-    link.download = `top5-poster-${topic.slug ?? "list"}.png`;
-    link.href = posterCompositeDataUrl;
-    link.click();
+    void downloadPoster(
+      posterCompositeDataUrl,
+      `top5-poster-${topic.slug ?? "list"}.png`,
+    );
   };
 
   const handleSharePoster = (platform: "facebook" | "twitter" | "whatsapp") => {
@@ -3170,7 +3177,7 @@ export function TopicVotingFlow({
                 {userId && savedPosterData && !posterGenerating && (
                   <button
                     onClick={() => {
-                      setPosterCompositeDataUrl(`data:image/png;base64,${savedPosterData}`);
+                      setPosterCompositeDataUrl(resolvePosterSrc(savedPosterData));
                       setPosterOverlayOpen(true);
                     }}
                     className="w-full px-5 py-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5
