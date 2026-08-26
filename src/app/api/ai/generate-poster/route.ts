@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/api-guard";
 import { fal } from "@fal-ai/client";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -295,6 +296,9 @@ async function tryFlux(
 // Provider order: OpenAI GPT Image 1.5 → FLUX (moderation fallback) → share card
 
 export async function POST(req: NextRequest) {
+  const guard = await requireUser("ai/generate-poster");
+  if (!guard.ok) return guard.response;
+
   const body = await req.json();
   const { topicTitle, top5, displayName, username, tier, aura, style } = body as {
     topicTitle: string;
@@ -314,8 +318,9 @@ export async function POST(req: NextRequest) {
   const falKey = process.env.FAL_KEY;
 
   if (!openaiKey && !falKey) {
+    console.error("[generate-poster] No image generation API keys configured");
     return NextResponse.json(
-      { error: "No image generation API keys configured" },
+      { error: USER_FRIENDLY_UNAVAILABLE },
       { status: 500 },
     );
   }

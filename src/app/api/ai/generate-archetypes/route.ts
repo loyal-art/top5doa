@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-guard";
 
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin("ai/generate-archetypes");
+  if (!guard.ok) return guard.response;
+
   const { topicTitle, attributes, subjects } = await req.json();
 
   if (!topicTitle || !attributes || !Array.isArray(attributes) || attributes.length === 0) {

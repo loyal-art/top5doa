@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/api-guard";
 
 export async function POST(req: NextRequest) {
+  const guard = await requireUser("ai/generate-values-tagline");
+  if (!guard.ok) return guard.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    console.error("[generate-values-tagline] ANTHROPIC_API_KEY is not configured");
+    return NextResponse.json({ error: "Tagline generation is unavailable." }, { status: 500 });
   }
 
   const { topicTitle, topAttribute, bottomAttribute } = await req.json();

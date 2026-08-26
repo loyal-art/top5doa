@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-guard";
 
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin("ai/generate-topic");
+  if (!guard.ok) return guard.response;
+
   const { title, categories } = await req.json();
 
   if (!title || typeof title !== "string") {

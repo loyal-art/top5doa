@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { requireUser } from "@/lib/api-guard";
+import { loadAllowedImage } from "@/lib/image-url-guard";
 import satori from "satori";
 import sharp from "sharp";
 import fs from "fs/promises";
@@ -55,6 +57,10 @@ interface CompositeRequest {
 
 export async function POST(req: NextRequest) {
   console.log('Satori composite called');
+
+  const guard = await requireUser("poster/composite");
+  if (!guard.ok) return guard.response;
+
   try {
   const body = (await req.json()) as CompositeRequest;
   const {
@@ -77,18 +83,28 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Load fonts in parallel with AI image fetch
+  // Load fonts in parallel with AI image fetch.
+  // aiImageUrl is caller-supplied, so it goes through the allowlist + private
+  // address checks in loadAllowedImage rather than straight into fetch().
   console.log('Fetching fonts...');
   console.log('Fetching AI image...');
-  const [fonts, aiImageRes] = await Promise.all([
+  const [fonts, aiImage] = await Promise.all([
     loadFonts(),
-    fetch(aiImageUrl).then((r) => r.arrayBuffer()),
+    loadAllowedImage(aiImageUrl),
   ]);
 
-  console.log('AI image size:', aiImageRes.byteLength);
+  if (!aiImage.ok) {
+    console.error('AI image rejected:', aiImage.status, aiImage.error);
+    return new Response(JSON.stringify({ error: aiImage.error }), {
+      status: aiImage.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  console.log('AI image size:', aiImage.bytes.byteLength);
   console.log('Font sizes — BebasNeue:', fonts.bebasNeue.byteLength, 'DM Sans:', fonts.dmSans.byteLength);
 
-  const aiImageBase64 = `data:image/png;base64,${Buffer.from(aiImageRes).toString("base64")}`;
+  const aiImageBase64 = `data:image/png;base64,${aiImage.bytes.toString("base64")}`;
 
   const safeColor = tierColor === "rainbow" ? "#ffffff" : tierColor || "#6b7280";
   const RANK_COLORS = ["#FFD700", "#C0C0C0", "#10B981", "#14B8A6", "#3B82F6"];
@@ -567,7 +583,7 @@ export async function POST(req: NextRequest) {
   } catch (renderError: unknown) {
     const err = renderError instanceof Error ? renderError : new Error(String(renderError));
     console.error('Satori render error:', err.message, err.stack);
-    return new Response(JSON.stringify({ error: 'Satori render failed: ' + err.message }), {
+    return new Response(JSON.stringify({ error: 'Poster rendering failed. Please try again.' }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
@@ -580,7 +596,7 @@ export async function POST(req: NextRequest) {
   } catch (sharpError: unknown) {
     const err = sharpError instanceof Error ? sharpError : new Error(String(sharpError));
     console.error('Sharp error:', err.message, err.stack);
-    return new Response(JSON.stringify({ error: 'PNG conversion failed: ' + err.message }), {
+    return new Response(JSON.stringify({ error: 'Poster rendering failed. Please try again.' }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
@@ -593,7 +609,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error('Composite error:', err.message, err.stack);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: 'Poster rendering failed. Please try again.' }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

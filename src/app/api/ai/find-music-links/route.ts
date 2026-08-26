@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-guard";
+
+/** Hard cap on caller-supplied subjects — each one costs an outbound Deezer call. */
+const MAX_SUBJECTS = 100;
+
+/** Ceiling on simultaneous outbound Deezer requests. */
+const DEEZER_CONCURRENCY = 5;
 
 type DeezerTrack = {
   id: number;
@@ -48,7 +55,38 @@ async function searchDeezer(
   return data.data?.[0] ?? null;
 }
 
+/**
+ * Map over `items` with at most `limit` promises in flight. Prevents an
+ * attacker-sized subjects array from fanning out into an unbounded burst of
+ * outbound requests (self-DoS / Deezer IP-ban risk).
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      for (;;) {
+        const index = cursor++;
+        if (index >= items.length) return;
+        results[index] = await fn(items[index]);
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin("ai/find-music-links");
+  if (!guard.ok) return guard.response;
+
   const { topicTitle, subjects } = await req.json();
 
   if (!topicTitle || typeof topicTitle !== "string") {
@@ -57,6 +95,13 @@ export async function POST(req: NextRequest) {
 
   if (!Array.isArray(subjects) || subjects.length === 0) {
     return NextResponse.json({ error: "subjects array is required" }, { status: 400 });
+  }
+
+  if (subjects.length > MAX_SUBJECTS) {
+    return NextResponse.json(
+      { error: `A maximum of ${MAX_SUBJECTS} subjects is allowed per request` },
+      { status: 400 },
+    );
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -70,8 +115,10 @@ export async function POST(req: NextRequest) {
   // Use Claude to extract the artist name from the topic title
   const artist = await extractArtist(apiKey, topicTitle);
 
-  const links = await Promise.all(
-    subjects.map(async (s: { id: string; name: string }) => {
+  const links = await mapWithConcurrency(
+    subjects as { id: string; name: string }[],
+    DEEZER_CONCURRENCY,
+    async (s) => {
       const query = artist ? `${s.name} ${artist}` : s.name;
       const track = await searchDeezer(query);
       if (!track) {
@@ -97,7 +144,7 @@ export async function POST(req: NextRequest) {
         trackTitle: track.title,
         artistName: track.artist.name,
       };
-    }),
+    },
   );
 
   return NextResponse.json({ links });
