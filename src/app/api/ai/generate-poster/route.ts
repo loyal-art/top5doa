@@ -101,8 +101,11 @@ async function generateVisualDescription(
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-5",
           max_tokens: 256,
+          // Sonnet 5 runs adaptive thinking unless told otherwise; this pre-pass
+          // wants a plain text completion within a tight timeout.
+          thinking: { type: "disabled" },
           messages: [
             {
               role: "user",
@@ -117,7 +120,9 @@ async function generateVisualDescription(
           return null;
         }
         const data = await res.json();
-        const text = data.content?.[0]?.text;
+        const text = data.content?.find(
+          (b: { type: string; text?: string }) => b.type === "text",
+        )?.text;
         if (!text) return null;
         console.log("[generate-poster] Visual description generated:", text.slice(0, 100));
         return text.trim();

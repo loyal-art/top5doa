@@ -40,8 +40,11 @@ export async function POST(req: NextRequest) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-5",
       max_tokens: 2048,
+      // Sonnet 5 runs adaptive thinking unless told otherwise; these routes want
+      // a plain JSON completion, and thinking would eat the max_tokens budget.
+      thinking: { type: "disabled" },
       system: `You are a personality expert and creative director for a viral ranking app called TOP5DOA.
 Generate exactly 5 archetypes for the topic "${topicTitle}" based on these attributes: ${attributeList}.${subjectContext}
 
@@ -77,7 +80,10 @@ Return ONLY valid JSON with no markdown, no code fences. Array of exactly 5 obje
   }
 
   const data = await res.json();
-  const content = data.content?.[0]?.text;
+  // Pick the text block explicitly — content[0] is not guaranteed to be text.
+  const content = data.content?.find(
+    (b: { type: string; text?: string }) => b.type === "text",
+  )?.text;
 
   if (!content) {
     return NextResponse.json(
@@ -86,8 +92,13 @@ Return ONLY valid JSON with no markdown, no code fences. Array of exactly 5 obje
     );
   }
 
+  // Sonnet 5 tends to wrap JSON in markdown fences despite the system prompt.
+  const cleaned = String(content).trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+
   try {
-    const archetypes = JSON.parse(content);
+    const archetypes = JSON.parse(cleaned);
     if (!Array.isArray(archetypes) || archetypes.length === 0) {
       throw new Error("Expected array of archetypes");
     }

@@ -27,8 +27,11 @@ async function extractArtist(
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-5",
       max_tokens: 128,
+      // Sonnet 5 runs adaptive thinking unless told otherwise; these routes want
+      // a plain text completion, and thinking would eat the max_tokens budget.
+      thinking: { type: "disabled" },
       system:
         "Extract the primary artist, band, or musician name from the given topic title. Return ONLY the artist name as plain text with no quotes, no explanation, no punctuation. If no artist can be identified, return the word NONE.",
       messages: [
@@ -39,7 +42,9 @@ async function extractArtist(
 
   if (!res.ok) return null;
   const data = await res.json();
-  const text = (data.content?.[0]?.text ?? "").trim();
+  const text = (
+    data.content?.find((b: { type: string; text?: string }) => b.type === "text")?.text ?? ""
+  ).trim();
   if (!text || text === "NONE") return null;
   return text;
 }
