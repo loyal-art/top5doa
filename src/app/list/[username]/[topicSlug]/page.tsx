@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { brandHighlight } from "@/lib/utils";
+import type { Metadata } from "next";
+import { socialMetadata, isAbsoluteHttpUrl, SITE_DESCRIPTION } from "@/lib/site";
 
 interface PageProps {
   params: Promise<{ username: string; topicSlug: string }>;
@@ -30,22 +32,58 @@ const RANK_COLORS = [
   { bg: "bg-brand-border", text: "text-neutral-500" },
 ];
 
-export async function generateMetadata({ params }: PageProps) {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username, topicSlug } = await params;
-  const supabase = await createClient();
 
-  const [{ data: profile }, { data: topic }] = await Promise.all([
-    supabase.from("profiles").select("display_name, username").eq("username", username).single(),
-    supabase.from("topics").select("title").eq("slug", topicSlug).single(),
-  ]);
+  // Must stay fast and must never throw: this runs for social crawlers, which
+  // give up quickly. Two indexed lookups, then one more for the poster. It
+  // never generates a poster or calls an AI API — it only reads what exists.
+  try {
+    const supabase = await createClient();
 
-  if (!profile || !topic) return { title: "List Not Found | Top5DOA" };
+    const [{ data: profile }, { data: topic }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, username")
+        .eq("username", username)
+        .maybeSingle(),
+      supabase.from("topics").select("id, title").eq("slug", topicSlug).maybeSingle(),
+    ]);
 
-  const name = profile.display_name ?? profile.username;
-  return {
-    title: `${name}'s Top 5: ${topic.title} | Top5DOA`,
-    description: `See ${name}'s personal Top 5 ranking for ${topic.title} on Top5DOA.`,
-  };
+    if (!profile || !topic) return { title: "List Not Found | Top5DOA" };
+
+    const name = profile.display_name ?? profile.username;
+    const title = `${name}'s Top 5: ${topic.title} | Top5DOA`;
+    const description = `See ${name}'s personal Top 5 ranking for ${topic.title} on Top5DOA.`;
+
+    // The user's saved poster is the whole point of the share preview. Legacy
+    // base64 rows are not absolute URLs, so they fall through to the static
+    // image rather than emitting a multi-megabyte data: URI into a meta tag.
+    const { data: poster } = await supabase
+      .from("poster_images")
+      .select("image_data")
+      .eq("user_id", profile.id)
+      .eq("topic_id", topic.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const posterUrl = isAbsoluteHttpUrl(poster?.image_data) ? poster.image_data : null;
+
+    return socialMetadata({
+      title,
+      description,
+      path: `/list/${username}/${topicSlug}`,
+      image: posterUrl,
+      // Posters are composited at a fixed 1080x1080.
+      imageWidth: posterUrl ? 1080 : undefined,
+      imageHeight: posterUrl ? 1080 : undefined,
+      imageAlt: `${name}'s Top 5 for ${topic.title}`,
+      type: "article",
+    });
+  } catch {
+    return { title: "Top5DOA", description: SITE_DESCRIPTION };
+  }
 }
 
 export default async function SharedListPage({ params }: PageProps) {

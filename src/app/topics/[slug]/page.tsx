@@ -8,27 +8,44 @@ import { ScrollToTop } from "./scroll-to-top";
 import { WatchVideoButton } from "./watch-video-button";
 import { extractYouTubeId, youtubeBackgroundSrc, youtubePipSrc } from "@/lib/youtube";
 import { brandHighlight } from "@/lib/utils";
+import type { Metadata } from "next";
+import { socialMetadata, isAbsoluteHttpUrl, SITE_DESCRIPTION } from "@/lib/site";
 
 interface TopicPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: TopicPageProps) {
+export async function generateMetadata({ params }: TopicPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: topic } = await supabase
-    .from("topics")
-    .select("title, description")
-    .eq("slug", slug)
-    .eq("status", "active")
-    .single();
 
-  if (!topic) return { title: "Topic Not Found | Top5DOA" };
+  // Crawlers time out fast, and metadata must never throw — a failed lookup
+  // falls back to the site defaults rather than breaking the page.
+  try {
+    const supabase = await createClient();
+    const { data: topic } = await supabase
+      .from("topics")
+      .select("title, description, cover_image_url, card_image_url")
+      .eq("slug", slug)
+      .eq("status", "active")
+      .maybeSingle();
 
-  return {
-    title: `${topic.title} | Top5DOA`,
-    description: topic.description,
-  };
+    if (!topic) return { title: "Topic Not Found | Top5DOA" };
+
+    // Prefer the wide cover over the card thumbnail; both are optional, and
+    // both are hotlinked third-party URLs of unknown size, so no dimensions
+    // are declared. Anything non-absolute falls through to the static image.
+    const art = [topic.cover_image_url, topic.card_image_url].find(isAbsoluteHttpUrl);
+
+    return socialMetadata({
+      title: `${topic.title} | Top5DOA`,
+      description: topic.description ?? SITE_DESCRIPTION,
+      path: `/topics/${slug}`,
+      image: art,
+      imageAlt: topic.title,
+    });
+  } catch {
+    return { title: "Top5DOA", description: SITE_DESCRIPTION };
+  }
 }
 
 export default async function TopicPage({ params }: TopicPageProps) {
