@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { SubjectScoreSlider } from "@/components/subject-score-slider";
 import { ShareButton } from "@/components/share-button";
+import { SpoilerGate } from "@/components/spoiler-gate";
 import { AttributeRanker } from "./attribute-ranker";
 import type { Database } from "@/lib/types/database";
 import { resolveEmbed } from "@/lib/media-embed";
@@ -3242,8 +3243,12 @@ export function TopicVotingFlow({
 
                 {/* Positions 2–5: blurred for unauthenticated users */}
                 {results.slice(1, 5).length > 0 && (
-                  <div className="relative">
-                    <div className={!userId ? "blur-sm pointer-events-none select-none" : ""}>
+                  <SpoilerGate
+                    locked={!userId}
+                    message="Sign in to see your full Top 5"
+                    ctaLabel="Sign Up"
+                    ctaHref="/signup"
+                  >
                       <div className="space-y-3">
                         {results.slice(1, 5).map((r, relIdx) => {
                           const idx = relIdx + 1;
@@ -3282,21 +3287,7 @@ export function TopicVotingFlow({
                           );
                         })}
                       </div>
-                    </div>
-                    {!userId && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-brand-bg/70">
-                        <p className="font-display text-lg tracking-wide text-white text-center px-4">
-                          Sign in to see your full Top 5
-                        </p>
-                        <a
-                          href="/signup"
-                          className="px-6 py-2.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-sm hover:bg-brand-accent/90 transition-colors"
-                        >
-                          Sign Up
-                        </a>
-                      </div>
-                    )}
-                  </div>
+                  </SpoilerGate>
                 )}
               </div>
 

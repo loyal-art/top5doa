@@ -4,6 +4,7 @@ import Link from "next/link";
 import { brandHighlight } from "@/lib/utils";
 import type { Metadata } from "next";
 import { socialMetadata, isAbsoluteHttpUrl, SITE_DESCRIPTION } from "@/lib/site";
+import { SpoilerGate } from "@/components/spoiler-gate";
 
 interface PageProps {
   params: Promise<{ username: string; topicSlug: string }>;
@@ -117,9 +118,68 @@ export default async function SharedListPage({ params }: PageProps) {
     .order("rank_position")
     .limit(5);
 
+  // ── Viewer + spoiler gate ────────────────────────────────────────────────
+  // Logged-out visitors see the archetype and the #1 pick; 2-5 are blurred.
+  // Anyone signed in sees the full list, and the owner always sees everything.
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  const isOwner = viewer?.id === profile.id;
+  const locked = !viewer && !isOwner;
+
+  // ── Archetype (revealed even when gated — it is the identity hook) ───────
+  let archetype: { name: string; base_description: string; icon: string } | null = null;
+  const { data: userArchetype } = await supabase
+    .from("user_archetypes")
+    .select("primary_archetype_id")
+    .eq("user_id", profile.id)
+    .eq("topic_id", topic.id)
+    .maybeSingle();
+
+  if (userArchetype?.primary_archetype_id) {
+    const { data: archetypeRow } = await supabase
+      .from("topic_archetypes")
+      .select("name, base_description, icon")
+      .eq("id", userArchetype.primary_archetype_id)
+      .maybeSingle();
+    archetype = archetypeRow ?? null;
+  }
+
   const accent = categoryColor(topic.category?.[0] ?? "");
   const displayName = profile.display_name ?? profile.username;
   const initials = displayName.slice(0, 2).toUpperCase();
+
+  const entries = listEntries ?? [];
+  const topPick = entries[0];
+  const restPicks = entries.slice(1);
+
+  const renderEntry = (
+    entry: (typeof entries)[number],
+    index: number,
+  ) => {
+    const rank = RANK_COLORS[index] ?? RANK_COLORS[4];
+    const subjectName =
+      (entry.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
+
+    return (
+      <div
+        key={entry.subject_id}
+        className="flex items-center gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface"
+      >
+        <span
+          className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg flex-shrink-0 ${rank.bg} ${rank.text}`}
+        >
+          {entry.rank_position}
+        </span>
+        <span className="font-body text-white flex-1 min-w-0 break-words">
+          {subjectName}
+        </span>
+        <span className="text-sm font-mono font-bold flex-shrink-0" style={{ color: accent }}>
+          {Number(entry.calculated_score).toFixed(1)}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-brand-bg">
@@ -189,39 +249,47 @@ export default async function SharedListPage({ params }: PageProps) {
           </span>
         </div>
 
+        {/* Archetype — always fully revealed, gated or not */}
+        {archetype && (
+          <div className="flex items-start gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface">
+            <span className="text-3xl leading-none flex-shrink-0" aria-hidden="true">
+              {archetype.icon}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-neutral-600">
+                Ranking Archetype
+              </p>
+              <p className="font-display text-xl tracking-wide mt-0.5" style={{ color: accent }}>
+                {archetype.name.toUpperCase()}
+              </p>
+              <p className="font-body text-sm text-neutral-400 mt-1 leading-snug">
+                {archetype.base_description}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Ranked list */}
         <div className="flex flex-col gap-2.5">
-          {listEntries && listEntries.length > 0 ? (
-            listEntries.map((entry, i) => {
-              const rank = RANK_COLORS[i] ?? RANK_COLORS[4];
-              // subjects is a joined object from the select
-              const subjectName =
-                (entry.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
+          {entries.length > 0 ? (
+            <>
+              {/* #1 pick — always visible, it is the hook */}
+              {topPick && renderEntry(topPick, 0)}
 
-              return (
-                <div
-                  key={entry.subject_id}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface"
+              {/* Positions 2-5 — blurred for logged-out visitors */}
+              {restPicks.length > 0 && (
+                <SpoilerGate
+                  locked={locked}
+                  message={`Build your own Top 5 to see the rest of ${displayName}'s list`}
+                  ctaLabel="Build Your List"
+                  ctaHref={`/topics/${topicSlug}`}
                 >
-                  {/* Rank badge */}
-                  <span
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg flex-shrink-0 ${rank.bg} ${rank.text}`}
-                  >
-                    {entry.rank_position}
-                  </span>
-
-                  {/* Subject name */}
-                  <span className="font-body text-white flex-1 min-w-0 break-words">
-                    {subjectName}
-                  </span>
-
-                  {/* Score */}
-                  <span className="text-sm font-mono font-bold flex-shrink-0" style={{ color: accent }}>
-                    {Number(entry.calculated_score).toFixed(1)}
-                  </span>
-                </div>
-              );
-            })
+                  <div className="flex flex-col gap-2.5">
+                    {restPicks.map((entry, i) => renderEntry(entry, i + 1))}
+                  </div>
+                </SpoilerGate>
+              )}
+            </>
           ) : (
             <div className="text-center py-16 border border-brand-border rounded-xl bg-brand-surface">
               <p className="text-neutral-600 font-mono text-sm">No list found for this topic.</p>
