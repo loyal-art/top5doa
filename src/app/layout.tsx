@@ -1,13 +1,48 @@
 import type { Metadata } from "next";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_DESCRIPTION,
+  OG_DEFAULT_IMAGE,
+  OG_IMAGE_WIDTH,
+  OG_IMAGE_HEIGHT,
+} from "@/lib/site";
 import { Header } from "@/components/header";
 import { InstallPrompt } from "@/components/install-prompt";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Top5DOA",
-  description: "Debate the greatest of all time across any category",
+  // Crawlers do not resolve relative paths. metadataBase makes every relative
+  // metadata URL below (and in each page's generateMetadata) absolute.
+  metadataBase: new URL(SITE_URL),
+  // No `title.template` on purpose: the existing per-page generateMetadata
+  // functions already append "| Top5DOA" themselves, and a template would
+  // double it.
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
   icons: {
     icon: "/images/logo-header.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    images: [
+      {
+        url: OG_DEFAULT_IMAGE,
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
+        alt: SITE_NAME,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [OG_DEFAULT_IMAGE],
   },
 };
 

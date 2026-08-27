@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { brandHighlight } from "@/lib/utils";
+import type { Metadata } from "next";
+import { socialMetadata, isAbsoluteHttpUrl, SITE_DESCRIPTION } from "@/lib/site";
+import { SpoilerGate } from "@/components/spoiler-gate";
 
 interface PageProps {
   params: Promise<{ username: string; topicSlug: string }>;
@@ -30,22 +33,58 @@ const RANK_COLORS = [
   { bg: "bg-brand-border", text: "text-neutral-500" },
 ];
 
-export async function generateMetadata({ params }: PageProps) {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username, topicSlug } = await params;
-  const supabase = await createClient();
 
-  const [{ data: profile }, { data: topic }] = await Promise.all([
-    supabase.from("profiles").select("display_name, username").eq("username", username).single(),
-    supabase.from("topics").select("title").eq("slug", topicSlug).single(),
-  ]);
+  // Must stay fast and must never throw: this runs for social crawlers, which
+  // give up quickly. Two indexed lookups, then one more for the poster. It
+  // never generates a poster or calls an AI API — it only reads what exists.
+  try {
+    const supabase = await createClient();
 
-  if (!profile || !topic) return { title: "List Not Found | Top5DOA" };
+    const [{ data: profile }, { data: topic }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, username")
+        .eq("username", username)
+        .maybeSingle(),
+      supabase.from("topics").select("id, title").eq("slug", topicSlug).maybeSingle(),
+    ]);
 
-  const name = profile.display_name ?? profile.username;
-  return {
-    title: `${name}'s Top 5: ${topic.title} | Top5DOA`,
-    description: `See ${name}'s personal Top 5 ranking for ${topic.title} on Top5DOA.`,
-  };
+    if (!profile || !topic) return { title: "List Not Found | Top5DOA" };
+
+    const name = profile.display_name ?? profile.username;
+    const title = `${name}'s Top 5: ${topic.title} | Top5DOA`;
+    const description = `See ${name}'s personal Top 5 ranking for ${topic.title} on Top5DOA.`;
+
+    // The user's saved poster is the whole point of the share preview. Legacy
+    // base64 rows are not absolute URLs, so they fall through to the static
+    // image rather than emitting a multi-megabyte data: URI into a meta tag.
+    const { data: poster } = await supabase
+      .from("poster_images")
+      .select("image_data")
+      .eq("user_id", profile.id)
+      .eq("topic_id", topic.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const posterUrl = isAbsoluteHttpUrl(poster?.image_data) ? poster.image_data : null;
+
+    return socialMetadata({
+      title,
+      description,
+      path: `/list/${username}/${topicSlug}`,
+      image: posterUrl,
+      // Posters are composited at a fixed 1080x1080.
+      imageWidth: posterUrl ? 1080 : undefined,
+      imageHeight: posterUrl ? 1080 : undefined,
+      imageAlt: `${name}'s Top 5 for ${topic.title}`,
+      type: "article",
+    });
+  } catch {
+    return { title: "Top5DOA", description: SITE_DESCRIPTION };
+  }
 }
 
 export default async function SharedListPage({ params }: PageProps) {
@@ -79,9 +118,68 @@ export default async function SharedListPage({ params }: PageProps) {
     .order("rank_position")
     .limit(5);
 
+  // ── Viewer + spoiler gate ────────────────────────────────────────────────
+  // Logged-out visitors see the archetype and the #1 pick; 2-5 are blurred.
+  // Anyone signed in sees the full list, and the owner always sees everything.
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  const isOwner = viewer?.id === profile.id;
+  const locked = !viewer && !isOwner;
+
+  // ── Archetype (revealed even when gated — it is the identity hook) ───────
+  let archetype: { name: string; base_description: string; icon: string } | null = null;
+  const { data: userArchetype } = await supabase
+    .from("user_archetypes")
+    .select("primary_archetype_id")
+    .eq("user_id", profile.id)
+    .eq("topic_id", topic.id)
+    .maybeSingle();
+
+  if (userArchetype?.primary_archetype_id) {
+    const { data: archetypeRow } = await supabase
+      .from("topic_archetypes")
+      .select("name, base_description, icon")
+      .eq("id", userArchetype.primary_archetype_id)
+      .maybeSingle();
+    archetype = archetypeRow ?? null;
+  }
+
   const accent = categoryColor(topic.category?.[0] ?? "");
   const displayName = profile.display_name ?? profile.username;
   const initials = displayName.slice(0, 2).toUpperCase();
+
+  const entries = listEntries ?? [];
+  const topPick = entries[0];
+  const restPicks = entries.slice(1);
+
+  const renderEntry = (
+    entry: (typeof entries)[number],
+    index: number,
+  ) => {
+    const rank = RANK_COLORS[index] ?? RANK_COLORS[4];
+    const subjectName =
+      (entry.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
+
+    return (
+      <div
+        key={entry.subject_id}
+        className="flex items-center gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface"
+      >
+        <span
+          className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg flex-shrink-0 ${rank.bg} ${rank.text}`}
+        >
+          {entry.rank_position}
+        </span>
+        <span className="font-body text-white flex-1 min-w-0 break-words">
+          {subjectName}
+        </span>
+        <span className="text-sm font-mono font-bold flex-shrink-0" style={{ color: accent }}>
+          {Number(entry.calculated_score).toFixed(1)}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-brand-bg">
@@ -151,39 +249,47 @@ export default async function SharedListPage({ params }: PageProps) {
           </span>
         </div>
 
+        {/* Archetype — always fully revealed, gated or not */}
+        {archetype && (
+          <div className="flex items-start gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface">
+            <span className="text-3xl leading-none flex-shrink-0" aria-hidden="true">
+              {archetype.icon}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-neutral-600">
+                Ranking Archetype
+              </p>
+              <p className="font-display text-xl tracking-wide mt-0.5" style={{ color: accent }}>
+                {archetype.name.toUpperCase()}
+              </p>
+              <p className="font-body text-sm text-neutral-400 mt-1 leading-snug">
+                {archetype.base_description}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Ranked list */}
         <div className="flex flex-col gap-2.5">
-          {listEntries && listEntries.length > 0 ? (
-            listEntries.map((entry, i) => {
-              const rank = RANK_COLORS[i] ?? RANK_COLORS[4];
-              // subjects is a joined object from the select
-              const subjectName =
-                (entry.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
+          {entries.length > 0 ? (
+            <>
+              {/* #1 pick — always visible, it is the hook */}
+              {topPick && renderEntry(topPick, 0)}
 
-              return (
-                <div
-                  key={entry.subject_id}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-brand-border bg-brand-surface"
+              {/* Positions 2-5 — blurred for logged-out visitors */}
+              {restPicks.length > 0 && (
+                <SpoilerGate
+                  locked={locked}
+                  message={`Build your own Top 5 to see the rest of ${displayName}'s list`}
+                  ctaLabel="Build Your List"
+                  ctaHref={`/topics/${topicSlug}`}
                 >
-                  {/* Rank badge */}
-                  <span
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg flex-shrink-0 ${rank.bg} ${rank.text}`}
-                  >
-                    {entry.rank_position}
-                  </span>
-
-                  {/* Subject name */}
-                  <span className="font-body text-white flex-1 min-w-0 break-words">
-                    {subjectName}
-                  </span>
-
-                  {/* Score */}
-                  <span className="text-sm font-mono font-bold flex-shrink-0" style={{ color: accent }}>
-                    {Number(entry.calculated_score).toFixed(1)}
-                  </span>
-                </div>
-              );
-            })
+                  <div className="flex flex-col gap-2.5">
+                    {restPicks.map((entry, i) => renderEntry(entry, i + 1))}
+                  </div>
+                </SpoilerGate>
+              )}
+            </>
           ) : (
             <div className="text-center py-16 border border-brand-border rounded-xl bg-brand-surface">
               <p className="text-neutral-600 font-mono text-sm">No list found for this topic.</p>
