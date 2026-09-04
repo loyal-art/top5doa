@@ -57,6 +57,7 @@ type TopicRow = {
   card_video_url: string | null;
   video_url: string | null;
   is_featured: boolean;
+  is_demo: boolean;
 };
 
 const ALL_CATEGORIES = [
@@ -874,6 +875,7 @@ function EditTopicForm({
     card_video_url: topic.card_video_url ?? "",
     video_url: topic.video_url ?? "",
     is_featured: topic.is_featured,
+    is_demo: topic.is_demo,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -913,6 +915,7 @@ function EditTopicForm({
       card_video_url: fields.card_video_url || null,
       video_url: fields.video_url || null,
       is_featured: fields.is_featured,
+      is_demo: fields.is_demo,
     });
 
     if (result.error) {
@@ -930,6 +933,7 @@ function EditTopicForm({
         card_video_url: fields.card_video_url || null,
         video_url: fields.video_url || null,
         is_featured: fields.is_featured,
+        is_demo: fields.is_demo,
       });
     }
   }
@@ -1012,6 +1016,17 @@ function EditTopicForm({
               className="accent-[#e8ff00] w-3.5 h-3.5"
             />
             Featured (shown in hero banner)
+          </label>
+        </div>
+        <div>
+          <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors">
+            <input
+              type="checkbox"
+              checked={fields.is_demo}
+              onChange={(e) => setFields((f) => ({ ...f, is_demo: e.target.checked }))}
+              className="accent-[#e8ff00] w-3.5 h-3.5"
+            />
+            Demo (powers the logged-out archetype quiz)
           </label>
         </div>
         <div>

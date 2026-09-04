@@ -107,6 +107,7 @@ export default async function HotTakesPage() {
     .from("topics")
     .select("id, title")
     .eq("status", "active")
+    .eq("is_demo", false)
     .order("title");
 
   return (

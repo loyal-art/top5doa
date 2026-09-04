@@ -285,6 +285,7 @@ export async function getTopics(): Promise<{
     card_video_url: string | null;
     video_url: string | null;
     is_featured: boolean;
+    is_demo: boolean;
   }> | null;
   error: string | null;
 }> {
@@ -293,7 +294,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url, is_featured")
+    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url, is_featured, is_demo")
     .order("title");
 
   if (error) return { data: null, error: error.message };
@@ -312,6 +313,7 @@ export async function updateTopic(
     card_video_url: string | null;
     video_url: string | null;
     is_featured: boolean;
+    is_demo: boolean;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
