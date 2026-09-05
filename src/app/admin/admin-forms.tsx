@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
+  DEMO_ATTRIBUTE_COUNT,
+  DEMO_SUBJECT_COUNT,
+  type TopicMode,
+} from "@/lib/demo-topic";
+import {
   createTopic,
   createTopicWithContent,
   addSubject,
@@ -2320,6 +2325,7 @@ function AiTopicBuilder({
   const [categories, setCategories] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
+  const [mode, setMode] = useState<TopicMode>("standard");
 
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -2355,7 +2361,7 @@ function AiTopicBuilder({
       const res = await fetch("/api/ai/generate-topic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), categories }),
+        body: JSON.stringify({ title: title.trim(), categories, mode }),
       });
 
       if (!res.ok) {
@@ -2433,6 +2439,7 @@ function AiTopicBuilder({
         name: a.name.trim(),
         description: a.description.trim() || null,
       })),
+      is_demo: mode === "demo",
       validSubjects,
       validAttrs,
     };
@@ -2458,6 +2465,7 @@ function AiTopicBuilder({
       setSlug("");
       setCategories([]);
       setDescription("");
+      setMode("standard");
       setSubjects([]);
       setAttributes([]);
       setHasGenerated(false);
@@ -2476,6 +2484,22 @@ function AiTopicBuilder({
     if (validSubjects.length === 0) {
       setCreateMessage({ type: "error", text: "At least one subject is required." });
       return;
+    }
+    // Demo floor: the archetype match is a dot product over the attribute
+    // ranking, so a demo topic trimmed below 5 attributes would be a silently
+    // broken quiz. Block the save and say why.
+    if (mode === "demo") {
+      const validAttrs = attributes.filter((a) => a.name.trim());
+      if (
+        validSubjects.length < DEMO_SUBJECT_COUNT ||
+        validAttrs.length < DEMO_ATTRIBUTE_COUNT
+      ) {
+        setCreateMessage({
+          type: "error",
+          text: `Demo topics need at least ${DEMO_SUBJECT_COUNT} subjects and ${DEMO_ATTRIBUTE_COUNT} attributes — you have ${validSubjects.length} and ${validAttrs.length}. The archetype match is a dot product over the attribute ranking, so fewer than ${DEMO_ATTRIBUTE_COUNT} attributes can't produce distinguishable outcomes. Add rows back or regenerate.`,
+        });
+        return;
+      }
     }
     await submitCreate(false);
   }
@@ -2554,6 +2578,49 @@ function AiTopicBuilder({
             <option value="draft">Draft</option>
             <option value="coming_soon">Coming Soon</option>
           </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Topic Size</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(
+              [
+                {
+                  value: "standard",
+                  label: "Standard",
+                  hint: "15–25 subjects, 5–8 attributes",
+                },
+                {
+                  value: "demo",
+                  label: "Demo",
+                  hint: `Exactly ${DEMO_SUBJECT_COUNT} subjects, ${DEMO_ATTRIBUTE_COUNT} attributes · sets is_demo`,
+                },
+              ] as const
+            ).map((opt) => (
+              <label
+                key={opt.value}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-brand-border bg-brand-surface text-xs font-mono text-neutral-400 cursor-pointer hover:border-brand-accent/40 has-[:checked]:border-brand-accent has-[:checked]:text-brand-accent transition-colors"
+              >
+                <input
+                  type="radio"
+                  name="ai-topic-mode"
+                  value={opt.value}
+                  checked={mode === opt.value}
+                  onChange={() => setMode(opt.value)}
+                  className="accent-[#e8ff00] w-3.5 h-3.5"
+                />
+                <span>
+                  <span className="font-bold">{opt.label}</span>
+                  <span className="ml-2 text-neutral-500">{opt.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {mode === "demo" && (
+            <p className="mt-2 text-xs font-mono text-neutral-500">
+              Demo topics power the anonymous archetype quiz. {DEMO_ATTRIBUTE_COUNT} attributes is a hard floor — the archetype match can&apos;t distinguish outcomes with fewer.
+            </p>
+          )}
         </div>
 
         <button
