@@ -69,7 +69,10 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-5",
-      max_tokens: 2048,
+      // A full-size 20-subject response with punchy descriptions runs well
+      // past 2048 tokens; 8192 leaves comfortable headroom. If the model
+      // still hits the cap we detect it below rather than failing on parse.
+      max_tokens: 8192,
       // Sonnet 5 runs adaptive thinking unless told otherwise; these routes want
       // a plain JSON completion, and thinking would eat the max_tokens budget.
       thinking: { type: "disabled" },
@@ -92,6 +95,16 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json();
+
+  if (data.stop_reason === "max_tokens") {
+    return NextResponse.json(
+      {
+        error:
+          "AI response was cut off before it finished (hit the token limit), so the JSON is incomplete. Nothing was saved — try generating again, or use fewer/shorter subjects.",
+      },
+      { status: 502 }
+    );
+  }
   // Pick the text block explicitly — content[0] is not guaranteed to be text.
   const content = data.content?.find(
     (b: { type: string; text?: string }) => b.type === "text",
