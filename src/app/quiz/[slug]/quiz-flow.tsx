@@ -33,7 +33,7 @@ export function archetypeSharePath(
 /**
  * The demo. Nothing here carries into the real voting flow by design: a
  * visitor who signs up starts fresh. This component only ranks, reveals,
- * and offers the two CTAs.
+ * and offers three CTAs: sign up, re-rank, share.
  */
 export function QuizFlow({ topic, attributes, weights, archetypes }: QuizFlowProps) {
   const [rankedAttributeIds, setRankedAttributeIds] = useState<string[]>(
@@ -72,6 +72,15 @@ export function QuizFlow({ topic, attributes, weights, archetypes }: QuizFlowPro
     setStage("reveal");
     window.scrollTo(0, 0);
     if (userId) void saveUserArchetype(supabaseRef.current, userId, topic.id, r);
+  }
+
+  // Back to the ranker with the current order intact, so the visitor adjusts
+  // rather than starts over. Revealing again recomputes (and re-saves for a
+  // signed-in visitor) exactly as the first reveal did.
+  function handleTryAgain() {
+    setCopied(false);
+    setStage("rank");
+    window.scrollTo(0, 0);
   }
 
   async function handleShare() {
@@ -130,6 +139,8 @@ export function QuizFlow({ topic, attributes, weights, archetypes }: QuizFlowPro
 
   const primaryButton =
     "inline-block w-full sm:w-auto px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold hover:bg-brand-accent/90 transition-colors";
+  const secondaryButton =
+    "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-bg border border-brand-border text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors";
 
   return (
     <>
@@ -156,6 +167,11 @@ export function QuizFlow({ topic, attributes, weights, archetypes }: QuizFlowPro
         {result.secondaryPhrase && (
           <p className="font-mono text-sm" style={{ color: "#a78bfa" }}>{result.secondaryPhrase}</p>
         )}
+
+        {/* Framing: the archetype came from their values, not a list of picks */}
+        <p className="text-neutral-500 font-body text-sm max-w-lg mx-auto pt-2">
+          That&apos;s your value system, in fifteen seconds. No list required.
+        </p>
 
         {/* Primary CTA: the conversion moment */}
         <div className="pt-4 space-y-3">
@@ -186,14 +202,12 @@ export function QuizFlow({ topic, attributes, weights, archetypes }: QuizFlowPro
           )}
         </div>
 
-        {/* Secondary CTA: share */}
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-bg border border-brand-border
-                       text-neutral-300 font-mono text-sm hover:border-neutral-600 transition-colors"
-          >
+        {/* Secondary CTAs: re-rank (the replay hook), then share */}
+        <div className="pt-2 flex flex-col sm:flex-row sm:justify-center gap-3">
+          <button type="button" onClick={handleTryAgain} className={secondaryButton}>
+            Try different values
+          </button>
+          <button type="button" onClick={handleShare} className={secondaryButton}>
             {copied ? <span className="text-brand-accent">Link copied!</span> : <span>Share my archetype</span>}
           </button>
         </div>
