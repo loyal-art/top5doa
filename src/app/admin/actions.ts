@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { awardAura } from "@/lib/aura";
 import { containsProfanity, PROFANITY_MESSAGE, getFlaggedDetails, type FlaggedWord } from "@/lib/profanity";
+import { DEMO_ATTRIBUTE_COUNT, DEMO_SUBJECT_COUNT } from "@/lib/demo-topic";
 
 async function getAdminUser() {
   const supabase = await createClient();
@@ -285,6 +286,7 @@ export async function getTopics(): Promise<{
     card_video_url: string | null;
     video_url: string | null;
     is_featured: boolean;
+    is_demo: boolean;
   }> | null;
   error: string | null;
 }> {
@@ -293,7 +295,7 @@ export async function getTopics(): Promise<{
 
   const { data, error } = await supabase
     .from("topics")
-    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url, is_featured")
+    .select("id, title, description, category, status, cover_image_url, card_image_url, card_video_url, video_url, is_featured, is_demo")
     .order("title");
 
   if (error) return { data: null, error: error.message };
@@ -312,6 +314,7 @@ export async function updateTopic(
     card_video_url: string | null;
     video_url: string | null;
     is_featured: boolean;
+    is_demo: boolean;
   }
 ): Promise<{ error: string | null }> {
   const { supabase, error: authError } = await getAdminUser();
@@ -348,10 +351,25 @@ export async function createTopicWithContent(data: {
   attributes: { name: string; description: string | null }[];
   created_by?: string | null;
   bypassProfanity?: boolean;
+  is_demo?: boolean;
 }): Promise<{ error: string | null; topicId: string | null; flaggedWords?: FlaggedWord[] }> {
   const { supabase, userId, error: authError } = await getAdminUser();
   if (authError || !supabase || !userId)
     return { error: authError ?? "Auth failed", topicId: null };
+
+  // Demo topics feed the anonymous archetype quiz, which needs a fixed shape.
+  // Enforce the floor server-side so a trimmed preview can't save a broken quiz.
+  if (data.is_demo) {
+    if (
+      data.subjects.length < DEMO_SUBJECT_COUNT ||
+      data.attributes.length < DEMO_ATTRIBUTE_COUNT
+    ) {
+      return {
+        error: `Demo topics need at least ${DEMO_SUBJECT_COUNT} subjects and ${DEMO_ATTRIBUTE_COUNT} attributes (you have ${data.subjects.length} and ${data.attributes.length}). The archetype match is a dot product over the attribute ranking, and fewer than ${DEMO_ATTRIBUTE_COUNT} attributes can't produce distinguishable outcomes.`,
+        topicId: null,
+      };
+    }
+  }
 
   // Profanity check on all text fields
   if (!data.bypassProfanity) {
@@ -391,6 +409,7 @@ export async function createTopicWithContent(data: {
       status: data.status as "draft" | "coming_soon" | "active" | "archived",
       creator_id: userId,
       created_by: createdBy,
+      is_demo: data.is_demo ?? false,
     })
     .select("id")
     .single();

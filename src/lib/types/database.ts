@@ -81,6 +81,7 @@ export type Database = {
           created_by: string | null;
           view_count: number;
           is_featured: boolean;
+          is_demo: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -99,6 +100,7 @@ export type Database = {
           created_by?: string | null;
           view_count?: number;
           is_featured?: boolean;
+          is_demo?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -116,6 +118,7 @@ export type Database = {
           created_by?: string | null;
           view_count?: number;
           is_featured?: boolean;
+          is_demo?: boolean;
           updated_at?: string;
         };
         Relationships: [];

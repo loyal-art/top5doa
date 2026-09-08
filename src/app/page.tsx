@@ -385,6 +385,7 @@ export default async function Home({
     .from("topics")
     .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("status", "active")
+    .eq("is_demo", false) // demo topics are too small to vote on; they live behind /quiz
     .order("created_at", { ascending: false });
 
   // Featured topic (for hero banner)
@@ -393,6 +394,7 @@ export default async function Home({
     .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("is_featured", true)
     .eq("status", "active")
+    .eq("is_demo", false)
     .limit(1)
     .single();
   const featuredTopic: Topic | null = featuredData ?? null;
@@ -402,6 +404,7 @@ export default async function Home({
     .from("topics")
     .select("id, title, slug, category, description, cover_image_url, card_image_url, card_video_url, view_count, created_by")
     .eq("status", "coming_soon")
+    .eq("is_demo", false)
     .order("created_at", { ascending: false });
   const comingSoonTopics: Topic[] = comingSoonData ?? [];
 
@@ -677,6 +680,33 @@ export default async function Home({
   // Hero banner topic = featured topic, or fallback to first in display list
   const heroBannerTopic = featuredTopic ?? displayTopics[0] ?? null;
 
+  // Logged-out entry point: an admin-flagged demo topic that has archetypes.
+  // Featured first, then most viewed. Wrapped so a missing column or empty
+  // table simply hides the section rather than breaking the homepage.
+  let demoQuizTopic: { slug: string; title: string } | null = null;
+  if (!user) {
+    try {
+      const { data: demoRows } = await supabase
+        .from("topics")
+        .select("id, slug, title")
+        .eq("is_demo", true)
+        .eq("status", "active")
+        .order("is_featured", { ascending: false })
+        .order("view_count", { ascending: false })
+        .limit(10);
+      if (demoRows && demoRows.length > 0) {
+        const { data: archRows } = await supabase
+          .from("topic_archetypes")
+          .select("topic_id")
+          .in("topic_id", demoRows.map((t) => t.id));
+        const withArchetypes = new Set((archRows ?? []).map((r) => r.topic_id));
+        demoQuizTopic = demoRows.find((t) => withArchetypes.has(t.id)) ?? null;
+      }
+    } catch {
+      demoQuizTopic = null;
+    }
+  }
+
   return (
     <main className="min-h-screen">
 
@@ -935,6 +965,32 @@ export default async function Home({
           </div>
         </div>
       </nav>
+
+      {/* ── What kind of fan are you? (guests only) ── */}
+      {!user && demoQuizTopic && (
+        <section className="border-b border-brand-border bg-brand-surface">
+          <div className="max-w-5xl mx-auto px-4 py-10 sm:py-12 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.3em] text-brand-accent mb-2">
+                Try it in 15 seconds
+              </p>
+              <h2 className="font-display text-3xl sm:text-4xl tracking-wide text-white">
+                WHAT KIND OF FAN ARE YOU?
+              </h2>
+              <p className="text-neutral-400 mt-2 max-w-xl font-body leading-relaxed">
+                Rank what matters to you in {demoQuizTopic.title} and get your fan archetype. No account, no sign-up wall.
+              </p>
+            </div>
+            <Link
+              href={`/quiz/${demoQuizTopic.slug}`}
+              className="inline-block flex-shrink-0 px-8 py-3.5 rounded-xl bg-brand-accent text-brand-bg font-mono font-bold text-center
+                         hover:bg-brand-accent/90 transition-colors"
+            >
+              Find out
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* ── How It Works (guests only) ── */}
       {!user && (

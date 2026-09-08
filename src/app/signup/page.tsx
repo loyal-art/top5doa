@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { safeNextPath } from "@/lib/auth-next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { containsProfanity, PROFANITY_MESSAGE } from "@/lib/profanity";
 
@@ -37,6 +38,7 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+  const next = safeNextPath(searchParams.get("next"));
   const supabase = createClient();
 
   const checks = {
@@ -73,7 +75,7 @@ function SignupForm() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/");
+      router.push(next);
       router.refresh();
     }
   }
@@ -91,7 +93,7 @@ function SignupForm() {
       provider,
       options: {
         skipBrowserRedirect: true,
-        redirectTo: window.location.origin + "/auth/callback",
+        redirectTo: window.location.origin + "/auth/callback?next=" + encodeURIComponent(next),
       },
     });
     if (error) {
@@ -106,7 +108,7 @@ function SignupForm() {
       if (sessionData.session) {
         if (pollRef.current) clearInterval(pollRef.current);
         popup?.close();
-        router.push("/");
+        router.push(next);
         router.refresh();
       }
     }, 500);
@@ -303,7 +305,7 @@ function SignupForm() {
 
         <p className="text-center text-sm text-neutral-500 font-body">
           Already have an account?{" "}
-          <Link href="/login" className="text-brand-accent hover:underline font-mono">
+          <Link href={next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`} className="text-brand-accent hover:underline font-mono">
             Sign in
           </Link>
         </p>

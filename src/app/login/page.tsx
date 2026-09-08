@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { safeNextPath } from "@/lib/auth-next";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeNextPath(searchParams.get("next"));
   const supabase = createClient();
 
   async function handleEmailLogin(e: React.FormEvent) {
@@ -27,7 +30,7 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/");
+      router.push(next);
       router.refresh();
     }
   }
@@ -45,7 +48,7 @@ export default function LoginPage() {
       provider,
       options: {
         skipBrowserRedirect: true,
-        redirectTo: window.location.origin + "/auth/callback",
+        redirectTo: window.location.origin + "/auth/callback?next=" + encodeURIComponent(next),
       },
     });
     if (error) {
@@ -60,7 +63,7 @@ export default function LoginPage() {
       if (sessionData.session) {
         if (pollRef.current) clearInterval(pollRef.current);
         popup?.close();
-        router.push("/");
+        router.push(next);
         router.refresh();
       }
     }, 500);
@@ -186,11 +189,19 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-neutral-500 font-body">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-brand-accent hover:underline font-mono">
+          <Link href={next === "/" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`} className="text-brand-accent hover:underline font-mono">
             Sign up
           </Link>
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
